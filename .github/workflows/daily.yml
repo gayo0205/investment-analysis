@@ -1,0 +1,35 @@
+name: 每日更新投資分析
+
+on:
+  schedule:
+    - cron: '0 0 * * 1-5'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 取得程式碼
+        uses: actions/checkout@v4
+
+      - name: 設定 Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 安裝套件
+        run: pip install -r requirements.txt
+
+      - name: 執行投資分析，產生網站
+        run: python generate.py
+
+      - name: 提交並推送更新的 index.html
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "GitHub Actions"
+          git add index.html
+          git diff --staged --quiet || git commit -m "自動更新：$(date '+%Y-%m-%d %H:%M') UTC"
+          git push
