@@ -1,0 +1,7 @@
+.yf_cache/
+.yf_cache_runtime/
+__pycache__/
+*.pyc
+.env
+.env.*
+*.log
