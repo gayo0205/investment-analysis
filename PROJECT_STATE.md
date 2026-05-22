@@ -1,6 +1,6 @@
 # Project State
 
-最後整理時間：2026-05-23 02:20，台灣時間。
+最後整理時間：2026-05-23 03:36，台灣時間。
 
 ## 專案定位
 
@@ -31,6 +31,8 @@
 - `PUBLIC_RELEASE_AUDIT.md`：資料源、限制、下一步稽核。
 - `CHANGELOG.md`：功能與邏輯更新日誌。
 - `.gitignore`：排除 cache、pyc、env、log。
+
+目前遠端 GitHub Actions 只保留 `.github/workflows/update-report.yml`；舊的 `daily.yml` 已移除，避免重複排程互相覆蓋。
 
 ## 時間抓取邏輯
 
