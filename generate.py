@@ -273,9 +273,12 @@ def calc_indicators(df):
     dip  = 100 * dmp.rolling(14).mean() / atr
     dim  = 100 * dmm.rolling(14).mean() / atr
     dx   = 100 * (dip - dim).abs() / (dip + dim).replace(0, np.nan)
+    res['atr'] = atr
+    res['atr_pct'] = atr / c.replace(0, np.nan) * 100
     res['adx'] = dx.rolling(14).mean()
     res['dip'] = dip
     res['dim'] = dim
+    res['boll_width'] = (res['boll_u'] - res['boll_l']) / m20.replace(0, np.nan) * 100
 
     if len(v.dropna()) >= 20:
         avg_v = v.rolling(20).mean()
@@ -1393,6 +1396,59 @@ def share_text(shares, ticker):
     return f'{n:,} 股'
 
 
+def clamp_float(value, low, high):
+    v = safe_num(value)
+    if v is None:
+        return low
+    return max(low, min(high, float(v)))
+
+
+def volatility_profile(ticker, price, a, ext):
+    px = safe_num(price) or 0
+    atr = safe_num(a.get('atr'))
+    atr_pct = safe_num(a.get('atr_pct'))
+    if (atr is None or atr <= 0) and px > 0:
+        annual_vol = safe_num(ext.get('volatility'))
+        if annual_vol is not None and annual_vol > 0:
+            atr_pct = max(0.4, annual_vol / (252 ** 0.5))
+            atr = px * atr_pct / 100
+    if atr_pct is None and atr is not None and px > 0:
+        atr_pct = atr / px * 100
+    if atr is None and atr_pct is not None and px > 0:
+        atr = px * atr_pct / 100
+    if atr is None or atr <= 0:
+        atr_pct = 1.5 if is_etf_like(ticker) else 2.5
+        atr = px * atr_pct / 100 if px > 0 else None
+
+    if atr_pct < 1:
+        level = '低波動'
+    elif atr_pct < 2:
+        level = '中波動'
+    elif atr_pct < 4:
+        level = '高波動'
+    else:
+        level = '極高波動'
+
+    role = get_profile(ticker).get('role', '')
+    if role == '長期核心':
+        min_band, max_band, max_chase = 0.018, 0.065, 0.10
+    elif is_etf_like(ticker):
+        min_band, max_band, max_chase = 0.024, 0.095, 0.14
+    else:
+        min_band, max_band, max_chase = 0.035, 0.14, 0.20
+
+    band_pct = clamp_float((atr_pct or 1.5) * 1.35 / 100, min_band, max_band)
+    chase_pct = clamp_float((atr_pct or 1.5) * 2.10 / 100, min_band * 1.35, max_chase)
+    return dict(
+        atr=atr,
+        atr_pct=atr_pct,
+        level=level,
+        band_pct=band_pct,
+        chase_pct=chase_pct,
+        band_abs=max(px * band_pct, atr or 0) if px > 0 else atr,
+    )
+
+
 def calc_price_zones(ticker, price, a, ext):
     px = safe_num(price)
     ma20 = safe_num(ext.get('ma20'))
@@ -1409,20 +1465,36 @@ def calc_price_zones(ticker, price, a, ext):
         w_pct = 50
     risk_score = a.get('factor_scores', {}).get('risk', 50)
     is_core = role == '長期核心'
+    vol = volatility_profile(ticker, px, a, ext)
+    atr = safe_num(vol.get('atr')) or (px * 0.02)
+    band_abs = safe_num(vol.get('band_abs')) or atr
+    atr_pct = safe_num(vol.get('atr_pct')) or 2.0
+    boll_u = safe_num(a.get('boll_u'))
+    boll_l = safe_num(a.get('boll_l'))
+    rsi = safe_num(a.get('rsi'))
+    dev = safe_num(a.get('dev20'))
+    bpct = safe_num(a.get('bpct'))
+    vol_ratio = safe_num(a.get('vol_ratio'))
+    macd_bull = a.get('macd_bull')
+    kd_signal = a.get('kd_signal') or ''
 
     if trend == '空頭排列':
-        stop_raw = ma60 * 0.94
+        stop_raw = ma60 - 1.5 * band_abs
         lower_anchor = ma240 if ma240 is not None else safe_num(ext.get('w_low')) or ma60
-        buy_low_raw = lower_anchor * 0.98
-        buy_high_raw = ma60 * 0.98
-        chase_raw = max(ma20 * 1.02, buy_high_raw)
-        trend_note = '空頭排列時，便宜不等於安全，先等站回區間再動作。'
+        buy_low_raw = lower_anchor - 0.25 * band_abs
+        buy_high_raw = ma60 - 0.35 * band_abs
+        dynamic_chase = ma20 + 0.8 * band_abs
+        chase_raw = max(dynamic_chase, buy_high_raw)
+        trend_note = '空頭排列時，便宜不等於安全；價格地圖會把區間往下移，但加碼比例要降。'
     else:
-        stop_raw = ma60 * 0.94
-        buy_low_raw = ma60 * 0.98
-        buy_high_raw = ma20 * (1.04 if is_core else 1.03)
-        chase_raw = max(buy_high_raw, ma20 * (1.09 if is_core else 1.07))
-        trend_note = '用60日線抓中期支撐，用20日線避免短線追太高。'
+        stop_raw = ma60 - 1.15 * band_abs
+        buy_low_raw = min(ma60 + 0.15 * band_abs, ma20 - 0.85 * band_abs)
+        buy_high_raw = max(ma20 + 0.35 * band_abs, ma60 + 0.75 * band_abs)
+        dynamic_chase = ma20 + 2.0 * atr
+        if boll_u is not None:
+            dynamic_chase = min(dynamic_chase, boll_u * 1.01)
+        chase_raw = max(buy_high_raw, dynamic_chase, ma20 * (1 + vol['chase_pct']))
+        trend_note = '用 ATR/布林通道調整區間：波動大的標的區間放寬，但投入比例要降低。'
 
     buy_low_raw, buy_high_raw = sorted([buy_low_raw, buy_high_raw])
     if ma240 is not None and trend != '多頭排列':
@@ -1442,26 +1514,55 @@ def calc_price_zones(ticker, price, a, ext):
     if chase_limit <= buy_high:
         chase_limit = zone_price(ticker, buy_high * 1.03)
 
+    trend_healthy = (
+        trend == '多頭排列'
+        and px >= ma20
+        and risk_score >= 45
+        and macd_bull is not False
+    )
+    overheated = (
+        (rsi is not None and rsi >= 82)
+        or (dev is not None and dev >= max(8, atr_pct * 2.3))
+        or (bpct is not None and bpct >= 92 and (vol_ratio or 1) >= 1.25)
+    )
+    turning_weak = (
+        px < ma20
+        or macd_bull is False
+        or '死亡' in kd_signal
+        or (bpct is not None and bpct < 45 and px < buy_high)
+    )
+
     if px > chase_limit:
-        status = '高於追高上限'
-        summary = '定期定額可照計畫，但臨時單筆先不要追；等回到可分批區再加碼。'
-        action = '正常扣款可以，額外資金先留著。'
-        tone = 'hot'
+        if trend_healthy and not overheated:
+            status = '健康創高'
+            summary = '價格在高位但趨勢仍健康；今天的高不一定是未來高點，但不適合一次重押。'
+            action = '想參與只能小額分批，保留資金等回測月線或可分批區。'
+            tone = 'momentum'
+        else:
+            status = '過熱追高'
+            summary = '價格已超過動態追高上限，短線報酬/風險不漂亮。'
+            action = '定期定額可照計畫；臨時單筆先不要追，等回到可分批區或強勢回測。'
+            tone = 'hot'
     elif px < stop_line:
-        status = '跌破保護線'
-        summary = '不要因為看起來便宜就硬接，先確認不是基本面或大盤轉弱。'
-        action = '等站回保護線或基本面沒有惡化，再小額分批。'
+        status = '轉弱下跌'
+        summary = '跌破保護線時不要把下跌直接當特價，先確認不是基本面或大盤變壞。'
+        action = '等站回保護線、趨勢回穩或基本面沒有惡化，再小額分批。'
         tone = 'danger'
     elif px < buy_low:
-        status = '加碼觀察區'
-        summary = '價格低於主要分批區，長期ETF可慢慢加；個股要先看營收與獲利有沒有壞掉。'
-        action = '核心ETF可小幅加碼，個股只小比例試單。'
+        status = '健康回檔' if trend != '空頭排列' else '加碼觀察區'
+        summary = '價格拉回到分批區下緣附近；長期ETF可慢慢加，個股要先看營收與獲利有沒有壞掉。'
+        action = '核心ETF可分批加碼，個股只小比例試單，跌破保護線就停止。'
         tone = 'cool'
     elif px <= buy_high:
         status = '可分批區'
         summary = '不是保證會漲，而是相對不像在高檔一次追價。'
         action = '想買可以拆 3-6 批；新手不要一次買完。'
         tone = 'ok'
+    elif trend_healthy:
+        status = '強勢高位'
+        summary = '價格偏高但趨勢仍健康，不是不能買，而是不能重押追價。'
+        action = '可用小額分批參與；真正加碼等回測月線、ATR區間或可分批區。'
+        tone = 'momentum'
     else:
         status = '偏高等待區'
         summary = '價格已離可分批區較遠，不代表永遠不能買，而是不要臨時加碼追高。'
@@ -1476,22 +1577,49 @@ def calc_price_zones(ticker, price, a, ext):
     range_text = f'{fmt_zone_price(buy_low)} ~ {fmt_zone_price(buy_high)}'
     guard_text = f'大於 {fmt_zone_price(chase_limit)} 不追；小於 {fmt_zone_price(stop_line)} 先停'
     reduce_watch = zone_price(ticker, chase_limit)
-    trim_line = zone_price(ticker, max(chase_limit * (1.06 if is_core else 1.05), buy_high * 1.10))
+    trim_line = zone_price(ticker, max(chase_limit + 1.5 * atr, buy_high * 1.10))
     failure_line = stop_line
     if is_core:
         sell_status = '核心部位不因漲多就賣'
-        sell_text = f'高於 {fmt_zone_price(reduce_watch)} 先停加碼；高於 {fmt_zone_price(trim_line)} 且超過目標配置時，只減碼額外加碼部位。'
+        sell_text = f'高於 {fmt_zone_price(reduce_watch)} 先停額外加碼；高於 {fmt_zone_price(trim_line)} 且超過目標配置時，只減碼額外加碼部位。'
         fail_text = '先檢查大盤與ETF是否異常，核心定期定額不急著整筆賣。'
+        sell_steps = [
+            ('不用賣', '核心續抱', '只是創高或偏熱，不是賣出理由。'),
+            ('先停買', f'>{fmt_zone_price(reduce_watch)}', '停止額外加碼，定期定額仍可照計畫。'),
+            ('小減碼', '超過配置', '只處理額外加碼部位，通常不動核心。'),
+        ]
     elif is_etf_like(ticker):
         sell_status = '過熱或ETF異常才減碼'
         sell_text = f'高於 {fmt_zone_price(reduce_watch)} 不追；高於 {fmt_zone_price(trim_line)} 且折溢價/集中度異常或超過配置時，可分批減碼。'
         fail_text = '先確認是否只是市場回檔，或ETF追蹤/流動性出問題。'
+        sell_steps = [
+            ('不用賣', '正常波動', 'ETF 沒有折溢價、流動性或追蹤異常時不急著賣。'),
+            ('減碼觀察', f'>{fmt_zone_price(trim_line)}', '過熱又超過配置，才分批降一點。'),
+            ('風險出場', f'<{fmt_zone_price(failure_line)}', '跌破保護線且ETF資料異常，先降風險。'),
+        ]
     else:
         sell_status = '不是現在賣，過熱且轉弱才減碼'
         sell_text = f'高於 {fmt_zone_price(reduce_watch)} 先停買；高於 {fmt_zone_price(trim_line)} 且動能轉弱，可減碼25%~33%。'
         fail_text = '若同時營收、EPS或毛利率轉弱，就是投資理由失效警告。'
+        sell_steps = [
+            ('不用賣', '強勢健康', '高位但趨勢健康時，不因漲多就急著賣。'),
+            ('減碼25%', '高位轉弱', '跌破月線、KD死亡交叉或MACD轉弱，再處理一部分。'),
+            ('降風險', '基本面壞', '營收/EPS/毛利率轉弱，才是投資理由失效。'),
+        ]
 
-    if status == '高於追高上限':
+    if status == '健康創高':
+        buy_steps = [
+            ('第一批', '10%~20%', '只用小額參與，不把高位當低點重押。'),
+            ('第二批', '回測月線', f'回到 {fmt_zone_price(ma20)} 附近且沒轉弱再補。'),
+            ('停止條件', '轉弱', f'跌破 {fmt_zone_price(stop_line)} 或基本面轉弱就停。'),
+        ]
+    elif status == '強勢高位':
+        buy_steps = [
+            ('第一批', '15%~25%', '趨勢健康可小額分批，但不追滿。'),
+            ('第二批', '回到可分批區', f'接近 {range_text} 再補。'),
+            ('停止條件', '跌破月線', '強勢股失去月線支撐就先降低節奏。'),
+        ]
+    elif status == '過熱追高':
         buy_steps = [
             ('第一批', '0%~10%', '只適合試單或照定期定額，不做單筆加碼。'),
             ('第二批', '回到可分批區', f'等價格回到 {range_text} 再買。'),
@@ -1509,7 +1637,7 @@ def calc_price_zones(ticker, price, a, ext):
             ('第二批', '再跌到區間下緣', f'接近 {fmt_zone_price(buy_low)} 再補。'),
             ('第三批', '站穩或回升', '沒有跌破保護線且量能回穩再買。'),
         ]
-    elif status == '加碼觀察區':
+    elif status in ['加碼觀察區', '健康回檔']:
         buy_steps = [
             ('第一批', 'ETF 40%~50%', '核心ETF可慢慢加，個股仍要小比例。'),
             ('第二批', '確認沒變壞', '基本面沒惡化、價格沒跌破保護線再補。'),
@@ -1526,6 +1654,7 @@ def calc_price_zones(ticker, price, a, ext):
         f'價格是否回到可分批區 {range_text}',
         f'是否守住保護線 {fmt_zone_price(stop_line)}',
         f'趨勢是否維持：{trend}，{fmt_zone_price(ma20)} / {fmt_zone_price(ma60)}',
+        f'波動度：{vol["level"]}，ATR 約 {atr_pct:.2f}%/日，區間會跟著標的震幅調整',
         'ETF看費用率、折溢價、成分股；個股看營收、EPS、ROE、毛利率',
     ]
     return dict(
@@ -1546,7 +1675,13 @@ def calc_price_zones(ticker, price, a, ext):
         sell_text=sell_text,
         fail_text=fail_text,
         buy_steps=buy_steps,
+        sell_steps=sell_steps,
         watch_items=watch_items,
+        price=px,
+        atr_pct=round(atr_pct, 2),
+        volatility_label=vol['level'],
+        turning_weak=turning_weak,
+        overheated=overheated,
         basis=f'{trend_note} 這是價格紀律，不是預測最低或最高點。',
         ma_text=f'20日線 {fmt_zone_price(ma20)}、60日線 {fmt_zone_price(ma60)}'
                 + (f'、240日線 {fmt_zone_price(ma240)}' if ma240 is not None else ''),
@@ -1562,6 +1697,7 @@ def price_zone_html(zone):
         'ok': '#1D9E75',
         'cool': '#185FA5',
         'warm': '#BA7517',
+        'momentum': '#185FA5',
         'hot': '#D85A30',
         'danger': '#D85A30',
     }.get(zone.get('tone'), '#6c757d')
@@ -1570,10 +1706,42 @@ def price_zone_html(zone):
         f'<div><span>{h(label)}</span><b>{h(amount)}</b><small>{h(note)}</small></div>'
         for label, amount, note in steps
     )
+    sell_steps = zone.get('sell_steps') or []
+    sell_step_html = ''.join(
+        f'<div><span>{h(label)}</span><b>{h(amount)}</b><small>{h(note)}</small></div>'
+        for label, amount, note in sell_steps
+    )
     watch_items = ''.join(f'<li>{h(item)}</li>' for item in zone.get('watch_items', []))
+    low = safe_num(zone.get('failure_line')) or safe_num(zone.get('stop_line'))
+    high = safe_num(zone.get('trim_line')) or safe_num(zone.get('chase_limit'))
+    cur = safe_num(zone.get('price'))
+    buy_low = safe_num(zone.get('buy_low'))
+    buy_high = safe_num(zone.get('buy_high'))
+    chase = safe_num(zone.get('chase_limit'))
+    def pct(v):
+        if v is None or low is None or high is None or high <= low:
+            return 50
+        return max(0, min(100, round((v - low) / (high - low) * 100, 1)))
+    marker = pct(cur)
+    buy_start = pct(buy_low)
+    buy_end = pct(buy_high)
+    chase_pos = pct(chase)
+    zone_bar = (
+        f'<div class="zone-bar">'
+        f'<div class="zone-track">'
+        f'<span class="seg danger" style="left:0;width:{buy_start}%"></span>'
+        f'<span class="seg ok" style="left:{buy_start}%;width:{max(0, buy_end-buy_start)}%"></span>'
+        f'<span class="seg warm" style="left:{buy_end}%;width:{max(0, chase_pos-buy_end)}%"></span>'
+        f'<span class="seg hot" style="left:{chase_pos}%;width:{max(0, 100-chase_pos)}%"></span>'
+        f'<i style="left:{marker}%"></i>'
+        f'</div>'
+        f'<div class="zone-labels"><span>失效</span><span>可分批</span><span>強勢</span><span>過熱</span></div>'
+        f'</div>'
+    )
     return (
         f'<div class="zone-box">'
         f'<div class="zone-head"><span>買進 / 減碼價格地圖</span><b style="color:{tone_color}">{h(zone["status"])}</b></div>'
+        f'{zone_bar}'
         f'<div class="zone-grid">'
         f'<div><span>可分批區</span><b>{h(zone["range_text"])}</b><small>臨時想買，優先等這個區間。</small></div>'
         f'<div><span>追高/保護線</span><b>{h(zone["guard_text"])}</b><small>上面不追，下面不硬接。</small></div>'
@@ -1582,8 +1750,11 @@ def price_zone_html(zone):
         f'</div>'
         f'<p>{h(zone["summary"])}</p>'
         f'<small>{h(zone["action"])} {h(zone["basis"])} {h(zone["ma_text"])}</small>'
-        f'<div class="zone-steps">{step_html}</div>'
+        f'<details class="zone-more"><summary>分批、賣出與觀察依據</summary>'
+        f'<div class="zone-subtitle">買進拆批</div><div class="zone-steps">{step_html}</div>'
+        f'<div class="zone-subtitle">賣出劇本</div><div class="zone-steps">{sell_step_html}</div>'
         f'<div class="zone-watch"><b>觀察依據</b><ul>{watch_items}</ul></div>'
+        f'</details>'
         f'</div>'
     )
 
@@ -1646,18 +1817,48 @@ def newbie_summary_html(market_ctx=None):
     defensive = round_amount(monthly * 0.15)
     cash = max(0, monthly - core - satellite - defensive)
     themes = '、'.join(t['theme'] for t in NEWS_THEMES[:4])
-    market_ctx = market_ctx or dict(regime='資料不足', temperature='中性', advice='先照計畫小額分批，不因單日漲跌改變策略。')
+    market_ctx = market_ctx or dict(
+        regime='資料不足', temperature='中性', advice='先照計畫小額分批，不因單日漲跌改變策略。',
+        headline='資料不足，先照原計畫，不因單日訊號改變策略。',
+        trend_state='資料不足', emotion_state='中性', risk_state='中', chase_state='保守',
+        reasons=['資料不足。'], counters=['等資料更新。'], actions=['定期定額可照計畫，單筆先小額。'],
+    )
+    reasons = ''.join(f'<li>{h(x)}</li>' for x in market_ctx.get('reasons', [])[:4])
+    counters = ''.join(f'<li>{h(x)}</li>' for x in market_ctx.get('counters', [])[:3])
+    actions = ''.join(f'<li>{h(x)}</li>' for x in market_ctx.get('actions', [])[:3])
+    status_cards = [
+        ('趨勢', market_ctx.get('trend_state', market_ctx.get('regime', '資料不足')), market_ctx.get('regime', '')),
+        ('情緒', market_ctx.get('emotion_state', '中性'), f'VIX {market_ctx.get("vix", "N/A")}'),
+        ('風險', market_ctx.get('risk_state', '中'), f'台股位階 {market_ctx.get("position", 50)}%'),
+        ('追價', market_ctx.get('chase_state', '保守'), market_ctx.get('advice', '')),
+    ]
+    status_html = ''.join(
+        f'<div><span>{h(label)}</span><b>{h(value)}</b><small>{h(note)}</small></div>'
+        for label, value, note in status_cards
+    )
     return (
         f'<section class="sc intro-card">'
-        f'<div class="st">新手定期定額設定</div>'
+        f'<div class="market-brief">'
+        f'<div><div class="st">今日市場重點</div>'
+        f'<h2>{h(market_ctx.get("headline", ""))}</h2>'
+        f'<p>{h(market_ctx.get("advice", ""))}</p></div>'
+        f'<div class="temp-pill">{h(market_ctx.get("temperature", "中性"))}</div>'
+        f'</div>'
+        f'<div class="status-strip">{status_html}</div>'
+        f'<div class="market-reason-grid">'
+        f'<div><b>為什麼</b><ul>{reasons}</ul></div>'
+        f'<div><b>反方條件</b><ul>{counters}</ul></div>'
+        f'<div><b>今天怎麼做</b><ul>{actions}</ul></div>'
+        f'</div>'
+        f'<details class="intro-more"><summary>範例配置與題材觀察</summary>'
         f'<div class="intro-grid">'
-        f'<div><span>每月預算</span><b>{money(monthly)} 元</b><small>可在試算工具自行調整，重點是先學會不要一次用完。</small></div>'
-        f'<div><span>市場溫度</span><b>{market_ctx["temperature"]}</b><small>{market_ctx["regime"]}。{market_ctx["advice"]}</small></div>'
+        f'<div><span>範例每月預算</span><b>{money(monthly)} 元</b><small>可在試算工具自行調整，重點是先學會不要一次用完。</small></div>'
         f'<div><span>核心ETF</span><b>{money(core)} 元</b><small>0050 或 006208 擇一作主力。</small></div>'
         f'<div><span>衛星/高股息</span><b>{money(satellite)} 元</b><small>主題ETF或高股息ETF，小比例觀察。</small></div>'
         f'<div><span>防守/現金</span><b>{money(defensive + cash)} 元</b><small>保留彈藥，避免高點一次投入。</small></div>'
         f'</div>'
-        f'<div class="intro-note">新聞雷達方向：{themes}。新聞只用來找「可關注產業」，仍要經過價格位置、基本面與風險檢查。</div>'
+        f'<div class="intro-note">題材觀察方向：{themes}。這不是買進訊號，只是把可能值得研究的產業列出來。</div>'
+        f'</details>'
         f'</section>'
     )
 
@@ -1704,11 +1905,12 @@ def methodology_html():
         f'<div class="st">計算方式說明</div>'
         f'<div class="method-lead">這個網站不是預測明天漲跌，而是把公開資料整理成「現在適不適合分批、要不要追高、風險在哪裡」。</div>'
         f'<div class="method-grid">'
-        f'<div><b>小白版怎麼看</b><p>先看市場狀態與人話結論，再看每張卡片的健康分數。高分不代表保證賺錢，低分也不代表一定會跌。</p></div>'
+        f'<div><b>小白版怎麼看</b><p>先看今日市場重點，再看每張卡片的現在狀態與價格地圖。高分不代表保證賺錢，低分也不代表一定會跌。</p></div>'
         f'<div><b>ETF 分數</b><p>趨勢 25% + 動能 15% + 成交量 10% + 價格位置 10% + 風險 20% + ETF資料 20%。ETF 要看成本、折溢價、規模、配息與總報酬。</p></div>'
         f'<div><b>個股分數</b><p>趨勢 25% + 動能 15% + 成交量 10% + 價格位置 10% + 風險 20% + 基本面 20%。PE 只是入口，還要看營收、EPS、ROE與毛利率。</p></div>'
         f'<div><b>價格基準</b><p>價格卡以 Yahoo quote 的資料時間為主：報價時間先顯示台灣時間，括號補原市場時間；價格顯示該交易日的最新價/收盤、開盤、昨收、高低價。</p></div>'
-        f'<div><b>買進/減碼區間</b><p>不是只回答買或不買，而是拆成可分批區、追高上限、減碼觀察與跌破保護線。高於上限不臨時追，小於保護線不硬接，減碼也只先動額外加碼或超過配置的部分。</p></div>'
+        f'<div><b>買進/減碼區間</b><p>不是只回答買或不買，而是拆成健康創高、過熱追高、健康回檔、轉弱下跌等狀態。強勢高位不是不能買，而是只能小額分批。</p></div>'
+        f'<div><b>ATR 動態區間</b><p>價格地圖會參考 ATR 與布林通道。高波動股區間較寬但投入比例較低；低波動 ETF 區間較窄但可照紀律分批。</p></div>'
         f'<div><b>零股怎麼算</b><p>個股是單一公司股票，不等於零股。台股一張是1,000股，未滿一張就是零股；試算會用股數與約幾張一起顯示。</p></div>'
         f'<div><b>RSI 怎麼解讀</b><p>RSI 高不一定危險。若趨勢強、量能正常，可能是強勢延續；若高檔轉弱、KD 偏空、波動放大，才提高風險。</p></div>'
         f'</div>'
@@ -1916,11 +2118,13 @@ function runBuyNow(){{
   if(window.MARKET_TEMP==='熱') ratio=Math.min(ratio, item.role==='長期核心'?0.30:0.18);
   if(window.MARKET_TEMP==='冷') ratio=Math.min(ratio+0.08, item.role==='長期核心'?0.50:0.30);
   if(item.role==='個股觀察') ratio=Math.min(ratio,0.15);
-  if(zone.status==='高於追高上限') ratio=Math.min(ratio, item.role==='長期核心'?0.12:0.05);
+  if(zone.status==='過熱追高') ratio=Math.min(ratio, item.role==='長期核心'?0.12:0.05);
+  if(zone.status==='健康創高') ratio=Math.min(ratio, item.role==='長期核心'?0.20:0.10);
+  if(zone.status==='強勢高位') ratio=Math.min(ratio, item.role==='長期核心'?0.24:0.12);
   if(zone.status==='偏高等待區') ratio=Math.min(ratio, item.role==='長期核心'?0.20:0.08);
-  if(zone.status==='跌破保護線') ratio=Math.min(ratio, item.role==='長期核心'?0.10:0.00);
+  if(zone.status==='轉弱下跌') ratio=Math.min(ratio, item.role==='長期核心'?0.10:0.00);
   if(zone.status==='可分批區') ratio=Math.max(ratio, item.role==='長期核心'?0.25:0.08);
-  if(zone.status==='加碼觀察區') ratio=Math.max(ratio, item.role==='長期核心'?0.30:0.08);
+  if(zone.status==='加碼觀察區'||zone.status==='健康回檔') ratio=Math.max(ratio, item.role==='長期核心'?0.30:0.08);
   var firstAmount=Math.round((budget*ratio)/100)*100;
   if(ratio>0 && firstAmount<1000) firstAmount=Math.min(budget,1000);
   var reserve=Math.max(0,budget-firstAmount);
@@ -2026,11 +2230,13 @@ function calcOrderRatio(item){
   if(window.MARKET_TEMP==='熱') ratio=Math.min(ratio, item.role==='長期核心'?0.30:0.18);
   if(window.MARKET_TEMP==='冷') ratio=Math.min(ratio+0.08, item.role==='長期核心'?0.50:0.30);
   if(item.role==='個股觀察') ratio=Math.min(ratio,0.10);
-  if(z.status==='高於追高上限') ratio=Math.min(ratio, item.role==='長期核心'?0.10:0.04);
+  if(z.status==='過熱追高') ratio=Math.min(ratio, item.role==='長期核心'?0.10:0.04);
+  if(z.status==='健康創高') ratio=Math.min(ratio, item.role==='長期核心'?0.18:0.08);
+  if(z.status==='強勢高位') ratio=Math.min(ratio, item.role==='長期核心'?0.22:0.10);
   if(z.status==='偏高等待區') ratio=Math.min(ratio, item.role==='長期核心'?0.18:0.07);
-  if(z.status==='跌破保護線') ratio=0;
+  if(z.status==='轉弱下跌') ratio=0;
   if(z.status==='可分批區') ratio=Math.max(ratio, item.role==='長期核心'?0.25:0.06);
-  if(z.status==='加碼觀察區') ratio=Math.max(ratio, item.role==='長期核心'?0.28:(item.is_etf?0.08:0.04));
+  if(z.status==='加碼觀察區'||z.status==='健康回檔') ratio=Math.max(ratio, item.role==='長期核心'?0.28:(item.is_etf?0.08:0.04));
   if(Number(item.risk_score||50)<40) ratio*=0.60;
   ratio*=orderConfidenceFactor(item.confidence);
   return Math.max(0, Math.min(0.50, ratio));
@@ -2046,11 +2252,21 @@ function calcOrderTarget(item){
   if(risk<45) pull+=0.004;
   if(w>=85) pull+=0.004;
   var target=price, action='可掛單', cls='order-ok', note='在可分批區內低掛，沒成交不追價。';
-  if(status==='高於追高上限'){
+  if(status==='過熱追高'){
     target=high||price*0.97;
     action='等回檔';
     cls='order-wait';
     note='掛在可分批區上緣附近，今天沒碰到就不追。';
+  }else if(status==='健康創高'){
+    target=Math.min(high||price*0.995, price*0.992);
+    action='小額低掛';
+    cls='order-wait';
+    note='趨勢健康但位置高，只能小額參與，沒成交不抬價。';
+  }else if(status==='強勢高位'){
+    target=Math.min(high||price*0.996, price*0.994);
+    action='小額分批';
+    cls='order-ok';
+    note='強勢不是不能買，但只能小額分批，真正加碼等回測。';
   }else if(status==='偏高等待區'){
     target=Math.min(high||price*0.99, price*0.99);
     action='低掛小單';
@@ -2058,23 +2274,24 @@ function calcOrderTarget(item){
     note='價格偏高，只能低掛，成交不到也不要抬價。';
   }else if(status==='可分批區'){
     target=Math.max(low||0, Math.min(high||price, price*(1-pull)));
-  }else if(status==='加碼觀察區'){
+  }else if(status==='加碼觀察區'||status==='健康回檔'){
     target=price*(item.is_etf?0.998:0.994);
     if(stop) target=Math.max(target, stop*1.01);
     action=item.is_etf?'可小加碼':'小額試單';
     note=item.is_etf?'低位可小幅分批，但仍要保留現金。':'個股只小額試單，確認基本面沒變壞。';
-  }else if(status==='跌破保護線'){
+  }else if(status==='轉弱下跌'){
     target=stop||price;
     action='先不買';
     cls='order-stop';
     note='跌破保護線時不要硬接，等站回再重新算。';
   }
-  if(high && target>high && status!=='加碼觀察區') target=high;
+  if(high && target>high && status!=='加碼觀察區'&&status!=='健康回檔') target=high;
   if(low && target<low && status==='可分批區') target=low;
   return {price:roundOrderPrice(item,target,'buy'), action:action, cls:cls, note:note};
 }
 function runDailyOrders(){
   var out=document.getElementById('orderRows');
+  var cards=document.getElementById('orderCards');
   var budgetEl=document.getElementById('orderBudget');
   var filterEl=document.getElementById('orderFilter');
   if(!out||!budgetEl||!window.BUY_NOW_DATA) return;
@@ -2082,6 +2299,7 @@ function runDailyOrders(){
   var filter=filterEl?filterEl.value:'all';
   var keys=window.ORDER_KEYS||Object.keys(window.BUY_NOW_DATA);
   var html='';
+  var cardHtml='';
   keys.forEach(function(tk){
     var item=window.BUY_NOW_DATA[tk];
     if(!item) return;
@@ -2121,8 +2339,20 @@ function runDailyOrders(){
       '<td><b>'+fmtOrderPrice(failLine,item)+'</b><small>跌破先停，不硬接</small></td>'+
       '<td><small>'+((z.status||'區間待補')+'；可信度 '+item.confidence+'；風險 '+(item.risk_score||'N/A'))+'</small></td>'+
       '</tr>';
+    cardHtml+=
+      '<article class="order-card">'+
+      '<div class="order-card-head"><div><b>'+code+' '+item.name+'</b><span>'+item.role+' / '+item.bucket+'</span></div><span class="order-action '+target.cls+'">'+target.action+'</span></div>'+
+      '<div class="order-card-grid">'+
+      '<div><span>掛單價</span><b>'+fmtOrderPrice(target.price,item)+'</b><small>現價 '+fmtOrderPrice(item.price,item)+'</small></div>'+
+      '<div><span>建議投入</span><b>'+fmtMoney(spend)+' 元</b><small>'+fmtShares(shares,item)+'</small></div>'+
+      '<div><span>賣出觀察</span><b>'+fmtOrderPrice(sellWatch,item)+'</b><small>'+(z.sell_status||'轉弱才減碼')+'</small></div>'+
+      '<div><span>失效線</span><b>'+fmtOrderPrice(failLine,item)+'</b><small>跌破先停，不硬接</small></div>'+
+      '</div>'+
+      '<p>'+target.note+'</p><small>'+((z.status||'區間待補')+'；可信度 '+item.confidence+'；風險 '+(item.risk_score||'N/A'))+'</small>'+
+      '</article>';
   });
   out.innerHTML=html||'<tr><td colspan="8"><div class="nd">沒有符合篩選的標的。</div></td></tr>';
+  if(cards) cards.innerHTML=cardHtml||'<div class="nd">沒有符合篩選的標的。</div>';
 }
 document.addEventListener('DOMContentLoaded',function(){
   ['orderBudget','orderFilter'].forEach(function(id){
@@ -2148,6 +2378,7 @@ document.addEventListener('DOMContentLoaded',function(){
         f'<div class="order-wrap"><table class="order-table">'
         f'<thead><tr><th>標的</th><th>今日動作</th><th>買入掛單價</th><th>建議投入</th><th>最高買價</th><th>賣出觀察價</th><th>失效線</th><th>理由</th></tr></thead>'
         f'<tbody id="orderRows"></tbody></table></div>'
+        f'<div id="orderCards" class="order-cards"></div>'
         f'<div class="tool-note">買入掛單價會依台股跳動單位取合法價位；台股用零股估算，海外標的未含匯率與複委託成本。賣出觀察價不是到價就賣，還要搭配轉弱、超過配置或ETF異常。</div>'
         f'</section>'
         f'<script>window.ORDER_KEYS={keys_json};</script><script>{script}</script>'
@@ -2234,6 +2465,9 @@ def analyze(res, close_val):
     dim  = gl(res['dim'])
     bu   = gl(res['boll_u'])
     bl   = gl(res['boll_l'])
+    atr  = gl(res.get('atr', pd.Series(dtype=float)))
+    atr_pct = gl(res.get('atr_pct', pd.Series(dtype=float)))
+    boll_width = gl(res.get('boll_width', pd.Series(dtype=float)))
     vr   = gl(res['vol_ratio']) if len(res['vol_ratio'].dropna()) else float('nan')
 
     def ok(v): return not np.isnan(v)
@@ -2329,6 +2563,11 @@ def analyze(res, close_val):
         dev20=round(dev, 1) if ok(dev) else None,
         bpct=bpct,
         vol_ratio=round(vr, 2) if ok(vr) else None,
+        atr=round(atr, 4) if ok(atr) else None,
+        atr_pct=round(atr_pct, 2) if ok(atr_pct) else None,
+        boll_width=round(boll_width, 2) if ok(boll_width) else None,
+        boll_u=round(bu, 4) if ok(bu) else None,
+        boll_l=round(bl, 4) if ok(bl) else None,
     )
 
 
@@ -3309,6 +3548,35 @@ def stock_card(ticker, name, price, chg, hist_close, a, ext, rec):
     decision_html = decision_card_html(ticker, a, ext, rec, invest_plan)
     detail_html = metadata_detail_html(ticker, a, ext)
     factor_html = factor_score_html(a, ticker)
+    quick_status = price_zone.get('status') if price_zone else a['stxt']
+    quick_action = price_zone.get('action') if price_zone else rec['dca'][0]
+    quick_summary = price_zone.get('summary') if price_zone else rec['dca'][2]
+    quick_html = (
+        f'<div class="quick-take">'
+        f'<div><span>現在狀態</span><b>{h(quick_status)}</b><small>{h(quick_summary)}</small></div>'
+        f'<div><span>今天怎麼做</span><b>{h(quick_action)}</b><small>先看價格區間，再看資料可信度與風險。</small></div>'
+        f'</div>'
+    )
+    more_html = (
+        f'<details class="card-more"><summary>看數據、來源與計算</summary>'
+        f'{price_ref_html}'
+        f'{week52_html}'
+        f'{detail_html}'
+        f'{factor_html}'
+        f'<div class="ig">'
+        f'<div class="ic2"><div class="il">KD 值</div><div class="iv" style="color:{kd_c}">{kd_v}</div>'
+        f'<div class="is" style="color:{kd_c}">{kd_s}</div></div>'
+        f'<div class="ic2"><div class="il">RSI</div><div class="iv" style="color:{rsi_c}">{rsi_v}</div>'
+        f'<div class="is" style="color:{rsi_c}">{rsi_s}</div></div>'
+        f'<div class="ic2"><div class="il">20日乖離率</div><div class="iv" style="color:{dv_c}">{dv_v}</div>'
+        f'<div class="is" style="color:{dv_c}">{dv_s}</div></div>'
+        f'<div class="ic2"><div class="il">MACD</div><div class="iv" style="color:{macd_c}">{macd_v}</div></div>'
+        f'</div>'
+        f'{boll_html}'
+        f'{ext_html}'
+        f'{reasons_html}'
+        f'</details>'
+    )
 
     rec_html = (
         f'<div style="margin-bottom:8px">'
@@ -3334,8 +3602,7 @@ def stock_card(ticker, name, price, chg, hist_close, a, ext, rec):
         f'<div class="price-caption">{h(price_caption)}</div>'
         f'</div></div>'
         f'<div class="spark">{sp}</div>'
-        f'{price_ref_html}'
-        f'{week52_html}'
+        f'{quick_html}'
         f'{zone_html}'
         f'<div class="sr"><span class="slbl">健康分數</span>'
         f'<div class="sbw"><div class="sbf" style="width:{sc}%;background:{sc_col}"></div></div>'
@@ -3343,24 +3610,10 @@ def stock_card(ticker, name, price, chg, hist_close, a, ext, rec):
         f'<div style="margin-bottom:10px">'
         f'<span class="sbadge" style="background:{badge_bg};color:{badge_tc}">{a["stxt"]}</span></div>'
         f'{decision_html}'
-        f'{detail_html}'
-        f'{factor_html}'
-        f'<div class="ig">'
-        f'<div class="ic2"><div class="il">KD 值</div><div class="iv" style="color:{kd_c}">{kd_v}</div>'
-        f'<div class="is" style="color:{kd_c}">{kd_s}</div></div>'
-        f'<div class="ic2"><div class="il">RSI</div><div class="iv" style="color:{rsi_c}">{rsi_v}</div>'
-        f'<div class="is" style="color:{rsi_c}">{rsi_s}</div></div>'
-        f'<div class="ic2"><div class="il">20日乖離率</div><div class="iv" style="color:{dv_c}">{dv_v}</div>'
-        f'<div class="is" style="color:{dv_c}">{dv_s}</div></div>'
-        f'<div class="ic2"><div class="il">MACD</div><div class="iv" style="color:{macd_c}">{macd_v}</div></div>'
-        f'</div>'
-        f'{boll_html}'
-        f'{ext_html}'
+        f'{more_html}'
         f'<hr class="cd">'
         f'{rec_html}'
         f'{invest_html}'
-        f'<hr class="cd">'
-        f'{reasons_html}'
         f'<div style="font-size:10px;color:var(--t2);margin-top:6px;line-height:1.5">'
         f'以上為規則化因子分析，僅供參考，不構成投資建議。投資有風險，請自行判斷。</div>'
         f'</div>'
@@ -3412,6 +3665,15 @@ h1{font-size:19px;font-weight:700;color:var(--t);display:flex;align-items:center
 .zone-head{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:8px}
 .zone-head span{font-size:10px;color:var(--t2);font-weight:700}
 .zone-head b{font-size:12px;color:var(--t)}
+.zone-bar{margin:7px 0 10px}
+.zone-track{position:relative;height:9px;border-radius:999px;background:rgba(0,0,0,0.08);overflow:hidden}
+.zone-track .seg{position:absolute;top:0;bottom:0}
+.zone-track .danger{background:rgba(216,90,48,0.22)}
+.zone-track .ok{background:rgba(29,158,117,0.28)}
+.zone-track .warm{background:rgba(186,117,23,0.25)}
+.zone-track .hot{background:rgba(216,90,48,0.32)}
+.zone-track i{position:absolute;top:-4px;width:17px;height:17px;border-radius:50%;background:var(--t);border:3px solid var(--card);transform:translateX(-50%);box-shadow:0 1px 4px rgba(0,0,0,0.18)}
+.zone-labels{display:grid;grid-template-columns:repeat(4,1fr);font-size:9px;color:var(--t2);margin-top:4px;text-align:center}
 .zone-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin-bottom:7px}
 .zone-grid div{background:var(--card);border:1px solid var(--bdr);border-radius:7px;padding:7px 8px}
 .zone-grid span{display:block;font-size:10px;color:var(--t2);margin-bottom:2px}
@@ -3424,6 +3686,7 @@ h1{font-size:19px;font-weight:700;color:var(--t);display:flex;align-items:center
 .zone-steps span{display:block;font-size:10px;color:var(--t2);margin-bottom:2px}
 .zone-steps b{display:block;font-size:12px;color:var(--t);font-variant-numeric:tabular-nums}
 .zone-steps small{display:block;font-size:9px;color:var(--t2);line-height:1.35;margin-top:2px}
+.zone-subtitle{font-size:10px;color:var(--t2);font-weight:800;margin:9px 0 5px}
 .zone-watch{border-top:1px solid var(--bdr);margin-top:8px;padding-top:7px}
 .zone-watch b{display:block;font-size:10px;color:var(--t2);margin-bottom:4px}
 .zone-watch ul{padding-left:16px}
@@ -3447,6 +3710,16 @@ h1{font-size:19px;font-weight:700;color:var(--t);display:flex;align-items:center
 .decision-row span{font-size:10px;color:var(--t2);font-weight:700}
 .decision-row p{font-size:11px;color:var(--t);line-height:1.6}
 .decision-note{font-size:10px;color:var(--t2);line-height:1.5;margin-top:8px;border-top:1px solid var(--bdr);padding-top:7px}
+.quick-take{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0}
+.quick-take div{background:var(--card2);border:1px solid var(--bdr);border-radius:8px;padding:10px 11px}
+.quick-take span{display:block;font-size:10px;color:var(--t2);margin-bottom:3px;font-weight:700}
+.quick-take b{display:block;font-size:14px;color:var(--t)}
+.quick-take small{display:block;font-size:10px;color:var(--t2);line-height:1.45;margin-top:3px}
+.card-more,.zone-more,.intro-more{border-top:1px solid var(--bdr);margin-top:9px;padding-top:8px}
+.card-more summary,.zone-more summary,.intro-more summary{cursor:pointer;font-size:11px;color:var(--t);font-weight:800;list-style:none}
+.card-more summary::-webkit-details-marker,.zone-more summary::-webkit-details-marker,.intro-more summary::-webkit-details-marker{display:none}
+.card-more summary::after,.zone-more summary::after,.intro-more summary::after{content:"＋";float:right;color:var(--t2)}
+.card-more[open] summary::after,.zone-more[open] summary::after,.intro-more[open] summary::after{content:"－"}
 .detail-box{background:var(--card2);border:1px solid var(--bdr);border-radius:8px;padding:10px 12px;margin:10px 0}
 .detail-title{font-size:12px;font-weight:700;color:var(--t);margin-bottom:8px}
 .detail-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:6px}
@@ -3460,6 +3733,18 @@ h1{font-size:19px;font-weight:700;color:var(--t);display:flex;align-items:center
 .holding-chips div{display:flex;flex-wrap:wrap;gap:5px}
 .holding-chips span{font-size:10px;color:var(--t);background:var(--card);border:1px solid var(--bdr);border-radius:999px;padding:3px 7px;line-height:1.35}
 .intro-card{margin:14px 0}
+.market-brief{display:grid;grid-template-columns:1fr auto;gap:14px;align-items:flex-start}
+.market-brief h2{font-size:22px;line-height:1.25;margin-top:6px;color:var(--t);letter-spacing:0}
+.market-brief p{font-size:12px;color:var(--t2);line-height:1.65;margin-top:8px}
+.status-strip{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:12px}
+.status-strip div,.market-reason-grid div{background:var(--card2);border:1px solid var(--bdr);border-radius:8px;padding:10px}
+.status-strip span{display:block;font-size:10px;color:var(--t2);margin-bottom:3px}
+.status-strip b{display:block;font-size:15px;color:var(--t)}
+.status-strip small{display:block;font-size:10px;color:var(--t2);line-height:1.45;margin-top:3px}
+.market-reason-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:8px}
+.market-reason-grid b{display:block;font-size:12px;color:var(--t);margin-bottom:5px}
+.market-reason-grid ul{padding-left:16px}
+.market-reason-grid li{font-size:11px;color:var(--t2);line-height:1.55;margin:2px 0}
 .intro-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px;margin-top:10px}
 .intro-grid div{background:var(--card2);border-radius:8px;padding:10px}
 .intro-grid span{display:block;font-size:10px;color:var(--t2);margin-bottom:3px}
@@ -3530,6 +3815,18 @@ h1{font-size:19px;font-weight:700;color:var(--t);display:flex;align-items:center
 .order-filter{display:grid;grid-template-columns:repeat(3,minmax(150px,1fr));gap:8px;margin-top:10px}
 .order-filter label{display:grid;gap:4px;font-size:10px;color:var(--t2)}
 .order-filter input,.order-filter select{border:1px solid var(--bdr);background:var(--card2);color:var(--t);border-radius:8px;padding:8px;font-size:13px}
+.order-cards{display:none;gap:8px;margin-top:10px}
+.order-card{background:var(--card2);border:1px solid var(--bdr);border-radius:8px;padding:11px}
+.order-card-head{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;margin-bottom:8px}
+.order-card-head b{display:block;font-size:13px;color:var(--t)}
+.order-card-head span:not(.order-action){display:block;font-size:10px;color:var(--t2);margin-top:2px}
+.order-card-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+.order-card-grid div{background:var(--card);border:1px solid var(--bdr);border-radius:7px;padding:8px}
+.order-card-grid span{display:block;font-size:10px;color:var(--t2);margin-bottom:2px}
+.order-card-grid b{display:block;font-size:13px;color:var(--t);font-variant-numeric:tabular-nums}
+.order-card-grid small{display:block;font-size:10px;color:var(--t2);line-height:1.4;margin-top:2px}
+.order-card p{font-size:11px;color:var(--t);line-height:1.55;margin-top:8px}
+.order-card>small{display:block;font-size:10px;color:var(--t2);line-height:1.45;margin-top:4px}
 .factor-box{background:var(--card2);border:1px solid var(--bdr);border-radius:8px;padding:10px;margin-bottom:10px}
 .factor-title{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:8px}
 .factor-title b{font-size:12px;color:var(--t)}
@@ -3574,13 +3871,25 @@ footer p{font-size:12px;color:#adb5bd;margin-bottom:3px;text-align:center}
   .sbw,.bb{background:rgba(255,255,255,0.1)}
 }
 @media(max-width:600px){
+  .wrap{padding:0 12px}
   .cgrid{grid-template-columns:1fr}
+  .sc{padding:13px}
   h1{font-size:16px}
+  .ub{display:none}
   .tb{padding:8px 10px;font-size:12px}
+  .sh{gap:8px}
+  .sp{font-size:18px}
+  .price-caption{max-width:150px}
   .tool-head{flex-direction:column}
+  .market-brief{grid-template-columns:1fr}
+  .market-brief h2{font-size:20px}
+  .status-strip,.market-reason-grid,.quick-take,.zone-grid,.zone-steps{grid-template-columns:1fr}
   .dca-controls{grid-template-columns:1fr}
   .order-filter{grid-template-columns:1fr}
+  .order-wrap{display:none}
+  .order-cards{display:grid}
   .panic-box div{grid-template-columns:42px 1fr}
+  .factor-grid,.detail-grid,.ig{grid-template-columns:1fr}
 }
 </style>'''
 
@@ -3769,68 +4078,163 @@ def raw_close_series(raw, ticker):
 
 def calc_market_context(raw, quotes=None):
     quotes = quotes or {}
-    try:
-        tw = raw_close_series(raw, '^TWII')
-        vix = raw_close_series(raw, '^VIX')
-    except Exception:
-        return dict(regime='資料不足', temperature='中性', advice='資料不足時不要因單日訊號重押。')
-    if len(tw) < 60:
-        return dict(regime='資料不足', temperature='中性', advice='資料不足時先照計畫小額分批。')
+    def idx(ticker):
+        try:
+            s = raw_close_series(raw, ticker).dropna()
+        except Exception:
+            s = pd.Series(dtype=float)
+        q = quotes.get(ticker) or {}
+        last = safe_num(q.get('quote_price')) or (float(s.iloc[-1]) if len(s) else None)
+        if last is None or len(s) < 60:
+            return dict(ok=False, ticker=ticker, last=last)
+        ma20 = float(s.rolling(20).mean().iloc[-1])
+        ma60 = float(s.rolling(60).mean().iloc[-1])
+        ma240 = float(s.rolling(240).mean().iloc[-1]) if len(s) >= 240 else None
+        period = min(126, len(s))
+        high = max(float(s.tail(period).max()), float(last))
+        low = min(float(s.tail(period).min()), float(last))
+        pos = (last - low) / (high - low) * 100 if high > low else 50
+        return dict(
+            ok=True, ticker=ticker, series=s, last=last, ma20=ma20, ma60=ma60, ma240=ma240,
+            pos=pos, r20=pct_return(s, 20), r60=pct_return(s, 60)
+        )
 
-    tw_quote = quotes.get('^TWII') or {}
+    tw = idx('^TWII')
+    spx = idx('^GSPC')
+    ixic = idx('^IXIC')
+    sox = idx('^SOX')
+    vix_series = idx('^VIX')
+    if not tw.get('ok'):
+        return dict(
+            regime='資料不足', temperature='中性', advice='資料不足時先照計畫小額分批。',
+            headline='資料不足，今天先不要因單一訊號改變策略。',
+            trend_state='資料不足', emotion_state='中性', risk_state='中', chase_state='保守',
+            reasons=['台股大盤資料不足。'], counters=['等資料更新後再判斷。'], actions=['定期定額可照計畫，單筆先小額。'],
+            score=50, position=50, vix=None,
+        )
+
     vix_quote = quotes.get('^VIX') or {}
-    last = tw_quote.get('quote_price') or float(tw.iloc[-1])
-    ma20 = float(tw.rolling(20).mean().iloc[-1])
-    ma60 = float(tw.rolling(60).mean().iloc[-1])
-    ma20_prev = float(tw.rolling(20).mean().iloc[-10]) if len(tw) >= 70 else ma20
-    period = min(126, len(tw))
-    high = max(float(tw.tail(period).max()), float(last))
-    low = min(float(tw.tail(period).min()), float(last))
-    pos = (last - low) / (high - low) * 100 if high > low else 50
-    vix_last = vix_quote.get('quote_price') or (float(vix.iloc[-1]) if len(vix) else 20)
-
+    vix_last = safe_num(vix_quote.get('quote_price')) or vix_series.get('last') or 20
     score = 50
-    if last > ma20:
-        score += 12
+    reasons = []
+    counters = []
+    actions = []
+
+    if tw['last'] > tw['ma20']:
+        score += 10
+        reasons.append('台股仍站上月線，短線趨勢沒有明顯破壞。')
     else:
         score -= 12
-    if last > ma60:
-        score += 18
+        reasons.append('台股跌破月線，短線要保守。')
+    if tw['last'] > tw['ma60']:
+        score += 16
+        reasons.append('台股站上季線，中期趨勢仍有支撐。')
     else:
         score -= 18
-    if ma20 > ma60 and ma20 >= ma20_prev:
-        score += 14
-    elif ma20 < ma60:
-        score -= 14
-    if vix_last < 18:
-        score += 10
-    elif vix_last > 25:
-        score -= 15
+        reasons.append('台股跌破季線，中期風險升高。')
+    if tw.get('ma240') and tw['last'] > tw['ma240']:
+        score += 8
+    elif tw.get('ma240'):
+        score -= 12
+        reasons.append('台股跌破年線，單筆加碼要降級。')
 
-    if score >= 70:
-        regime = '多頭趨勢'
+    us_support = 0
+    for item, label in [(spx, '標普500'), (ixic, '那斯達克'), (sox, '費城半導體')]:
+        if item.get('ok') and item['last'] > item['ma20']:
+            us_support += 1
+    if us_support >= 2:
+        score += 8
+        reasons.append('美股主要指數多數站上月線，外部風險暫時沒有全面轉弱。')
+    elif us_support == 0:
+        score -= 10
+        reasons.append('美股主要指數同步轉弱，台股科技鏈要提高警覺。')
+
+    if vix_last < 18:
+        score += 7
+        emotion_state = '偏樂觀'
+    elif vix_last > 30:
+        score -= 18
+        emotion_state = '恐慌'
+        reasons.append('VIX 高於 30，市場進入系統性風險區。')
+    elif vix_last > 23:
+        score -= 8
+        emotion_state = '緊張'
+    else:
+        emotion_state = '中性'
+
+    semis_hot = sox.get('ok') and (sox.get('r20') or 0) > max((spx.get('r20') or 0) + 2, 4)
+    if semis_hot:
+        reasons.append('費半短期表現強於大盤，AI/半導體仍是主要題材。')
+
+    if score >= 72:
+        regime = '多頭延續'
+        trend_state = '偏多'
     elif score <= 35:
-        regime = '偏空防守'
+        regime = '防守模式'
+        trend_state = '防守'
     else:
         regime = '震盪整理'
+        trend_state = '震盪'
 
-    if pos > 85 and vix_last < 22:
+    if vix_last > 30 or (tw['last'] < tw['ma60'] and us_support == 0):
+        risk_state = '高'
+    elif tw['pos'] > 88 and vix_last < 20:
+        risk_state = '中高'
+    else:
+        risk_state = '中' if vix_last >= 20 else '低'
+
+    if tw['pos'] > 90 and vix_last < 20:
         temperature = '熱'
-        advice = '定期定額可持續，但不建議單筆重押。'
-    elif pos < 35 and vix_last > 22:
+        chase_state = '追價偏高'
+        advice = '定期定額可持續，但單筆資金要分批，不要因市場樂觀就重押。'
+    elif tw['pos'] < 35 and vix_last > 23:
         temperature = '冷'
-        advice = '市場偏恐慌，長期資金可分批，保留現金。'
+        chase_state = '恐慌回檔'
+        advice = '市場偏恐慌，核心長期資金可分批，個股與題材股先保守。'
     else:
         temperature = '中性'
-        advice = '按月扣款即可，等明顯回檔再加碼。'
+        chase_state = '可分批'
+        advice = '按月扣款即可，單筆資金等價格回到可分批區再動作。'
+
+    if regime == '多頭延續' and temperature == '熱':
+        headline = '市場偏多但追價風險升高。'
+    elif regime == '多頭延續':
+        headline = '市場仍偏多，適合紀律分批，不適合亂追。'
+    elif regime == '防守模式':
+        headline = '市場進入防守，先保留現金與降低題材股衝動。'
+    else:
+        headline = '市場震盪整理，重點是分批與等待好價格。'
+
+    counters.append('若台股跌破季線、美股主要指數同步轉弱或 VIX 升高，偏多判斷要降級。')
+    if semis_hot:
+        counters.append('半導體強勢若伴隨估值過熱與放量轉弱，不能把題材熱度當成買進保證。')
+    else:
+        counters.append('若費半與那斯達克轉強，科技股高位可能仍是健康延續，不宜只因高就排除。')
+
+    actions.append(advice)
+    if risk_state in ['高', '中高']:
+        actions.append('衛星題材與個股先降投入比例，核心 ETF 才保留定期定額。')
+    else:
+        actions.append('想買單筆時，優先找健康回檔或可分批區，不用猜最低點。')
 
     return dict(
         regime=regime,
         temperature=temperature,
         advice=advice,
+        headline=headline,
+        trend_state=trend_state,
+        emotion_state=emotion_state,
+        risk_state=risk_state,
+        chase_state=chase_state,
+        reasons=reasons[:4],
+        counters=counters[:3],
+        actions=actions[:3],
         score=clamp_score(score),
-        position=round(pos, 1),
+        position=round(tw['pos'], 1),
         vix=round(vix_last, 2),
+        sox_20d=round(sox.get('r20'), 1) if sox.get('r20') is not None else None,
+        nasdaq_20d=round(ixic.get('r20'), 1) if ixic.get('r20') is not None else None,
+        spx_20d=round(spx.get('r20'), 1) if spx.get('r20') is not None else None,
     )
 
 

@@ -5,3 +5,9 @@ __pycache__/
 .env
 .env.*
 *.log
+
+# Local notes and release checklists are kept off the public site.
+CHANGELOG.md
+PROJECT_STATE.md
+PUBLIC_RELEASE_AUDIT.md
+分析報告_*.md
