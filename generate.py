@@ -3709,6 +3709,13 @@ h1{font-size:19px;font-weight:700;color:var(--t);display:flex;align-items:center
 .radar-more[open] summary::after{content:"－"}
 .radar-more .radar-grid{margin-top:8px}
 .target-section{margin-top:14px}
+.desktop-top-grid,.desktop-mid-grid{display:grid;gap:14px;margin:14px 0;align-items:start}
+.desktop-top-grid{grid-template-columns:minmax(0,1.05fr) minmax(360px,.95fr)}
+.desktop-mid-grid{grid-template-columns:minmax(360px,.9fr) minmax(0,1.1fr)}
+.desktop-top-grid .intro-card,.desktop-top-grid .buy-tool,.desktop-mid-grid .dca-tool,.desktop-mid-grid .market-radar{margin:0}
+.section-head{display:flex;justify-content:space-between;gap:14px;align-items:flex-end;background:var(--card);border:1px solid var(--bdr);border-radius:12px;padding:14px 16px;margin:14px 0 10px}
+.section-head p{font-size:11px;color:var(--t2);line-height:1.6;margin-top:3px}
+.section-head span{font-size:11px;color:var(--t2);background:var(--card2);border:1px solid var(--bdr);border-radius:999px;padding:5px 10px;white-space:nowrap}
 .tnav{display:flex;gap:2px;border-bottom:1px solid rgba(0,0,0,0.1);margin:20px 0;flex-wrap:wrap}
 .tb{background:transparent;border:none;padding:10px 16px 11px;font-size:13px;color:var(--t2);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;font-family:inherit;border-radius:8px 8px 0 0;transition:color .15s}
 .tb:hover,.tb.on{color:var(--t)}
@@ -3941,6 +3948,9 @@ footer p{font-size:12px;color:#adb5bd;margin-bottom:3px;text-align:center}
 @media(max-width:600px){
   .wrap{padding:0 12px}
   [id]{scroll-margin-top:92px}
+  .desktop-top-grid,.desktop-mid-grid{grid-template-columns:1fr;margin:8px 0;gap:10px}
+  .section-head{display:block;padding:12px 13px;margin:12px 0 8px}
+  .section-head span{display:inline-block;margin-top:8px}
   .mobile-jump{position:sticky;top:48px;z-index:90;display:flex;gap:6px;overflow-x:auto;padding:8px 0;background:var(--bg);border-bottom:1px solid var(--bdr);margin:0 -12px 8px;padding-left:12px;padding-right:12px}
   .mobile-jump a{white-space:nowrap;text-decoration:none;color:var(--t);background:var(--card);border:1px solid var(--bdr);border-radius:999px;padding:7px 12px;font-size:12px;font-weight:700}
   .market-radar{padding:13px}
@@ -4005,13 +4015,20 @@ def build_html(idx_html, tw_s, tw_e, us_s, us_e, bonds, update_time, market_ctx=
         f'</div></div></header>\n'
         f'<main class="wrap">\n'
         f'{mobile_jump_nav_html()}\n'
+        f'<div class="desktop-top-grid">\n'
         f'{newbie_summary_html(market_ctx)}\n'
         f'{buy_now_tool_html(market_ctx)}\n'
+        f'</div>\n'
         f'{daily_order_overview_html(market_ctx)}\n'
+        f'<div class="desktop-mid-grid">\n'
         f'{dca_simulator_html(market_ctx)}\n'
         f'{idx_html}\n'
+        f'</div>\n'
         f'{theme_radar_html()}\n'
         f'<section class="target-section" id="target-list">\n'
+        f'<div class="section-head"><div><div class="st">標的分析</div>'
+        f'<p>先選分類，再看每張卡的結論、價格地圖與資料可信度；細節可以展開。</p></div>'
+        f'<span>ETF 與個股分開看</span></div>\n'
         f'<nav class="tnav">\n'
         f'<button class="tb" data-tab="tw-stocks" onclick="showTab(\'tw-stocks\')">台股個股</button>\n'
         f'<button class="tb" data-tab="tw-etfs"   onclick="showTab(\'tw-etfs\')">台股 ETF</button>\n'
