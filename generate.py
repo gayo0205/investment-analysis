@@ -84,11 +84,15 @@ BONDS = {
 
 INDICES = {
     '^TWII': ('加權指數',   False),
+    '^N225': ('日經225',    False),
+    '^HSI':  ('恒生指數',   False),
+    'HSTECH.HK': ('恒生科技', False),
+    '^KS11': ('KOSPI',      False),
+    '^KQ11': ('KOSDAQ',     False),
     '^GSPC': ('標普500',    False),
     '^SOX':  ('費城半導體', False),
     '^VIX':  ('VIX恐慌',   True),
     '^IXIC': ('那斯達克',   False),
-    '^N225': ('日經225',    False),
 }
 
 TW_LIMIT_MARKETS = set(
@@ -1821,6 +1825,7 @@ def newbie_summary_html(market_ctx=None):
         regime='資料不足', temperature='中性', advice='先照計畫小額分批，不因單日漲跌改變策略。',
         headline='資料不足，先照原計畫，不因單日訊號改變策略。',
         trend_state='資料不足', emotion_state='中性', risk_state='中', chase_state='保守',
+        asia_state='資料不足', asia_note='亞洲指數資料不足',
         reasons=['資料不足。'], counters=['等資料更新。'], actions=['定期定額可照計畫，單筆先小額。'],
     )
     reasons = ''.join(f'<li>{h(x)}</li>' for x in market_ctx.get('reasons', [])[:4])
@@ -1830,6 +1835,7 @@ def newbie_summary_html(market_ctx=None):
         ('趨勢', market_ctx.get('trend_state', market_ctx.get('regime', '資料不足')), market_ctx.get('regime', '')),
         ('情緒', market_ctx.get('emotion_state', '中性'), f'VIX {market_ctx.get("vix", "N/A")}'),
         ('風險', market_ctx.get('risk_state', '中'), f'台股位階 {market_ctx.get("position", 50)}%'),
+        ('亞洲', market_ctx.get('asia_state', '資料不足'), market_ctx.get('asia_note', '')),
         ('追價', market_ctx.get('chase_state', '保守'), market_ctx.get('advice', '')),
     ]
     status_html = ''.join(
@@ -3211,6 +3217,15 @@ def idx_card(ticker, name, price, chg, inverse=False, note=''):
             f'<div class="ic-note">{h(note)}</div></div>')
 
 
+def idx_missing_card(name, note='資料不足，暫不納入市場判斷'):
+    return (
+        f'<div class="ic"><div class="ic-l">{h(name)}</div>'
+        f'<div class="ic-v">N/A</div>'
+        f'<div class="ic-c" style="color:#BA7517">資料不足</div>'
+        f'<div class="ic-note">{h(note)}</div></div>'
+    )
+
+
 def metric_tile(label, value, hint=''):
     return (
         f'<div class="metric-tile">'
@@ -3736,7 +3751,7 @@ h1{font-size:19px;font-weight:700;color:var(--t);display:flex;align-items:center
 .market-brief{display:grid;grid-template-columns:1fr auto;gap:14px;align-items:flex-start}
 .market-brief h2{font-size:22px;line-height:1.25;margin-top:6px;color:var(--t);letter-spacing:0}
 .market-brief p{font-size:12px;color:var(--t2);line-height:1.65;margin-top:8px}
-.status-strip{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:12px}
+.status-strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:8px;margin-top:12px}
 .status-strip div,.market-reason-grid div{background:var(--card2);border:1px solid var(--bdr);border-radius:8px;padding:10px}
 .status-strip span{display:block;font-size:10px;color:var(--t2);margin-bottom:3px}
 .status-strip b{display:block;font-size:15px;color:var(--t)}
@@ -4103,12 +4118,18 @@ def calc_market_context(raw, quotes=None):
     spx = idx('^GSPC')
     ixic = idx('^IXIC')
     sox = idx('^SOX')
+    n225 = idx('^N225')
+    hsi = idx('^HSI')
+    hstech = idx('HSTECH.HK')
+    kospi = idx('^KS11')
+    kosdaq = idx('^KQ11')
     vix_series = idx('^VIX')
     if not tw.get('ok'):
         return dict(
             regime='資料不足', temperature='中性', advice='資料不足時先照計畫小額分批。',
             headline='資料不足，今天先不要因單一訊號改變策略。',
             trend_state='資料不足', emotion_state='中性', risk_state='中', chase_state='保守',
+            asia_state='資料不足', asia_note='亞洲指數資料不足',
             reasons=['台股大盤資料不足。'], counters=['等資料更新後再判斷。'], actions=['定期定額可照計畫，單筆先小額。'],
             score=50, position=50, vix=None,
         )
@@ -4166,6 +4187,53 @@ def calc_market_context(raw, quotes=None):
     if semis_hot:
         reasons.append('費半短期表現強於大盤，AI/半導體仍是主要題材。')
 
+    asia_markets = [
+        (n225, '日本'),
+        (hsi, '香港'),
+        (hstech, '香港科技'),
+        (kospi, '韓國大型股'),
+        (kosdaq, '韓國成長股'),
+    ]
+    asia_ok = [(item, label) for item, label in asia_markets if item.get('ok')]
+    asia_above_ma20 = [(item, label) for item, label in asia_ok if item['last'] > item['ma20']]
+    asia_below_ma20 = [(item, label) for item, label in asia_ok if item['last'] <= item['ma20']]
+    asia_r20 = [item.get('r20') for item, _ in asia_ok if item.get('r20') is not None]
+    korea_strong = (
+        kospi.get('ok') and kospi['last'] > kospi['ma20'] and
+        kosdaq.get('ok') and kosdaq['last'] > kosdaq['ma20']
+    )
+    hk_weak = (
+        hsi.get('ok') and hsi['last'] <= hsi['ma20'] and
+        hstech.get('ok') and hstech['last'] <= hstech['ma20']
+    )
+    if len(asia_ok) >= 3:
+        asia_ratio = len(asia_above_ma20) / len(asia_ok)
+        avg_asia_r20 = sum(asia_r20) / len(asia_r20) if asia_r20 else None
+        if asia_ratio >= 0.7:
+            asia_state = '同步偏強'
+            asia_note = '多數亞洲市場站上月線'
+            score += 5
+            reasons.append('亞洲主要市場多數站上月線，區域資金情緒偏正向。')
+        elif asia_ratio <= 0.3:
+            asia_state = '同步偏弱'
+            asia_note = '多數亞洲市場跌破月線'
+            score -= 7
+            reasons.append('亞洲主要市場多數跌破月線，外資風險偏好要保守看。')
+        else:
+            asia_state = '區域分歧'
+            asia_note = '亞洲市場不同步'
+            if korea_strong and hk_weak:
+                reasons.append('韓國科技鏈仍有支撐，但香港偏弱，代表亞洲市場不是全面樂觀。')
+            elif korea_strong:
+                reasons.append('韓國市場偏強，半導體與科技供應鏈仍有支撐。')
+            elif hk_weak:
+                reasons.append('香港市場偏弱，代表中國相關風險情緒仍需觀察。')
+        if avg_asia_r20 is not None:
+            asia_note += f'，20日均值 {avg_asia_r20:+.1f}%'
+    else:
+        asia_state = '資料不足'
+        asia_note = '香港/韓國資料不足'
+
     if score >= 72:
         regime = '多頭延續'
         trend_state = '偏多'
@@ -4206,6 +4274,10 @@ def calc_market_context(raw, quotes=None):
         headline = '市場震盪整理，重點是分批與等待好價格。'
 
     counters.append('若台股跌破季線、美股主要指數同步轉弱或 VIX 升高，偏多判斷要降級。')
+    if asia_state == '區域分歧':
+        counters.append('若韓國與香港同步轉弱，代表亞洲資金風險偏好下降，追價要降級。')
+    elif asia_state == '同步偏弱':
+        counters.append('若亞洲市場沒有回到月線上方，台股單獨強勢也要避免重押。')
     if semis_hot:
         counters.append('半導體強勢若伴隨估值過熱與放量轉弱，不能把題材熱度當成買進保證。')
     else:
@@ -4226,6 +4298,8 @@ def calc_market_context(raw, quotes=None):
         emotion_state=emotion_state,
         risk_state=risk_state,
         chase_state=chase_state,
+        asia_state=asia_state,
+        asia_note=asia_note,
         reasons=reasons[:4],
         counters=counters[:3],
         actions=actions[:3],
@@ -4256,9 +4330,19 @@ def fetch_indices():
         for tk, (name, inverse) in INDICES.items():
             try:
                 s = raw_close_series(raw, tk)
-                if len(s) < 2:
-                    continue
                 meta = index_quotes.get(tk) or fetch_metadata(tk)
+                if len(s) < 2:
+                    price = meta.get('quote_price')
+                    prev = meta.get('quote_previous_close')
+                    if price is not None and prev:
+                        chg = (price - prev) / prev * 100
+                        qtime = format_quote_time(meta)
+                        source = meta.get('quote_source') or 'Quote'
+                        note = f'{qtime} {source} · 無足夠日線，不納入市場判斷'.strip()
+                        parts.append(idx_card(tk, name, price, chg, inverse, note))
+                    else:
+                        parts.append(idx_missing_card(name, 'Yahoo 暫無可用日線，先不納入市場判斷'))
+                    continue
                 price = meta.get('quote_price') or float(s.iloc[-1])
                 prev  = meta.get('quote_previous_close') or float(s.iloc[-2])
                 chg   = (price - prev) / prev * 100
