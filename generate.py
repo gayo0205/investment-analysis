@@ -1843,7 +1843,7 @@ def newbie_summary_html(market_ctx=None):
         for label, value, note in status_cards
     )
     return (
-        f'<section class="sc intro-card">'
+        f'<section class="sc intro-card" id="market-summary">'
         f'<div class="market-brief">'
         f'<div><div class="st">今日市場重點</div>'
         f'<h2>{h(market_ctx.get("headline", ""))}</h2>'
@@ -1897,7 +1897,7 @@ def theme_radar_html():
             f'</div>'
         )
     return (
-        f'<section class="sc theme-radar">'
+        f'<section class="sc theme-radar" id="theme-radar">'
         f'<div class="st">題材觀察雷達</div>'
         f'<div class="method-lead">這裡不是新聞買進訊號，只是把新聞可能提到的產業，轉成「可以研究的清單」。進場前仍要看估值、風險、趨勢與基本面。</div>'
         f'<div class="theme-grid">{"".join(cards)}</div>'
@@ -1907,7 +1907,7 @@ def theme_radar_html():
 
 def methodology_html():
     return (
-        f'<section class="sc methodology">'
+        f'<section class="sc methodology" id="methodology">'
         f'<div class="st">計算方式說明</div>'
         f'<div class="method-lead">這個網站不是預測明天漲跌，而是把公開資料整理成「現在適不適合分批、要不要追高、風險在哪裡」。</div>'
         f'<div class="method-grid">'
@@ -1930,7 +1930,7 @@ def public_readiness_html(update_time, market_ctx=None):
     temp = market_ctx.get('temperature', '中性')
     regime = market_ctx.get('regime', '資料不足')
     return (
-        f'<section class="sc public-check">'
+        f'<section class="sc public-check" id="data-check">'
         f'<div class="st">資料檢查</div>'
         f'<div class="method-lead">這一區是出貨前自查用：本頁是靜態頁，數字只代表這次產生報告時抓到的資料。</div>'
         f'<div class="check-grid">'
@@ -1974,7 +1974,7 @@ def dca_simulator_html(market_ctx=None):
     monthly = PUBLIC_EXAMPLE_PLAN['monthly_budget']
 
     return (
-        f'<section class="sc dca-tool">'
+        f'<section class="sc dca-tool" id="dca-sim">'
         f'<div class="tool-head"><div><div class="st">定期定額模擬器</div>'
         f'<p>用歷史價格練習「如果我每月固定投入，過程會多痛、最後可能變多少」。這不是預測，只是幫新手先看懂風險。</p></div>'
         f'<div class="temp-pill">{temp}</div></div>'
@@ -2081,7 +2081,7 @@ def buy_now_tool_html(market_ctx=None):
     fee_rate = PUBLIC_EXAMPLE_PLAN['broker_fee_rate'] * PUBLIC_EXAMPLE_PLAN['broker_fee_discount']
     min_fee = PUBLIC_EXAMPLE_PLAN['regular_min_fee']
     return (
-        f'<section class="sc buy-tool">'
+        f'<section class="sc buy-tool" id="buy-tool">'
         f'<div class="tool-head"><div><div class="st">今天想買試算</div>'
         f'<p>臨時想買時，不先問「會不會漲」，先問「現在能買幾成、剩下要留多少」。這裡用固定規則估算，不代表個人投資建議。</p></div>'
         f'<div class="temp-pill">{temp}</div></div>'
@@ -2370,7 +2370,7 @@ document.addEventListener('DOMContentLoaded',function(){
 });
 '''
     return (
-        f'<section class="sc order-tool">'
+        f'<section class="sc order-tool" id="daily-orders">'
         f'<div class="tool-head"><div><div class="st">今日掛單總覽</div>'
         f'<p>把每檔標的轉成今天能執行的掛單價、投入金額與風險線。掛單價是紀律價，不是預測價；沒成交就不追高。</p></div>'
         f'<div class="temp-pill">{h(temp)}</div></div>'
@@ -3226,6 +3226,40 @@ def idx_missing_card(name, note='資料不足，暫不納入市場判斷'):
     )
 
 
+def index_group_html(title, note, tickers, cards, collapsed=False):
+    body = ''.join(
+        cards.get(tk) or idx_missing_card(INDICES.get(tk, (tk, False))[0])
+        for tk in tickers
+    )
+    if collapsed:
+        return (
+            f'<details class="radar-group radar-more">'
+            f'<summary><span>{h(title)}</span><small>{h(note)}</small></summary>'
+            f'<div class="igrid radar-grid">{body}</div>'
+            f'</details>'
+        )
+    return (
+        f'<div class="radar-group">'
+        f'<div class="radar-head"><b>{h(title)}</b><small>{h(note)}</small></div>'
+        f'<div class="igrid radar-grid">{body}</div>'
+        f'</div>'
+    )
+
+
+def indices_radar_html(cards):
+    return (
+        f'<section class="sc market-radar" id="market-radar">'
+        f'<div class="st">市場雷達</div>'
+        f'<div class="method-lead">這裡看大方向，不直接當成買賣訊號。核心看台股、美股科技、亞洲核心；波動與次要市場放在更多觀察。</div>'
+        f'<div class="radar-layout">'
+        f'{index_group_html("台股", "本地市場本體", ["^TWII"], cards)}'
+        f'{index_group_html("美股科技 / 風險", "那斯達克、費半與 VIX 影響台股科技鏈", ["^GSPC", "^IXIC", "^SOX", "^VIX"], cards)}'
+        f'{index_group_html("亞洲核心", "看日本、韓國、香港是否同步", ["^N225", "^KS11", "^HSI"], cards)}'
+        f'{index_group_html("更多亞洲觀察", "恒生科技與 KOSDAQ 只作次要風險情緒參考", ["HSTECH.HK", "^KQ11"], cards, collapsed=True)}'
+        f'</div></section>'
+    )
+
+
 def metric_tile(label, value, hint=''):
     return (
         f'<div class="metric-tile">'
@@ -3606,6 +3640,12 @@ def stock_card(ticker, name, price, chg, hist_close, a, ext, rec):
         f'<div style="font-size:11px;color:var(--t);line-height:1.65">{dca_reason}</div>'
         f'</div></div>'
     )
+    strategy_more_html = (
+        f'<details class="card-more strategy-more"><summary>看短線與定期定額建議</summary>'
+        f'{rec_html}'
+        f'{invest_html}'
+        f'</details>'
+    )
 
     return (
         f'<div class="sc">'
@@ -3626,9 +3666,7 @@ def stock_card(ticker, name, price, chg, hist_close, a, ext, rec):
         f'<span class="sbadge" style="background:{badge_bg};color:{badge_tc}">{a["stxt"]}</span></div>'
         f'{decision_html}'
         f'{more_html}'
-        f'<hr class="cd">'
-        f'{rec_html}'
-        f'{invest_html}'
+        f'{strategy_more_html}'
         f'<div style="font-size:10px;color:var(--t2);margin-top:6px;line-height:1.5">'
         f'以上為規則化因子分析，僅供參考，不構成投資建議。投資有風險，請自行判斷。</div>'
         f'</div>'
@@ -3643,6 +3681,7 @@ CSS = '''<style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{--t:#1a2035;--t2:#6c757d;--bg:#f5f7fa;--card:#fff;--card2:#f8f9fa;--bdr:rgba(0,0,0,0.07)}
 body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--t);line-height:1.6}
+html{scroll-behavior:smooth}
 .wrap{max-width:1200px;margin:0 auto;padding:0 16px}
 .hdr{background:var(--card);border-bottom:1px solid var(--bdr);padding:13px 0;position:sticky;top:0;z-index:100}
 .hi{display:flex;justify-content:space-between;align-items:center}
@@ -3656,6 +3695,20 @@ h1{font-size:19px;font-weight:700;color:var(--t);display:flex;align-items:center
 .ic-v{font-size:18px;font-weight:700;color:var(--t);margin-bottom:3px;font-variant-numeric:tabular-nums}
 .ic-c{font-size:12px;font-weight:600}
 .ic-note{font-size:9px;color:var(--t2);line-height:1.25;margin-top:2px;min-height:12px}
+.mobile-jump{display:none}
+.market-radar{margin:14px 0}
+.radar-layout{display:grid;gap:10px;margin-top:10px}
+.radar-group{background:var(--card2);border:1px solid var(--bdr);border-radius:10px;padding:10px}
+.radar-head{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;margin-bottom:8px}
+.radar-head b,.radar-more summary span{font-size:13px;color:var(--t);font-weight:800}
+.radar-head small,.radar-more summary small{font-size:10px;color:var(--t2);line-height:1.45}
+.radar-grid{margin:0;grid-template-columns:repeat(auto-fit,minmax(145px,1fr))}
+.radar-more summary{cursor:pointer;display:flex;justify-content:space-between;gap:10px;align-items:flex-start;list-style:none}
+.radar-more summary::-webkit-details-marker{display:none}
+.radar-more summary::after{content:"＋";color:var(--t2);font-weight:800}
+.radar-more[open] summary::after{content:"－"}
+.radar-more .radar-grid{margin-top:8px}
+.target-section{margin-top:14px}
 .tnav{display:flex;gap:2px;border-bottom:1px solid rgba(0,0,0,0.1);margin:20px 0;flex-wrap:wrap}
 .tb{background:transparent;border:none;padding:10px 16px 11px;font-size:13px;color:var(--t2);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;font-family:inherit;border-radius:8px 8px 0 0;transition:color .15s}
 .tb:hover,.tb.on{color:var(--t)}
@@ -3887,6 +3940,13 @@ footer p{font-size:12px;color:#adb5bd;margin-bottom:3px;text-align:center}
 }
 @media(max-width:600px){
   .wrap{padding:0 12px}
+  [id]{scroll-margin-top:92px}
+  .mobile-jump{position:sticky;top:48px;z-index:90;display:flex;gap:6px;overflow-x:auto;padding:8px 0;background:var(--bg);border-bottom:1px solid var(--bdr);margin:0 -12px 8px;padding-left:12px;padding-right:12px}
+  .mobile-jump a{white-space:nowrap;text-decoration:none;color:var(--t);background:var(--card);border:1px solid var(--bdr);border-radius:999px;padding:7px 12px;font-size:12px;font-weight:700}
+  .market-radar{padding:13px}
+  .radar-group{padding:9px}
+  .radar-grid{grid-template-columns:1fr 1fr;gap:7px}
+  .radar-grid .ic{padding:9px}
   .cgrid{grid-template-columns:1fr}
   .sc{padding:13px}
   h1{font-size:16px}
@@ -3919,6 +3979,19 @@ document.addEventListener('DOMContentLoaded',function(){showTab('tw-stocks')});
 </script>'''
 
 
+def mobile_jump_nav_html():
+    links = [
+        ('#market-summary', '重點'),
+        ('#buy-tool', '想買'),
+        ('#market-radar', '雷達'),
+        ('#target-list', '標的'),
+        ('#methodology', '詳情'),
+    ]
+    return '<nav class="mobile-jump">' + ''.join(
+        f'<a href="{href}">{label}</a>' for href, label in links
+    ) + '</nav>'
+
+
 def build_html(idx_html, tw_s, tw_e, us_s, us_e, bonds, update_time, market_ctx=None):
     return (
         f'<!DOCTYPE html>\n<html lang="zh-Hant">\n<head>\n'
@@ -3931,15 +4004,14 @@ def build_html(idx_html, tw_s, tw_e, us_s, us_e, bonds, update_time, market_ctx=
         f'<span class="ub">更新：{update_time} 台灣時間</span>'
         f'</div></div></header>\n'
         f'<main class="wrap">\n'
-        f'<p class="stl">大盤指數 / 報價時間</p>\n'
-        f'<div class="igrid">{idx_html}</div>\n'
+        f'{mobile_jump_nav_html()}\n'
         f'{newbie_summary_html(market_ctx)}\n'
-        f'{dca_simulator_html(market_ctx)}\n'
         f'{buy_now_tool_html(market_ctx)}\n'
         f'{daily_order_overview_html(market_ctx)}\n'
+        f'{dca_simulator_html(market_ctx)}\n'
+        f'{idx_html}\n'
         f'{theme_radar_html()}\n'
-        f'{methodology_html()}\n'
-        f'{public_readiness_html(update_time, market_ctx)}\n'
+        f'<section class="target-section" id="target-list">\n'
         f'<nav class="tnav">\n'
         f'<button class="tb" data-tab="tw-stocks" onclick="showTab(\'tw-stocks\')">台股個股</button>\n'
         f'<button class="tb" data-tab="tw-etfs"   onclick="showTab(\'tw-etfs\')">台股 ETF</button>\n'
@@ -3952,6 +4024,9 @@ def build_html(idx_html, tw_s, tw_e, us_s, us_e, bonds, update_time, market_ctx=
         f'<div id="us-stocks" class="tc"><div class="cgrid">{us_s}</div></div>\n'
         f'<div id="us-etfs"   class="tc"><div class="cgrid">{us_e}</div></div>\n'
         f'<div id="bonds"     class="tc"><div class="cgrid">{bonds}</div></div>\n'
+        f'</section>\n'
+        f'{methodology_html()}\n'
+        f'{public_readiness_html(update_time, market_ctx)}\n'
         f'</main>\n'
         f'<footer><div class="wrap">\n'
         f'<p>資料來源：TWSE 盤後公開資料 / TWSE ETF e添富配息清單 / FinMind 免費公開資料 / 政府資料開放平臺基金資料 / Yahoo Finance 免費公開資料 | 分析方式：規則化因子評分（無任何 AI API）</p>\n'
@@ -4314,7 +4389,7 @@ def calc_market_context(raw, quotes=None):
 
 def fetch_indices():
     tickers = list(INDICES.keys())
-    parts   = []
+    cards = {}
     market_ctx = dict(regime='資料不足', temperature='中性', advice='資料不足時先照計畫小額分批。')
     try:
         raw = yf.download(tickers, period='3y', progress=False, auto_adjust=False)
@@ -4339,9 +4414,9 @@ def fetch_indices():
                         qtime = format_quote_time(meta)
                         source = meta.get('quote_source') or 'Quote'
                         note = f'{qtime} {source} · 無足夠日線，不納入市場判斷'.strip()
-                        parts.append(idx_card(tk, name, price, chg, inverse, note))
+                        cards[tk] = idx_card(tk, name, price, chg, inverse, note)
                     else:
-                        parts.append(idx_missing_card(name, 'Yahoo 暫無可用日線，先不納入市場判斷'))
+                        cards[tk] = idx_missing_card(name, 'Yahoo 暫無可用日線，先不納入市場判斷')
                     continue
                 price = meta.get('quote_price') or float(s.iloc[-1])
                 prev  = meta.get('quote_previous_close') or float(s.iloc[-2])
@@ -4349,12 +4424,12 @@ def fetch_indices():
                 qtime = format_quote_time(meta)
                 source = meta.get('quote_source') or '日線資料'
                 note = f'{qtime} {source}'.strip()
-                parts.append(idx_card(tk, name, price, chg, inverse, note))
+                cards[tk] = idx_card(tk, name, price, chg, inverse, note)
             except Exception:
-                pass
+                cards[tk] = idx_missing_card(name, '資料擷取失敗，先不納入市場判斷')
     except Exception as e:
         print(f'指數擷取失敗：{e}')
-    return '\n'.join(parts), market_ctx
+    return indices_radar_html(cards), market_ctx
 
 
 def prepare_dca_sim_data():
