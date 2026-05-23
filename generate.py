@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """
 智慧投資分析自動報告產生器 v2
 - 資料來源：Yahoo Finance（完全免費）
@@ -15,6 +15,7 @@ from html import escape
 from zoneinfo import ZoneInfo
 import json
 import os
+import re
 import warnings
 import time
 from data_sources import fetch_finmind_public_stock_data, fetch_tw_etf_public_data, fetch_twse_stock_day_all
@@ -1245,6 +1246,181 @@ def store_buy_now_data(ticker, name, price, a, ext, rec, plan, zone=None):
         counter=decision['counter'],
         action=decision['action'],
         price_zone=zone or {},
+    )
+
+
+def target_dom_id(ticker):
+    return 'target-' + re.sub(r'[^A-Za-z0-9]+', '-', ticker).strip('-')
+
+
+def target_tab_id(ticker):
+    if ticker in TW_ETFS:
+        return 'tw-etfs'
+    if ticker in TW_STOCKS:
+        return 'tw-stocks'
+    if ticker in US_ETFS:
+        return 'us-etfs'
+    if ticker in US_STOCKS:
+        return 'us-stocks'
+    return 'bonds'
+
+
+def target_link(ticker, label='看完整卡', cls='mini-link'):
+    return (
+        f'<a class="{cls}" href="#{target_dom_id(ticker)}" '
+        f'onclick="showTab(\'{target_tab_id(ticker)}\')">{h(label)}</a>'
+    )
+
+
+def zone_range_text(item):
+    zone = item.get('price_zone') or {}
+    return zone.get('range_text') or 'N/A'
+
+
+def zone_status(item):
+    zone = item.get('price_zone') or {}
+    return zone.get('status') or item.get('conclusion') or '資料不足'
+
+
+def action_tone(status):
+    if status in ['可分批區', '健康回檔', '加碼觀察區']:
+        return 'ok'
+    if status in ['健康創高', '強勢高位', '偏高等待區']:
+        return 'wait'
+    if status in ['過熱追高', '轉弱下跌']:
+        return 'stop'
+    return 'wait'
+
+
+def all_targets_order():
+    return [
+        tk for tk in
+        list(TW_ETFS.keys()) + list(TW_STOCKS.keys()) +
+        list(US_ETFS.keys()) + list(US_STOCKS.keys()) + list(BONDS.keys())
+        if tk in BUY_NOW_DATA
+    ]
+
+
+def compact_target_tile(ticker, item, mode='normal'):
+    code = ticker.replace('.TW', '')
+    status = zone_status(item)
+    tone = action_tone(status)
+    price = item.get('price')
+    price_text = f'{float(price):,.2f}' if isinstance(price, (int, float)) else 'N/A'
+    score = item.get('score', 'N/A')
+    range_text = zone_range_text(item)
+    action = item.get('action') or item.get('conclusion') or '先看完整卡'
+    extra = ''
+    if mode == 'core':
+        extra = (
+            f'<div class="mini-meta">'
+            f'<span>{h(item.get("role", ""))}</span>'
+            f'<span>{h(item.get("bucket", ""))}</span>'
+            f'<span>可信度 {h(item.get("confidence", "N/A"))}</span>'
+            f'</div>'
+        )
+    return (
+        f'<article class="mini-target mini-{tone} mini-{mode}">'
+        f'<div class="mini-head"><div><b>{h(code)} {h(item.get("name", ""))}</b>'
+        f'<small>{h(item.get("role", ""))} / {h(item.get("bucket", ""))}</small></div>'
+        f'<span>{h(status)}</span></div>'
+        f'<div class="mini-body">'
+        f'<div><span>現價</span><b>{price_text}</b></div>'
+        f'<div><span>健康分</span><b>{h(score)}</b></div>'
+        f'<div><span>可看區間</span><b>{h(range_text)}</b></div>'
+        f'</div>'
+        f'<p>{h(action)}</p>'
+        f'{extra}'
+        f'{target_link(ticker)}'
+        f'</article>'
+    )
+
+
+def core_etf_spotlight_html():
+    core = [tk for tk in ['0050.TW', '006208.TW', '006204.TW'] if tk in BUY_NOW_DATA]
+    cashflow = [tk for tk in ['0056.TW', '00878.TW', '00919.TW'] if tk in BUY_NOW_DATA]
+    if not core and not cashflow:
+        return ''
+    core_html = ''.join(compact_target_tile(tk, BUY_NOW_DATA[tk], 'core') for tk in core)
+    cash_html = ''.join(
+        f'<div class="core-alt-row"><b>{h(tk.replace(".TW", ""))} {h(BUY_NOW_DATA[tk]["name"])}</b>'
+        f'<span>{h(zone_status(BUY_NOW_DATA[tk]))}</span>'
+        f'<small>{h(zone_range_text(BUY_NOW_DATA[tk]))}</small>{target_link(tk, "打開")}</div>'
+        for tk in cashflow
+    )
+    return (
+        f'<section class="sc core-etfs" id="core-etfs">'
+        f'<div class="tool-head"><div><div class="st">核心 ETF</div>'
+        f'<p>先把每月最可能照做的標的放上來。0050 / 006208 這類核心 ETF 不是要猜最低點，而是看現在適不適合照常扣、少量加碼或先別重押。</p></div>'
+        f'<div class="temp-pill">核心</div></div>'
+        f'<div class="core-grid">{core_html}</div>'
+        f'<details class="core-alt"><summary>看高股息與現金流 ETF</summary>{cash_html}</details>'
+        f'</section>'
+    )
+
+
+def today_focus_html():
+    if not BUY_NOW_DATA:
+        return ''
+    groups = [
+        ('可分批觀察', ['可分批區', '健康回檔', '加碼觀察區'], '不是叫你重押，是值得打開看完整理由。'),
+        ('強勢但不追', ['健康創高', '強勢高位', '偏高等待區'], '趨勢好不等於今天亂追，重點是等回檔或小額。'),
+        ('過熱先等', ['過熱追高'], '價格已偏熱，先等回到區間，不要因為熱門就追。'),
+        ('轉弱避開', ['轉弱下跌'], '公開頁只能提醒風險，是否賣出要看個人持倉與配置。'),
+    ]
+    cards = []
+    ordered = all_targets_order()
+    for title, statuses, note in groups:
+        picks = [tk for tk in ordered if zone_status(BUY_NOW_DATA[tk]) in statuses]
+        if not picks:
+            continue
+        tiles = ''.join(compact_target_tile(tk, BUY_NOW_DATA[tk], 'focus') for tk in picks[:3])
+        more = f'<small>另有 {len(picks) - 3} 檔可在下方一覽查看</small>' if len(picks) > 3 else ''
+        cards.append(
+            f'<div class="focus-group"><div class="focus-head"><b>{h(title)}</b><span>{h(note)}</span></div>'
+            f'<div class="focus-grid">{tiles}</div>{more}</div>'
+        )
+    if not cards:
+        return ''
+    return (
+        f'<section class="sc today-focus" id="today-focus">'
+        f'<div class="tool-head"><div><div class="st">今日值得先看的標的</div>'
+        f'<p>這裡不是買進排行榜，而是把 37 檔先分成幾種情境，讓你知道該先打開哪幾張完整卡。</p></div>'
+        f'<div class="temp-pill">掃描</div></div>'
+        f'{"".join(cards)}'
+        f'</section>'
+    )
+
+
+def target_overview_html():
+    ordered = all_targets_order()
+    if not ordered:
+        return ''
+    rows = []
+    for tk in ordered:
+        item = BUY_NOW_DATA[tk]
+        status = zone_status(item)
+        tone = action_tone(status)
+        code = tk.replace('.TW', '')
+        price = item.get('price')
+        price_text = f'{float(price):,.2f}' if isinstance(price, (int, float)) else 'N/A'
+        rows.append(
+            f'<div class="overview-row overview-{tone}">'
+            f'<div class="overview-name"><b>{h(code)} {h(item.get("name", ""))}</b>'
+            f'<small>{h(item.get("role", ""))} / {h(item.get("bucket", ""))}</small></div>'
+            f'<div class="overview-score"><span>健康</span><b>{h(item.get("score", "N/A"))}</b></div>'
+            f'<div class="overview-price"><span>現價</span><b>{price_text}</b></div>'
+            f'<div class="overview-status"><span>{h(status)}</span><small>{h(zone_range_text(item))}</small></div>'
+            f'{target_link(tk, "完整卡", "mini-link overview-link")}'
+            f'</div>'
+        )
+    return (
+        f'<section class="sc target-overview" id="target-overview">'
+        f'<div class="tool-head"><div><div class="st">全部標的一覽</div>'
+        f'<p>先用一行看完每檔的結論、分數與可看區間；想研究再打開完整卡，不用一開始滑過 37 張大卡。</p></div>'
+        f'<div class="temp-pill">{len(rows)}</div></div>'
+        f'<div class="overview-list">{"".join(rows)}</div>'
+        f'</section>'
     )
 
 
@@ -3648,7 +3824,7 @@ def stock_card(ticker, name, price, chg, hist_close, a, ext, rec):
     )
 
     return (
-        f'<div class="sc">'
+        f'<div class="sc target-card" id="{target_dom_id(ticker)}">'
         f'<div class="sh">'
         f'<div><div class="st">{disp}</div><div class="sn">{name}</div></div>'
         f'<div style="text-align:right">'
@@ -3656,7 +3832,7 @@ def stock_card(ticker, name, price, chg, hist_close, a, ext, rec):
         f'<div class="sc2" style="color:{pc}">{arr} {sgn}{chg:.2f}%</div>'
         f'<div class="price-caption">{h(price_caption)}</div>'
         f'</div></div>'
-        f'<div class="spark">{sp}</div>'
+        f'{decision_html}'
         f'{quick_html}'
         f'{zone_html}'
         f'<div class="sr"><span class="slbl">健康分數</span>'
@@ -3664,7 +3840,7 @@ def stock_card(ticker, name, price, chg, hist_close, a, ext, rec):
         f'<span class="sn2" style="color:{sc_col}">{sc}</span></div>'
         f'<div style="margin-bottom:10px">'
         f'<span class="sbadge" style="background:{badge_bg};color:{badge_tc}">{a["stxt"]}</span></div>'
-        f'{decision_html}'
+        f'<div class="spark">{sp}</div>'
         f'{more_html}'
         f'{strategy_more_html}'
         f'<div style="font-size:10px;color:var(--t2);margin-top:6px;line-height:1.5">'
@@ -3712,7 +3888,46 @@ h1{font-size:19px;font-weight:700;color:var(--t);display:flex;align-items:center
 .desktop-top-grid,.desktop-mid-grid{display:grid;gap:14px;margin:14px 0;align-items:start}
 .desktop-top-grid{grid-template-columns:minmax(0,1.05fr) minmax(360px,.95fr)}
 .desktop-mid-grid{grid-template-columns:minmax(360px,.9fr) minmax(0,1.1fr)}
-.desktop-top-grid .intro-card,.desktop-top-grid .buy-tool,.desktop-mid-grid .dca-tool,.desktop-mid-grid .market-radar{margin:0}
+.desktop-top-grid .intro-card,.desktop-top-grid .core-etfs,.desktop-mid-grid .dca-tool,.desktop-mid-grid .buy-tool{margin:0}
+.core-etfs,.today-focus,.target-overview{margin:14px 0}
+.core-grid,.focus-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:8px;margin-top:10px}
+.mini-target{background:var(--card2);border:1px solid var(--bdr);border-radius:8px;padding:11px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.mini-head{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
+.mini-head b{display:block;font-size:13px;color:var(--t);line-height:1.35}
+.mini-head small{display:block;font-size:10px;color:var(--t2);margin-top:2px;line-height:1.35}
+.mini-head>span{font-size:10px;font-weight:800;border-radius:999px;padding:3px 7px;white-space:nowrap}
+.mini-ok .mini-head>span,.overview-ok .overview-status span{color:#0F6E56;background:rgba(29,158,117,0.12)}
+.mini-wait .mini-head>span,.overview-wait .overview-status span{color:#854F0B;background:rgba(186,117,23,0.12)}
+.mini-stop .mini-head>span,.overview-stop .overview-status span{color:#993C1D;background:rgba(216,90,48,0.12)}
+.mini-body{display:grid;grid-template-columns:.8fr .75fr 1.45fr;gap:6px}
+.mini-body div{background:var(--card);border:1px solid var(--bdr);border-radius:7px;padding:7px;min-width:0}
+.mini-body span,.overview-row span{display:block;font-size:10px;color:var(--t2);line-height:1.3}
+.mini-body b{display:block;font-size:12px;color:var(--t);font-variant-numeric:tabular-nums;overflow-wrap:anywhere;line-height:1.35}
+.mini-target p{font-size:11px;color:var(--t2);line-height:1.55}
+.mini-link{display:inline-flex;align-self:flex-start;text-decoration:none;color:#0F6E56;background:rgba(29,158,117,0.1);border:1px solid rgba(29,158,117,0.22);border-radius:999px;padding:5px 10px;font-size:11px;font-weight:800}
+.mini-meta{display:flex;flex-wrap:wrap;gap:5px}
+.mini-meta span{font-size:10px;color:var(--t2);background:var(--card);border:1px solid var(--bdr);border-radius:999px;padding:3px 7px}
+.core-alt{border-top:1px solid var(--bdr);margin-top:10px;padding-top:8px}
+.core-alt summary{cursor:pointer;font-size:11px;font-weight:800;list-style:none;color:var(--t)}
+.core-alt summary::-webkit-details-marker{display:none}
+.core-alt summary::after{content:"＋";float:right;color:var(--t2)}
+.core-alt[open] summary::after{content:"－"}
+.core-alt-row{display:grid;grid-template-columns:1.2fr .8fr 1fr auto;gap:8px;align-items:center;background:var(--card2);border:1px solid var(--bdr);border-radius:8px;padding:8px;margin-top:7px}
+.core-alt-row b{font-size:12px;color:var(--t)}
+.core-alt-row span{font-size:11px;font-weight:800;color:var(--t)}
+.core-alt-row small{font-size:10px;color:var(--t2);line-height:1.35}
+.focus-group{border-top:1px solid var(--bdr);padding-top:10px;margin-top:10px}
+.focus-head{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;margin-bottom:8px}
+.focus-head b{font-size:13px;color:var(--t)}
+.focus-head span,.focus-group>small{font-size:10px;color:var(--t2);line-height:1.45}
+.overview-list{display:grid;gap:6px;margin-top:10px}
+.overview-row{display:grid;grid-template-columns:minmax(210px,1.6fr) .45fr .65fr minmax(160px,1.1fr) auto;gap:8px;align-items:center;background:var(--card2);border:1px solid var(--bdr);border-radius:8px;padding:9px 10px}
+.overview-name b{display:block;font-size:13px;color:var(--t);line-height:1.35}
+.overview-name small{display:block;font-size:10px;color:var(--t2);line-height:1.35}
+.overview-score b,.overview-price b{display:block;font-size:13px;color:var(--t);font-variant-numeric:tabular-nums}
+.overview-status span{display:inline-flex;border-radius:999px;padding:3px 7px;font-size:10px;font-weight:800;margin-bottom:2px}
+.overview-status small{display:block;font-size:10px;color:var(--t2);line-height:1.35;overflow-wrap:anywhere}
+.overview-link{justify-self:end}
 .section-head{display:flex;justify-content:space-between;gap:14px;align-items:flex-end;background:var(--card);border:1px solid var(--bdr);border-radius:12px;padding:14px 16px;margin:14px 0 10px}
 .section-head p{font-size:11px;color:var(--t2);line-height:1.6;margin-top:3px}
 .section-head span{font-size:11px;color:var(--t2);background:var(--card2);border:1px solid var(--bdr);border-radius:999px;padding:5px 10px;white-space:nowrap}
@@ -3953,6 +4168,16 @@ footer p{font-size:12px;color:#adb5bd;margin-bottom:3px;text-align:center}
   .section-head span{display:inline-block;margin-top:8px}
   .mobile-jump{position:sticky;top:48px;z-index:90;display:flex;gap:6px;overflow-x:auto;padding:8px 0;background:var(--bg);border-bottom:1px solid var(--bdr);margin:0 -12px 8px;padding-left:12px;padding-right:12px}
   .mobile-jump a{white-space:nowrap;text-decoration:none;color:var(--t);background:var(--card);border:1px solid var(--bdr);border-radius:999px;padding:7px 12px;font-size:12px;font-weight:700}
+  .core-grid,.focus-grid{grid-template-columns:1fr}
+  .mini-body{grid-template-columns:1fr 1fr}
+  .mini-body div:last-child{grid-column:1/-1}
+  .core-alt-row{grid-template-columns:1fr;gap:4px}
+  .focus-head{display:block}
+  .focus-head span{display:block;margin-top:3px}
+  .overview-row{grid-template-columns:1fr auto;gap:6px}
+  .overview-name{grid-column:1/-1}
+  .overview-status{grid-column:1/-1}
+  .overview-link{justify-self:start}
   .market-radar{padding:13px}
   .radar-group{padding:9px}
   .radar-grid{grid-template-columns:1fr 1fr;gap:7px}
@@ -3992,10 +4217,10 @@ document.addEventListener('DOMContentLoaded',function(){showTab('tw-stocks')});
 def mobile_jump_nav_html():
     links = [
         ('#market-summary', '重點'),
+        ('#core-etfs', '核心'),
+        ('#dca-sim', '定期'),
         ('#buy-tool', '想買'),
-        ('#market-radar', '雷達'),
-        ('#target-list', '標的'),
-        ('#methodology', '詳情'),
+        ('#target-overview', '一覽'),
     ]
     return '<nav class="mobile-jump">' + ''.join(
         f'<a href="{href}">{label}</a>' for href, label in links
@@ -4017,18 +4242,21 @@ def build_html(idx_html, tw_s, tw_e, us_s, us_e, bonds, update_time, market_ctx=
         f'{mobile_jump_nav_html()}\n'
         f'<div class="desktop-top-grid">\n'
         f'{newbie_summary_html(market_ctx)}\n'
+        f'{core_etf_spotlight_html()}\n'
+        f'</div>\n'
+        f'<div class="desktop-mid-grid">\n'
+        f'{dca_simulator_html(market_ctx)}\n'
         f'{buy_now_tool_html(market_ctx)}\n'
         f'</div>\n'
         f'{daily_order_overview_html(market_ctx)}\n'
-        f'<div class="desktop-mid-grid">\n'
-        f'{dca_simulator_html(market_ctx)}\n'
         f'{idx_html}\n'
-        f'</div>\n'
         f'{theme_radar_html()}\n'
+        f'{today_focus_html()}\n'
+        f'{target_overview_html()}\n'
         f'<section class="target-section" id="target-list">\n'
         f'<div class="section-head"><div><div class="st">標的分析</div>'
-        f'<p>先選分類，再看每張卡的結論、價格地圖與資料可信度；細節可以展開。</p></div>'
-        f'<span>ETF 與個股分開看</span></div>\n'
+        f'<p>一覽看完後，再到這裡看完整卡。每張卡先放結論、原因、反方與行動；技術細節和資料來源可展開。</p></div>'
+        f'<span>完整細節保留</span></div>\n'
         f'<nav class="tnav">\n'
         f'<button class="tb" data-tab="tw-stocks" onclick="showTab(\'tw-stocks\')">台股個股</button>\n'
         f'<button class="tb" data-tab="tw-etfs"   onclick="showTab(\'tw-etfs\')">台股 ETF</button>\n'
@@ -4054,7 +4282,7 @@ def build_html(idx_html, tw_s, tw_e, us_s, us_e, bonds, update_time, market_ctx=
 
 
 def report_is_healthy(html):
-    card_count = html.count('<div class="sc"')
+    card_count = html.count('class="sc target-card"')
     failure_count = html.count('資料暫時無法取得') + html.count('處理失敗')
     if card_count < 30:
         return False, f'卡片數過少：{card_count}'
