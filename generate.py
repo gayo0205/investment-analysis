@@ -1,9 +1,9 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """
-????????????? v2
-- ?????Yahoo Finance??????
-- ?????????????????? AI API?
-- ???????????????52??????????????
+智慧投資分析自動報告產生器 v2
+- 資料來源：Yahoo Finance（完全免費）
+- 分析方式：規則化技術指標判斷（無任何 AI API）
+- 新增：買賣建議、定期定額建議、52週位置、成交量比、均線排列等
 """
 
 import yfinance as yf
@@ -28,34 +28,34 @@ yf.set_tz_cache_location(str(CACHE_DIR))
 TWSE_DAILY_QUOTES = None
 
 # =============================================================
-# ? ??? ? ?????????
+# ★ 設定區 — 可自行修改追蹤清單
 # =============================================================
 
 TW_STOCKS = {
-    '2330.TW': '???',
-    '2317.TW': '??',
-    '2379.TW': '??',
-    '2454.TW': '???',
-    '2303.TW': '??',
-    '2408.TW': '???',
-    '2882.TW': '???',
-    '2449.TW': '????',
+    '2330.TW': '台積電',
+    '2317.TW': '鴻海',
+    '2379.TW': '瑞昱',
+    '2454.TW': '聯發科',
+    '2303.TW': '聯電',
+    '2408.TW': '南亞科',
+    '2882.TW': '國泰金',
+    '2449.TW': '京元電子',
 }
 
 TW_ETFS = {
-    '0050.TW':   '????50',
-    '006204.TW': '??????',
-    '0056.TW':   '?????',
-    '00878.TW':  '???????',
-    '00929.TW':  '????????',
-    '006208.TW': '???50',
-    '00919.TW':  '????????',
-    '0052.TW':   '????',
-    '00904.TW':  '???????30',
-    '00881.TW':  '????5G+',
-    '00940.TW':  '????????',
-    '00646.TW':  '??S&P500',
-    '00662.TW':  '??NASDAQ',
+    '0050.TW':   '元大台灣50',
+    '006204.TW': '永豐臺灣加權',
+    '0056.TW':   '元大高股息',
+    '00878.TW':  '國泰永續高股息',
+    '00929.TW':  '復華台灣科技優息',
+    '006208.TW': '富邦台50',
+    '00919.TW':  '群益台灣精選高息',
+    '0052.TW':   '富邦科技',
+    '00904.TW':  '新光臺灣半導體30',
+    '00881.TW':  '國泰台灣5G+',
+    '00940.TW':  '元大台灣價值高息',
+    '00646.TW':  '元大S&P500',
+    '00662.TW':  '富邦NASDAQ',
 }
 
 US_STOCKS = {
@@ -67,33 +67,33 @@ US_STOCKS = {
 }
 
 US_ETFS = {
-    'SPY':  '??500 ETF',
-    'QQQ':  '????100 ETF',
-    'SOXX': '????? ETF',
-    'IWM':  '??2000 ETF',
-    'XLK':  '???? ETF',
+    'SPY':  '標普500 ETF',
+    'QQQ':  '那斯達克100 ETF',
+    'SOXX': '費城半導體 ETF',
+    'IWM':  '羅素2000 ETF',
+    'XLK':  '科技類股 ETF',
 }
 
 BONDS = {
-    'TLT': '20???? ETF',
-    'IEF': '7-10???? ETF',
-    'HYG': '???? ETF',
-    'GLD': '?? ETF',
-    'USO': '?? ETF',
-    'DBC': '???? ETF',
+    'TLT': '20年期美債 ETF',
+    'IEF': '7-10年期美債 ETF',
+    'HYG': '高收益債 ETF',
+    'GLD': '黃金 ETF',
+    'USO': '原油 ETF',
+    'DBC': '多元商品 ETF',
 }
 
 INDICES = {
-    '^TWII': ('????',   False),
-    '^N225': ('??225',    False),
-    '^HSI':  ('????',   False),
-    'HSTECH.HK': ('????', False),
+    '^TWII': ('加權指數',   False),
+    '^N225': ('日經225',    False),
+    '^HSI':  ('恒生指數',   False),
+    'HSTECH.HK': ('恒生科技', False),
     '^KS11': ('KOSPI',      False),
     '^KQ11': ('KOSDAQ',     False),
-    '^GSPC': ('??500',    False),
-    '^SOX':  ('?????', False),
-    '^VIX':  ('VIX??',   True),
-    '^IXIC': ('????',   False),
+    '^GSPC': ('標普500',    False),
+    '^SOX':  ('費城半導體', False),
+    '^VIX':  ('VIX恐慌',   True),
+    '^IXIC': ('那斯達克',   False),
 }
 
 TW_LIMIT_MARKETS = set(
@@ -103,28 +103,28 @@ TW_LIMIT_MARKETS = set(
 )
 
 # =============================================================
-# ? ?????? ? ???????????????????
+# ★ 公開範例設定 — 只用來示範試算，不代表任何人的真實資產
 # =============================================================
 
 PUBLIC_EXAMPLE_PLAN = {
 # The site only uses sample values. Personal budget, positions, and broker data must stay outside the repo.
     'monthly_budget': 5000,
 
-    # ????????? 1 ?????????????? False?
+    # 台股定期定額常見有 1 元優惠；若你的券商不是，改成 False。
     'use_tw_dca_flat_fee': True,
     'tw_dca_flat_fee': 1,
 
-    # ????????????????????????
+    # 一般電子下單估算。不同券商折扣不同，可自己調整。
     'broker_fee_rate': 0.001425,
     'broker_fee_discount': 0.6,
     'regular_min_fee': 20,
     'sell_fee_discount': 0.6,
 
-    # ????????ETF 0.1%??? 0.3%?
+    # 台股賣出交易稅：ETF 0.1%，股票 0.3%。
     'tw_etf_sell_tax': 0.001,
     'tw_stock_sell_tax': 0.003,
 
-    # ??????????????????????????
+    # 手續費占投入金額超過這個比例，就提醒小額下單不划算。
     'max_reasonable_fee_pct': 0.2,
     'amount_step': 100,
     'min_tw_dca_amount': 1000,
@@ -133,90 +133,90 @@ PUBLIC_EXAMPLE_PLAN = {
 
 
 ETF_PROFILES = {
-    '0050.TW':   dict(role='????', bucket='????', base_ratio=0.55, note='???????????????????0050/006208 ?????'),
-    '006208.TW': dict(role='????', bucket='????', base_ratio=0.55, note='????50??????0050?????ETF???????'),
-    '006204.TW': dict(role='????', bucket='?????', base_ratio=0.45, note='????????????????????????'),
-    '0056.TW':   dict(role='???', bucket='???', base_ratio=0.25, note='???ETF??????????????????????'),
-    '00878.TW':  dict(role='???', bucket='???', base_ratio=0.25, note='????ESG??????????????????????'),
-    '00919.TW':  dict(role='???', bucket='???', base_ratio=0.20, note='???ETF??????????????????????'),
-    '00929.TW':  dict(role='???', bucket='?????', base_ratio=0.15, note='??????????????????????'),
-    '00940.TW':  dict(role='???', bucket='???', base_ratio=0.15, note='????????????????????'),
-    '0052.TW':   dict(role='????', bucket='????', base_ratio=0.15, note='????????????????????????'),
-    '00881.TW':  dict(role='????', bucket='5G/??', base_ratio=0.12, note='????ETF?????AI??????????????'),
-    '00904.TW':  dict(role='????', bucket='???', base_ratio=0.12, note='???????????AI?????????'),
-    '00646.TW':  dict(role='????', bucket='?????', base_ratio=0.20, note='?????S&P500???????????????????'),
-    '00662.TW':  dict(role='????', bucket='????', base_ratio=0.12, note='NASDAQ?????????????'),
-    '00679B.TW': dict(role='????', bucket='?????', base_ratio=0.15, note='?????ETF???????????????'),
-    '00720B.TW': dict(role='????', bucket='????', base_ratio=0.10, note='??????????????????'),
-    '00751B.TW': dict(role='????', bucket='????', base_ratio=0.10, note='????????????????????'),
+    '0050.TW':   dict(role='長期核心', bucket='台股核心', base_ratio=0.55, note='台灣大型權值股核心，適合長期定期定額；0050/006208 擇一即可。'),
+    '006208.TW': dict(role='長期核心', bucket='台股核心', base_ratio=0.55, note='追蹤台灣50，常被拿來和0050比較；核心ETF通常擇一即可。'),
+    '006204.TW': dict(role='長期核心', bucket='台股全市場', base_ratio=0.45, note='更接近整體台股加權指數，但要留意成交量與折溢價。'),
+    '0056.TW':   dict(role='現金流', bucket='高股息', base_ratio=0.25, note='高股息ETF，重點不是殖利率高低，而是總報酬與配息來源。'),
+    '00878.TW':  dict(role='現金流', bucket='高股息', base_ratio=0.25, note='高股息與ESG題材，適合現金流配置，不宜只因配息高而重壓。'),
+    '00919.TW':  dict(role='現金流', bucket='高股息', base_ratio=0.20, note='高股息ETF，需觀察成分股輪動、配息穩定性與收益平準金。'),
+    '00929.TW':  dict(role='現金流', bucket='高股息科技', base_ratio=0.15, note='科技優息，波動可能比傳統高股息更接近科技股。'),
+    '00940.TW':  dict(role='現金流', bucket='高股息', base_ratio=0.15, note='價值高息型，需觀察長期總報酬與換股成本。'),
+    '0052.TW':   dict(role='衛星主題', bucket='台股科技', base_ratio=0.15, note='台股科技主題，適合作為衛星配置，不建議取代核心。'),
+    '00881.TW':  dict(role='衛星主題', bucket='5G/科技', base_ratio=0.12, note='科技主題ETF，適合關注AI與通訊供應鏈，但要控制比例。'),
+    '00904.TW':  dict(role='衛星主題', bucket='半導體', base_ratio=0.12, note='半導體主題，景氣循環與AI熱度會讓波動放大。'),
+    '00646.TW':  dict(role='海外分散', bucket='美股大型股', base_ratio=0.20, note='台幣買美股S&P500概念，仍要看匯率、內扣費用與追蹤誤差。'),
+    '00662.TW':  dict(role='海外分散', bucket='美股科技', base_ratio=0.12, note='NASDAQ主題，成長性高但波動也高。'),
+    '00679B.TW': dict(role='防守配置', bucket='美債長天期', base_ratio=0.15, note='長天期債券ETF，降息有利但升息時價格會受傷。'),
+    '00720B.TW': dict(role='防守配置', bucket='投資級債', base_ratio=0.10, note='投資級公司債，需留意利率與信用利差。'),
+    '00751B.TW': dict(role='防守配置', bucket='高評級債', base_ratio=0.10, note='高評級公司債，適合降低波動，但不是保本。'),
 }
 
 
 NEWS_THEMES = [
-    dict(theme='AI/???', words=['AI', '???', 'HPC', '???', 'HBM', 'ASIC'], watch=['0052.TW', '00904.TW', '00881.TW', '2330.TW', '2317.TW', '2454.TW', '2449.TW']),
-    dict(theme='??/??/??', words=['??', '??', '??', '??', '???'], watch=['2308.TW']),
-    dict(theme='??/????', words=['??', '??', '??', '??', '??'], watch=[]),
-    dict(theme='??/??', words=['??', '??', '???', 'Fed'], watch=['2882.TW', '00679B.TW', '00720B.TW']),
-    dict(theme='??/????', words=['??', '????', '??'], watch=['00679B.TW', '00720B.TW', '00751B.TW']),
-    dict(theme='??/??', words=['??', '??', '??', '??'], watch=[]),
+    dict(theme='AI/半導體', words=['AI', '半導體', 'HPC', '伺服器', 'HBM', 'ASIC'], watch=['0052.TW', '00904.TW', '00881.TW', '2330.TW', '2317.TW', '2454.TW', '2449.TW']),
+    dict(theme='電力/重電/儲能', words=['電力', '重電', '儲能', '電網', '變壓器'], watch=['2308.TW']),
+    dict(theme='疫情/醫療防疫', words=['疫情', '口罩', '疫苗', '檢測', '醫療'], watch=[]),
+    dict(theme='通膨/升息', words=['通膨', '升息', '殖利率', 'Fed'], watch=['2882.TW', '00679B.TW', '00720B.TW']),
+    dict(theme='降息/景氣放緩', words=['降息', '景氣放緩', '衰退'], watch=['00679B.TW', '00720B.TW', '00751B.TW']),
+    dict(theme='航運/物流', words=['航運', '塞港', '運價', '物流'], watch=[]),
 ]
 
 BENCHMARK_LABELS = {
-    '^TWII': '????',
-    '^GSPC': '??500',
-    '^IXIC': '????',
-    '^SOX': '?????',
+    '^TWII': '加權指數',
+    '^GSPC': '標普500',
+    '^IXIC': '那斯達克',
+    '^SOX': '費城半導體',
 }
 
 TRACKING_RULES = {
-    '006204.TW': dict(benchmark='^TWII', mode='tracking', label='?????', hint='??????????????????'),
-    '0050.TW': dict(benchmark='^TWII', mode='reference', label='??????', hint='0050??????50??????????????'),
-    '006208.TW': dict(benchmark='^TWII', mode='reference', label='??????', hint='006208??????50??????????????'),
-    'SPY': dict(benchmark='^GSPC', mode='tracking', label='?????', hint='???500????????????'),
-    'SOXX': dict(benchmark='^SOX', mode='tracking', label='?????', hint='????????????????????'),
-    'QQQ': dict(benchmark='^IXIC', mode='reference', label='??????', hint='QQQ??NASDAQ100????????????????'),
+    '006204.TW': dict(benchmark='^TWII', mode='tracking', label='簡易追蹤差', hint='追蹤加權指數的粗估，非發行商正式數字'),
+    '0050.TW': dict(benchmark='^TWII', mode='reference', label='大盤對照偏離', hint='0050正式追蹤台灣50，這裡用加權指數做大方向對照'),
+    '006208.TW': dict(benchmark='^TWII', mode='reference', label='大盤對照偏離', hint='006208正式追蹤台灣50，這裡用加權指數做大方向對照'),
+    'SPY': dict(benchmark='^GSPC', mode='tracking', label='簡易追蹤差', hint='對標普500的粗估，非發行商正式數字'),
+    'SOXX': dict(benchmark='^SOX', mode='tracking', label='簡易追蹤差', hint='對費城半導體指數的粗估，非發行商正式數字'),
+    'QQQ': dict(benchmark='^IXIC', mode='reference', label='指數對照偏離', hint='QQQ追蹤NASDAQ100，這裡用那斯達克綜合指數近似參考'),
 }
 
 TRACKING_UNAVAILABLE_REASONS = {
-    '0056.TW': '???ETF???????????????????????',
-    '00878.TW': '???/ESG ETF??????????????????????',
-    '00919.TW': '???ETF??????????????????????',
-    '00929.TW': '????ETF??????????????????????',
-    '00940.TW': '???ETF??????????????????????',
-    '0052.TW': '????ETF?????????????????',
-    '00904.TW': '?????ETF?????????????????',
-    '00881.TW': '5G/??ETF?????????????????',
-    '00646.TW': '????ETF??????????????????????',
-    '00662.TW': '??NASDAQ ETF??????????????????????',
-    'XLK': '??ETF?????????????????????',
-    'IWM': 'IWM????Russell 2000?????Russell 2000???',
+    '0056.TW': '高股息ETF有自己的追蹤指數，不能直接拿加權指數當追蹤差。',
+    '00878.TW': '高股息/ESG ETF有自己的追蹤指數，資料不足時先不硬算追蹤差。',
+    '00919.TW': '高股息ETF有自己的選股規則，資料不足時先不硬算追蹤差。',
+    '00929.TW': '科技優息ETF有自己的追蹤指數，資料不足時先不硬算追蹤差。',
+    '00940.TW': '高股息ETF有自己的追蹤指數，資料不足時先不硬算追蹤差。',
+    '0052.TW': '科技主題ETF不能直接拿費城半導體當正式追蹤差。',
+    '00904.TW': '半導體主題ETF不能直接拿費城半導體當正式追蹤差。',
+    '00881.TW': '5G/科技ETF不能直接拿費城半導體當正式追蹤差。',
+    '00646.TW': '台幣海外ETF會混入匯率影響，不能直接跟美元指數算追蹤差。',
+    '00662.TW': '台幣NASDAQ ETF會混入匯率影響，不能直接跟美元指數算追蹤差。',
+    'XLK': '產業ETF需要對應產業正式指數，先不拿那斯達克替代。',
+    'IWM': 'IWM正式追蹤Russell 2000，目前未抓Russell 2000指數。',
 }
 
 ETF_BENCHMARKS = {ticker: rule['benchmark'] for ticker, rule in TRACKING_RULES.items()}
 
 SECTOR_LABELS = {
-    'technology': '??',
-    'financial_services': '??',
-    'communication_services': '????',
-    'consumer_cyclical': '?????',
-    'consumer_defensive': '????',
-    'industrials': '??',
-    'healthcare': '??',
-    'energy': '??',
-    'utilities': '????',
-    'realestate': '???',
-    'basic_materials': '???',
+    'technology': '科技',
+    'financial_services': '金融',
+    'communication_services': '通訊服務',
+    'consumer_cyclical': '非必需消費',
+    'consumer_defensive': '民生消費',
+    'industrials': '工業',
+    'healthcare': '醫療',
+    'energy': '能源',
+    'utilities': '公用事業',
+    'realestate': '不動產',
+    'basic_materials': '原物料',
 }
 
 DCA_SIM_TICKERS = {
-    '0050.TW': '????50',
-    '006208.TW': '???50',
-    '0056.TW': '?????',
-    '00878.TW': '???????',
-    '00646.TW': '??S&P500',
-    '00662.TW': '??NASDAQ',
-    'SPY': '??500 ETF',
-    'QQQ': '????100 ETF',
+    '0050.TW': '元大台灣50',
+    '006208.TW': '富邦台50',
+    '0056.TW': '元大高股息',
+    '00878.TW': '國泰永續高股息',
+    '00646.TW': '元大S&P500',
+    '00662.TW': '富邦NASDAQ',
+    'SPY': '標普500 ETF',
+    'QQQ': '那斯達克100 ETF',
 }
 
 BENCHMARK_SERIES = {}
@@ -225,7 +225,7 @@ BUY_NOW_DATA = {}
 META_CACHE = {}
 
 # =============================================================
-# ??????
+# 技術指標計算
 # =============================================================
 
 def calc_indicators(df):
@@ -385,7 +385,7 @@ def short_label(value, limit=18):
     text = str(value or '').strip()
     if not text:
         return 'N/A'
-    return text if len(text) <= limit else text[:limit - 1] + '?'
+    return text if len(text) <= limit else text[:limit - 1] + '…'
 
 
 def fmt_plain_num(value, digits=1):
@@ -399,7 +399,7 @@ def build_price_basis(close_series, latest_price, adj_close_series=None):
     """Return a price series on today's price scale, avoiding split artifacts."""
     raw = close_series.dropna() if close_series is not None else pd.Series(dtype=float)
     if raw.empty:
-        return raw, '?????', False
+        return raw, '市場收盤價', False
 
     split_adjusted = raw.copy()
     split_fixed = False
@@ -415,16 +415,16 @@ def build_price_basis(close_series, latest_price, adj_close_series=None):
             split_adjusted.iloc[:idx] = split_adjusted.iloc[:idx] * factor
             split_fixed = True
     if split_fixed:
-        return split_adjusted.dropna(), '??????', True
+        return split_adjusted.dropna(), '分割還原價格', True
 
     if adj_close_series is None:
-        return raw, '?????', False
+        return raw, '市場收盤價', False
     adj = adj_close_series.dropna()
     if adj.empty:
-        return raw, '?????', False
+        return raw, '市場收盤價', False
     joined = pd.concat([raw, adj], axis=1, join='inner').dropna()
     if len(joined) < 20:
-        return raw, '?????', False
+        return raw, '市場收盤價', False
 
     raw_tail = raw.tail(min(756, len(raw)))
     ratio = (joined.iloc[:, 0] / joined.iloc[:, 1].replace(0, np.nan)).dropna()
@@ -442,13 +442,13 @@ def build_price_basis(close_series, latest_price, adj_close_series=None):
         and (raw_high > last * 1.8 or raw_low < last * 0.45 or ratio_shift > 1.35)
     )
     if not looks_split:
-        return raw, '?????', False
+        return raw, '市場收盤價', False
 
     adj_last = safe_num(adj.iloc[-1])
     if adj_last is None or adj_last <= 0 or last is None:
-        return raw, '?????', False
+        return raw, '市場收盤價', False
     scaled = adj * (last / adj_last)
-    return scaled.dropna(), '????', True
+    return scaled.dropna(), '還原價格', True
 
 
 def scale_to_latest_price(series, latest_price):
@@ -478,7 +478,7 @@ def fmt_compact(value):
     v = safe_num(value)
     if v is None:
         return 'N/A'
-    units = [(1_000_000_000_000, '?'), (100_000_000, '?'), (10_000, '?')]
+    units = [(1_000_000_000_000, '兆'), (100_000_000, '億'), (10_000, '萬')]
     for base, label in units:
         if abs(v) >= base:
             return f'{v / base:.1f}{label}'
@@ -491,9 +491,9 @@ def fmt_net_lots(value):
         return 'N/A'
     lots = abs(v) / 1000
     if abs(v) < 1:
-        return '??'
-    side = '??' if v > 0 else '??'
-    return f'{side} {lots:,.0f}?'
+        return '持平'
+    side = '買超' if v > 0 else '賣超'
+    return f'{side} {lots:,.0f}張'
 
 
 def pct_return(series, lookback=756):
@@ -525,22 +525,22 @@ def exchange_clock(ticker):
         tz = ZoneInfo('Asia/Taipei')
         open_time = dt_time(9, 0)
         close_time = dt_time(13, 30)
-        tz_label = '????'
+        tz_label = '台灣時間'
     else:
         tz = ZoneInfo('America/New_York')
         open_time = dt_time(9, 30)
         close_time = dt_time(16, 0)
-        tz_label = '????'
+        tz_label = '美東時間'
 
     now = datetime.now(tz)
     if now.weekday() >= 5:
-        status = '???'
+        status = '休市日'
     elif now.time() < open_time:
-        status = '????'
+        status = '尚未開盤'
     elif now.time() <= close_time:
-        status = '??????????'
+        status = '開盤中，價格可能延遲'
     else:
-        status = '???'
+        status = '已收盤'
     return dict(date=now.date(), status=status, tz_label=tz_label)
 
 
@@ -553,18 +553,18 @@ def format_quote_time(meta):
         source_tz = ZoneInfo(tz_name)
         tw_tz = ZoneInfo('Asia/Taipei')
         labels = {
-            'Asia/Taipei': '??',
-            'America/New_York': '??',
-            'America/Chicago': '??',
-            'Asia/Tokyo': '??',
+            'Asia/Taipei': '台灣',
+            'America/New_York': '美東',
+            'America/Chicago': '美中',
+            'Asia/Tokyo': '日本',
         }
         source_dt = datetime.fromtimestamp(ts, source_tz)
         tw_dt = source_dt.astimezone(tw_tz)
-        tw_text = '?? ' + tw_dt.strftime('%m/%d %H:%M')
+        tw_text = '台灣 ' + tw_dt.strftime('%m/%d %H:%M')
         if tz_name == 'Asia/Taipei':
             return tw_text
         label = labels.get(tz_name, tz_name)
-        return f'{tw_text}?{label} {source_dt.strftime("%m/%d %H:%M")}?'
+        return f'{tw_text}（{label} {source_dt.strftime("%m/%d %H:%M")}）'
     except Exception:
         return ''
 
@@ -582,14 +582,14 @@ def quote_datetime(meta):
 
 def market_state_label(state):
     labels = {
-        'REGULAR': '???',
-        'PRE': '??',
-        'POST': '??',
-        'CLOSED': '???',
-        'PREPRE': '?????',
-        'POSTPOST': '?????',
+        'REGULAR': '開盤中',
+        'PRE': '盤前',
+        'POST': '盤後',
+        'CLOSED': '已收盤',
+        'PREPRE': '非交易時段',
+        'POSTPOST': '非交易時段',
     }
-    return labels.get(state or '', state or '????')
+    return labels.get(state or '', state or '狀態未知')
 
 
 def previous_weekday(day):
@@ -672,16 +672,16 @@ def ohlc_context(df, ticker, quote=None):
     state_text = market_state_label(state)
     quote_note = quote.get('quote_source') or 'Yahoo Finance'
     quote_time_text = format_quote_time(quote)
-    freshness_note = f'???? {session_date.isoformat() if session_date else "N/A"} ???'
+    freshness_note = f'資料屬於 {session_date.isoformat() if session_date else "N/A"} 交易日'
 
     if state == 'REGULAR':
-        price_label = '?????'
+        price_label = '盤中最新價'
     elif quote.get('quote_price') is not None:
-        price_label = '????/??'
+        price_label = '最新成交/收盤'
     else:
-        price_label = '????'
+        price_label = '最新收盤'
 
-    open_note = '?????????' if session_open is not None else '??????????'
+    open_note = '資料日開盤價已取得' if session_open is not None else '資料日開盤價暫無資料'
 
     return dict(
         latest_date=session_date.isoformat() if session_date else 'N/A',
@@ -690,7 +690,7 @@ def ohlc_context(df, ticker, quote=None):
         previous_close=previous_close,
         reference_date=previous_date.isoformat() if previous_date else None,
         reference_close=previous_close,
-        reference_label='?????',
+        reference_label='資料日昨收',
         reference_is_current=True,
         freshness_note=freshness_note,
         today_open=session_open,
@@ -747,12 +747,12 @@ def get_profile(ticker):
     if ticker in ETF_PROFILES:
         return ETF_PROFILES[ticker]
     if ticker in TW_ETFS or ticker in US_ETFS or ticker in BONDS:
-        return dict(role='??ETF', bucket='ETF', base_ratio=0.05, note='???????????????')
-    return dict(role='????', bucket='??', base_ratio=0.0, note='???????????????????ETF???????')
+        return dict(role='觀察ETF', bucket='ETF', base_ratio=0.05, note='尚未設定細分類，先當觀察標的。')
+    return dict(role='個股觀察', bucket='股票', base_ratio=0.0, note='新手不建議直接用定期定額重壓個股，先從ETF建立核心部位。')
 
 
 def fetch_metadata(ticker, last_price=None):
-    """?????????????? dict?????????"""
+    """抓取免費基本資料。失敗就回空 dict，避免硬湊假資料。"""
     if ticker in META_CACHE:
         return META_CACHE[ticker]
 
@@ -760,7 +760,7 @@ def fetch_metadata(ticker, last_price=None):
     try:
         info = yf.Ticker(ticker).get_info() or {}
     except Exception as ex:
-        print(f'    {ticker} ???????{ex}')
+        print(f'    {ticker} 基本資料略過：{ex}')
 
     price = safe_num(info.get('regularMarketPrice')) or safe_num(last_price)
     nav = safe_num(info.get('navPrice'))
@@ -806,7 +806,7 @@ def fetch_metadata(ticker, last_price=None):
                         weight=weight * 100,
                     )
         except Exception as ex:
-            print(f'    {ticker} ETF???????{ex}')
+            print(f'    {ticker} ETF持股資料略過：{ex}')
 
     meta = dict(
         raw=info,
@@ -860,7 +860,7 @@ def fetch_twse_daily_quote(ticker):
 
 
 def apply_finmind_metadata(ticker, meta):
-    """???????????/?????ETF ????????"""
+    """補台股個股的免費基本面/籌碼資料；ETF 不混用個股模型。"""
     if not is_tw_ticker(ticker) or is_etf_like(ticker):
         return meta
 
@@ -890,7 +890,7 @@ def apply_finmind_metadata(ticker, meta):
 
 
 def apply_tw_etf_metadata(ticker, meta, last_price=None):
-    """??? ETF ??????????? ETF ?????"""
+    """補台股 ETF 的公開專用資料，避免把 ETF 當個股看。"""
     if ticker not in TW_ETFS:
         return meta
     code = ticker.replace('.TW', '')
@@ -922,8 +922,8 @@ def should_merge_twse_quote(ticker, twse_quote):
     if not twse_quote:
         return False, ''
     clock = exchange_clock(ticker)
-    if clock['status'] == '??????????':
-        return False, '?????? Yahoo ??/?????TWSE STOCK_DAY_ALL ????????????????'
+    if clock['status'] == '開盤中，價格可能延遲':
+        return False, '盤中優先使用 Yahoo 最新/延遲報價；TWSE STOCK_DAY_ALL 是盤後正式日資料，不覆蓋盤中價。'
     return True, ''
 
 
@@ -937,7 +937,7 @@ def fetch_public_metadata(ticker, last_price=None):
             ratio = quote_price / ref_price
             if ratio < 0.5 or ratio > 1.5:
                 skipped = dict(meta)
-                skipped['twse_validation_note'] = f'TWSE?????Yahoo????????????ratio {ratio:.2f}?'
+                skipped['twse_validation_note'] = f'TWSE價格尺度與Yahoo日線差異過大，暫不合併（ratio {ratio:.2f}）'
                 return skipped
         should_merge, note = should_merge_twse_quote(ticker, twse_quote)
         if not should_merge:
@@ -945,11 +945,11 @@ def fetch_public_metadata(ticker, last_price=None):
             skipped['twse_reference_date'] = twse_quote.get('twse_date')
             skipped['twse_reference_close'] = twse_quote.get('quote_price')
             skipped['twse_validation_note'] = note
-            skipped['data_source_priority'] = '??Yahoo?????TWSE??????????????'
+            skipped['data_source_priority'] = '盤中Yahoo報價優先，TWSE盤後日資料保留為正式收盤參考'
             return apply_tw_etf_metadata(ticker, skipped, last_price)
         merged = dict(meta)
         merged.update(twse_quote)
-        merged['data_source_priority'] = 'TWSE???????Yahoo????/????'
+        merged['data_source_priority'] = 'TWSE盤後資料優先，Yahoo補基本面/歷史資料'
         return apply_tw_etf_metadata(ticker, merged, merged.get('quote_price') or last_price)
     return apply_tw_etf_metadata(ticker, meta, last_price)
 
@@ -977,13 +977,13 @@ def calc_sell_cost(amount, ticker):
 
 def fee_label(amount, fee):
     if amount <= 0:
-        return '??'
+        return '未估'
     pct = fee / amount * 100
     if pct <= PUBLIC_EXAMPLE_PLAN['max_reasonable_fee_pct']:
-        return f'???{pct:.2f}%?'
+        return f'划算（{pct:.2f}%）'
     if pct <= 0.8:
-        return f'???{pct:.2f}%?'
-    return f'???{pct:.2f}%?'
+        return f'尚可（{pct:.2f}%）'
+    return f'偏貴（{pct:.2f}%）'
 
 
 def calc_drawdown(close_series):
@@ -1018,28 +1018,28 @@ def calc_beta(close_series, ticker):
 def calc_tracking_error(return_series, ticker):
     rule = TRACKING_RULES.get(ticker)
     if not rule:
-        reason = TRACKING_UNAVAILABLE_REASONS.get(ticker, '????????????????')
-        return None, None, '?????', reason, 'unavailable'
+        reason = TRACKING_UNAVAILABLE_REASONS.get(ticker, '正式追蹤指數資料不足，先不硬算。')
+        return None, None, '正式追蹤差', reason, 'unavailable'
     bench_key = rule.get('benchmark')
     bench = BENCHMARK_SERIES.get(bench_key)
-    label = rule.get('label') or '?????'
-    hint = rule.get('hint') or '??????????'
+    label = rule.get('label') or '簡易追蹤差'
+    hint = rule.get('hint') or '非發行商正式追蹤誤差'
     mode = rule.get('mode') or 'reference'
     if bench_key is None or bench is None or return_series is None:
-        return None, BENCHMARK_LABELS.get(bench_key, bench_key), label, '??????????????', 'unavailable'
+        return None, BENCHMARK_LABELS.get(bench_key, bench_key), label, '對照指數資料不足，先不硬算。', 'unavailable'
     try:
         own = return_series.dropna().pct_change()
         ref = bench.dropna().pct_change()
         joined = pd.concat([own, ref], axis=1, join='inner').dropna().tail(252)
         if len(joined) < 60:
-            return None, BENCHMARK_LABELS.get(bench_key, bench_key), label, '????????????', 'unavailable'
+            return None, BENCHMARK_LABELS.get(bench_key, bench_key), label, '可比資料不足，先不硬算。', 'unavailable'
         active = joined.iloc[:, 0] - joined.iloc[:, 1]
         te = float(active.std()) * (252 ** 0.5) * 100
         if np.isnan(te) or np.isinf(te):
-            return None, BENCHMARK_LABELS.get(bench_key, bench_key), label, '??????????', 'unavailable'
+            return None, BENCHMARK_LABELS.get(bench_key, bench_key), label, '資料異常，先不硬算。', 'unavailable'
         return round(te, 2), BENCHMARK_LABELS.get(bench_key, bench_key), label, hint, mode
     except Exception:
-        return None, BENCHMARK_LABELS.get(bench_key, bench_key), label, '????????????????', 'unavailable'
+        return None, BENCHMARK_LABELS.get(bench_key, bench_key), label, '資料暫時無法可靠對照，先不硬算。', 'unavailable'
 
 
 def _dca_points(series):
@@ -1053,7 +1053,7 @@ def _dca_points(series):
     ]
 
 
-def store_dca_series(ticker, name, close_series, total_return_series=None, basis_note='?????'):
+def store_dca_series(ticker, name, close_series, total_return_series=None, basis_note='市場收盤價'):
     if ticker not in DCA_SIM_TICKERS:
         return
     points = _dca_points(close_series)
@@ -1062,33 +1062,33 @@ def store_dca_series(ticker, name, close_series, total_return_series=None, basis
         total_points = _dca_points(total_return_series)
         if total_points and len(total_points) >= max(60, int(len(points) * 0.7)):
             payload['total_points'] = total_points
-            payload['total_basis'] = '?????Yahoo Adj Close?'
+            payload['total_basis'] = '含息估算（Yahoo Adj Close）'
         DCA_SERIES[ticker] = payload
 
 
 def confidence_text(score):
     if score >= 75:
-        return '?'
+        return '高'
     if score >= 60:
-        return '?'
+        return '中'
     if score >= 45:
-        return '??'
-    return '?'
+        return '偏低'
+    return '低'
 
 
 def confidence_reason(conf, notes):
-    missing = [n for n in notes if ('??' in n or '??' in n)]
+    missing = [n for n in notes if ('待補' in n or '不足' in n)]
     if not missing:
-        return '??????????????????????????????????????????'
+        return '資料較完整，價格、成交量、技術與風險資料都有可用；但這仍不是保證獲利，只是輔助判斷。'
 
-    missing_text = '?'.join(missing[:3])
+    missing_text = '、'.join(missing[:3])
     if conf >= 60:
-        lead = '???????'
+        lead = '可以當方向參考'
     elif conf >= 45:
-        lead = '???????'
+        lead = '只能當輔助觀察'
     else:
-        lead = '?????????????'
-    return f'{lead}?????{missing_text}?'
+        lead = '暫時不要把它當主要買賣依據'
+    return f'{lead}，因為目前{missing_text}。'
 
 
 def data_quality_note(ticker, a):
@@ -1096,11 +1096,11 @@ def data_quality_note(ticker, a):
     conf = fs.get('confidence', 50)
     notes = list(a.get('data_notes', []))
     if not notes:
-        notes = ['?????????????']
+        notes = ['價格、成交量與風險資料可用']
     return dict(
         confidence=confidence_text(conf),
         reason=confidence_reason(conf, notes),
-        notes='?'.join(notes[:6])
+        notes='；'.join(notes[:6])
     )
 
 
@@ -1109,31 +1109,31 @@ def stock_basic_phrase(meta):
     if meta.get('trailing_pe') is not None:
         parts.append(f'PE {meta["trailing_pe"]:.1f}')
     if meta.get('revenue_growth') is not None:
-        parts.append(f'???? {meta["revenue_growth"] * 100:.1f}%')
+        parts.append(f'營收成長 {meta["revenue_growth"] * 100:.1f}%')
     if meta.get('earnings_growth') is not None:
-        parts.append(f'EPS/???? {meta["earnings_growth"] * 100:.1f}%')
+        parts.append(f'EPS/獲利成長 {meta["earnings_growth"] * 100:.1f}%')
     if meta.get('roe') is not None:
         parts.append(f'ROE {meta["roe"] * 100:.1f}%')
     if not parts:
-        return '???????'
-    return '?'.join(parts[:4])
+        return '基本面資料不足'
+    return '、'.join(parts[:4])
 
 
 def etf_basic_phrase(meta):
     parts = []
     if meta.get('expense_ratio') is not None:
-        parts.append(f'??? {meta["expense_ratio"]:.2f}%')
+        parts.append(f'費用率 {meta["expense_ratio"]:.2f}%')
     if meta.get('premium_discount') is not None:
-        parts.append(f'??? {meta["premium_discount"]:+.2f}%')
+        parts.append(f'折溢價 {meta["premium_discount"]:+.2f}%')
     if meta.get('dividend_yield') is not None:
-        parts.append(f'??? {meta["dividend_yield"]:.1f}%')
+        parts.append(f'殖利率 {meta["dividend_yield"]:.1f}%')
     if meta.get('total_assets') is not None:
-        parts.append(f'?? {fmt_compact(meta["total_assets"])}')
+        parts.append(f'規模 {fmt_compact(meta["total_assets"])}')
     if meta.get('top10_weight') is not None:
-        parts.append(f'??? {meta["top10_weight"]:.1f}%')
+        parts.append(f'前十大 {meta["top10_weight"]:.1f}%')
     if not parts:
-        return 'ETF??????'
-    return '?'.join(parts[:4])
+        return 'ETF專用資料不足'
+    return '、'.join(parts[:4])
 
 
 def buy_now_ratio(ticker, a, ext):
@@ -1143,16 +1143,16 @@ def buy_now_ratio(ticker, a, ext):
     risk = fs.get('risk', 50)
     w_pct = ext['w_pct']
 
-    if profile['role'] == '????':
+    if profile['role'] == '個股觀察':
         ratio = 0.10 if score >= 55 else 0.05 if score >= 45 else 0.0
         cap = 0.15
-    elif profile['role'] == '????':
+    elif profile['role'] == '長期核心':
         ratio = 0.35
         cap = 0.50
-    elif profile['role'] in ['???', '????', '????']:
+    elif profile['role'] in ['現金流', '海外分散', '防守配置']:
         ratio = 0.20
         cap = 0.30
-    elif profile['role'] == '????':
+    elif profile['role'] == '衛星主題':
         ratio = 0.15
         cap = 0.25
     else:
@@ -1189,37 +1189,37 @@ def decision_texts(ticker, a, ext, rec, plan=None):
     ma = ext['ma_align']
     risk = a.get('factor_scores', {}).get('risk', 50)
     max_dd = ext.get('max_drawdown')
-    dd_text = f'???????? {max_dd:.0f}%' if max_dd is not None else ''
+    dd_text = f'，歷史最大回撤約 {max_dd:.0f}%' if max_dd is not None else ''
 
     if is_etf:
         dca_txt, _, dca_reason = rec['dca']
         if risk < 45:
-            conclusion = '???????????'
+            conclusion = '風險偏高，只能小額觀察'
         elif w_pct >= 85:
-            conclusion = '??????????????'
+            conclusion = '長期可持續扣款，但不追高加碼'
         elif score >= 70:
-            conclusion = '???????????'
+            conclusion = '可分批投入，仍保留現金'
         elif score < 45:
-            conclusion = '?????????????'
+            conclusion = '先降低加碼衝動，等趨勢回穩'
         else:
             conclusion = dca_txt
-        reason = f'????? 52 ?? {w_pct:.0f}%?????{ma}?????? {risk}{dd_text}?ETF???{etf_basic_phrase(meta)}?{dca_reason}'
-        counter = '?????????ETF???????????????????????????????????'
+        reason = f'價格位階在 52 週的 {w_pct:.0f}%，趨勢為「{ma}」，風險分數 {risk}{dd_text}。ETF資料：{etf_basic_phrase(meta)}。{dca_reason}'
+        counter = '如果大盤跌破季線、ETF折溢價異常、費用率偏高、配息來源不穩或成分股過度集中，這個判斷要降級。'
         if plan and plan.get('amount', 0) > 0:
-            action = f'??????????????? {money(plan["amount"])} ??????????????????????????????'
+            action = f'定期定額照計畫，本月示範投入約 {money(plan["amount"])} 元；臨時想買請看本卡買進區間，並用上方「今天想買」分批估算。'
         else:
-            action = '?????????????????????????????????'
+            action = '本月不加碼，先保留現金；臨時想買要看本卡買進區間，只用小比例試單。'
     else:
         trade_txt, _, trade_reason = rec['trade']
         if score >= 70:
-            conclusion = '??????????????'
+            conclusion = '可小比例觀察，不建議重壓個股'
         elif score < 45:
-            conclusion = '????????????'
+            conclusion = '新手先不要追，等風險降低'
         else:
             conclusion = trade_txt
-        reason = f'???? {score}????? {w_pct:.0f}%?????{ma}?{dd_text}?????{stock_basic_phrase(meta)}?{trade_reason}'
-        counter = '?????????EPS?????????Forward PE??????????????????'
-        action = '??????????????????????????????????????? ETF ???'
+        reason = f'技術分數 {score}，價格位階 {w_pct:.0f}%，趨勢為「{ma}」{dd_text}。基本面：{stock_basic_phrase(meta)}。{trade_reason}'
+        counter = '如果營收連續轉弱、EPS下修、毛利率下降、Forward PE轉差或跌破季線，這個觀察要立刻降級。'
+        action = '新手先把個股當觀察清單；真的想買，先看本卡買進區間，用小比例分批，不要影響核心 ETF 部位。'
 
     return dict(conclusion=conclusion, reason=reason, counter=counter, action=action)
 
@@ -1265,7 +1265,7 @@ def target_tab_id(ticker):
     return 'bonds'
 
 
-def target_link(ticker, label='????', cls='mini-link'):
+def target_link(ticker, label='看完整卡', cls='mini-link'):
     return (
         f'<a class="{cls}" href="#{target_dom_id(ticker)}" '
         f'onclick="showMode(\'data-mode\');showTab(\'{target_tab_id(ticker)}\')">{h(label)}</a>'
@@ -1279,15 +1279,15 @@ def zone_range_text(item):
 
 def zone_status(item):
     zone = item.get('price_zone') or {}
-    return zone.get('status') or item.get('conclusion') or '????'
+    return zone.get('status') or item.get('conclusion') or '資料不足'
 
 
 def action_tone(status):
-    if status in ['????', '????', '?????']:
+    if status in ['可分批區', '健康回檔', '加碼觀察區']:
         return 'ok'
-    if status in ['????', '????', '?????']:
+    if status in ['健康創高', '強勢高位', '偏高等待區']:
         return 'wait'
-    if status in ['????', '????']:
+    if status in ['過熱追高', '轉弱下跌']:
         return 'stop'
     return 'wait'
 
@@ -1309,14 +1309,14 @@ def compact_target_tile(ticker, item, mode='normal'):
     price_text = f'{float(price):,.2f}' if isinstance(price, (int, float)) else 'N/A'
     score = item.get('score', 'N/A')
     range_text = zone_range_text(item)
-    action = item.get('action') or item.get('conclusion') or '?????'
+    action = item.get('action') or item.get('conclusion') or '先看完整卡'
     extra = ''
     if mode == 'core':
         extra = (
             f'<div class="mini-meta">'
             f'<span>{h(item.get("role", ""))}</span>'
             f'<span>{h(item.get("bucket", ""))}</span>'
-            f'<span>??? {h(item.get("confidence", "N/A"))}</span>'
+            f'<span>可信度 {h(item.get("confidence", "N/A"))}</span>'
             f'</div>'
         )
     return (
@@ -1325,9 +1325,9 @@ def compact_target_tile(ticker, item, mode='normal'):
         f'<small>{h(item.get("role", ""))} / {h(item.get("bucket", ""))}</small></div>'
         f'<span>{h(status)}</span></div>'
         f'<div class="mini-body">'
-        f'<div><span>??</span><b>{price_text}</b></div>'
-        f'<div><span>???</span><b>{h(score)}</b></div>'
-        f'<div><span>????</span><b>{h(range_text)}</b></div>'
+        f'<div><span>現價</span><b>{price_text}</b></div>'
+        f'<div><span>健康分</span><b>{h(score)}</b></div>'
+        f'<div><span>可看區間</span><b>{h(range_text)}</b></div>'
         f'</div>'
         f'<p>{h(action)}</p>'
         f'{extra}'
@@ -1345,16 +1345,16 @@ def core_etf_spotlight_html():
     cash_html = ''.join(
         f'<div class="core-alt-row"><b>{h(tk.replace(".TW", ""))} {h(BUY_NOW_DATA[tk]["name"])}</b>'
         f'<span>{h(zone_status(BUY_NOW_DATA[tk]))}</span>'
-        f'<small>{h(zone_range_text(BUY_NOW_DATA[tk]))}</small>{target_link(tk, "??")}</div>'
+        f'<small>{h(zone_range_text(BUY_NOW_DATA[tk]))}</small>{target_link(tk, "打開")}</div>'
         for tk in cashflow
     )
     return (
         f'<section class="sc core-etfs" id="core-etfs">'
-        f'<div class="tool-head"><div><div class="st">?? ETF</div>'
-        f'<p>????????????????0050 / 006208 ???? ETF ???????????????????????????????</p></div>'
-        f'<span class="section-meta">???????</span></div>'
+        f'<div class="tool-head"><div><div class="st">核心 ETF</div>'
+        f'<p>先把每月最可能照做的標的放上來。0050 / 006208 這類核心 ETF 不是要猜最低點，而是看現在適不適合照常扣、少量加碼或先別重押。</p></div>'
+        f'<span class="section-meta">每月扣款優先看</span></div>'
         f'<div class="core-grid">{core_html}</div>'
-        f'<details class="core-alt"><summary>???????? ETF</summary>{cash_html}</details>'
+        f'<details class="core-alt"><summary>看高股息與現金流 ETF</summary>{cash_html}</details>'
         f'</section>'
     )
 
@@ -1363,10 +1363,10 @@ def today_focus_html():
     if not BUY_NOW_DATA:
         return ''
     groups = [
-        ('?????', ['????', '????', '?????'], '??????????????????'),
-        ('?????', ['????', '????', '?????'], '?????????????????????'),
-        ('????', ['????'], '??????????????????????'),
-        ('????', ['????'], '????????????????????????????'),
+        ('可分批觀察', ['可分批區', '健康回檔', '加碼觀察區'], '不是叫你重押，是值得打開看完整理由。'),
+        ('強勢但不追', ['健康創高', '強勢高位', '偏高等待區'], '趨勢好不等於今天亂追，重點是等回檔或小額。'),
+        ('過熱先等', ['過熱追高'], '價格已偏熱，先等回到區間，不要因為熱門就追。'),
+        ('轉弱避開', ['轉弱下跌'], '這裡只能提醒風險；是否賣出要看持倉成本、比例與現金需求。'),
     ]
     cards = []
     ordered = all_targets_order()
@@ -1375,7 +1375,7 @@ def today_focus_html():
         if not picks:
             continue
         tiles = ''.join(compact_target_tile(tk, BUY_NOW_DATA[tk], 'focus') for tk in picks[:3])
-        more = f'<small>?? {len(picks) - 3} ?????????</small>' if len(picks) > 3 else ''
+        more = f'<small>另有 {len(picks) - 3} 檔可在下方一覽查看</small>' if len(picks) > 3 else ''
         cards.append(
             f'<div class="focus-group"><div class="focus-head"><b>{h(title)}</b><span>{h(note)}</span></div>'
             f'<div class="focus-grid">{tiles}</div>{more}</div>'
@@ -1384,9 +1384,9 @@ def today_focus_html():
         return ''
     return (
         f'<section class="sc today-focus" id="today-focus">'
-        f'<div class="tool-head"><div><div class="st">?????????</div>'
-        f'<p>????????????????????????????????????????</p></div>'
-        f'<span class="section-meta">????</span></div>'
+        f'<div class="tool-head"><div><div class="st">今日值得先看的標的</div>'
+        f'<p>這裡不是買進排行榜，而是把全部標的先分成幾種情境，讓你知道該先打開哪幾張完整卡。</p></div>'
+        f'<span class="section-meta">情境掃描</span></div>'
         f'{"".join(cards)}'
         f'</section>'
     )
@@ -1398,13 +1398,13 @@ def target_overview_html():
         return ''
     rows = []
     cat_labels = {
-        'tw-etfs': '?? ETF',
-        'tw-stocks': '????',
-        'us-etfs': '?? ETF',
-        'us-stocks': '????',
-        'bonds': '??/??',
+        'tw-etfs': '台股 ETF',
+        'tw-stocks': '台股個股',
+        'us-etfs': '美股 ETF',
+        'us-stocks': '美股個股',
+        'bonds': '債券/商品',
     }
-    confidence_rank = {'?': 3, '?': 2, '??': 1}
+    confidence_rank = {'高': 3, '中': 2, '偏低': 1}
     for tk in ordered:
         item = BUY_NOW_DATA[tk]
         status = zone_status(item)
@@ -1418,19 +1418,19 @@ def target_overview_html():
         w_pct = safe_num(item.get('w_pct')) or 50
         conf = item.get('confidence', 'N/A')
         watch_score = {'ok': 300, 'wait': 200, 'stop': 100}.get(tone, 0) + score + confidence_rank.get(conf, 0) * 3
-        action = item.get('action') or item.get('conclusion') or '????'
+        action = item.get('action') or item.get('conclusion') or '看完整卡'
         rows.append(
             f'<div class="overview-row overview-{tone}" data-cat="{h(cat)}" data-tone="{h(tone)}" '
             f'data-score="{score:.2f}" data-risk="{risk:.2f}" data-wpct="{w_pct:.2f}" '
             f'data-watch="{watch_score:.2f}" data-conf="{confidence_rank.get(conf, 0)}" data-order="{len(rows)}">'
             f'<div class="overview-name"><b>{h(code)} {h(item.get("name", ""))}</b>'
             f'<small>{h(cat_labels.get(cat, cat))} / {h(item.get("role", ""))} / {h(item.get("bucket", ""))}</small></div>'
-            f'<div class="overview-score"><span>??</span><b>{h(item.get("score", "N/A"))}</b></div>'
-            f'<div class="overview-price"><span>??</span><b>{price_text}</b></div>'
+            f'<div class="overview-score"><span>健康</span><b>{h(item.get("score", "N/A"))}</b></div>'
+            f'<div class="overview-price"><span>現價</span><b>{price_text}</b></div>'
             f'<div class="overview-status"><span>{h(status)}</span><small>{h(zone_range_text(item))}</small></div>'
-            f'<div class="overview-action"><span>????</span><small>{h(action)}</small></div>'
-            f'<div class="overview-confidence"><span>???</span><b>{h(conf)}</b></div>'
-            f'{target_link(tk, "???", "mini-link overview-link")}'
+            f'<div class="overview-action"><span>今日行動</span><small>{h(action)}</small></div>'
+            f'<div class="overview-confidence"><span>可信度</span><b>{h(conf)}</b></div>'
+            f'{target_link(tk, "完整卡", "mini-link overview-link")}'
             f'</div>'
         )
     script = '''
@@ -1469,21 +1469,21 @@ document.addEventListener('DOMContentLoaded',function(){
 '''
     return (
         f'<section class="sc target-overview" id="target-overview">'
-        f'<div class="tool-head"><div><div class="st">??????</div>'
-        f'<p>????????????????????????????????????? 37 ????</p></div>'
-        f'<span class="section-meta">?????</span></div>'
+        f'<div class="tool-head"><div><div class="st">全部標的一覽</div>'
+        f'<p>先用一行看完每檔的結論、分數與可看區間；想研究再打開完整卡，不用一開始滑過 37 張大卡。</p></div>'
+        f'<span class="section-meta">可篩選排序</span></div>'
         f'<div class="overview-controls">'
-        f'<label><span>??</span><select id="overviewCat"><option value="all">??</option>'
-        f'<option value="tw-etfs">?? ETF</option><option value="tw-stocks">????</option>'
-        f'<option value="us-etfs">?? ETF</option><option value="us-stocks">????</option><option value="bonds">??/??</option></select></label>'
-        f'<label><span>??</span><select id="overviewTone"><option value="all">????</option>'
-        f'<option value="ok">???/??</option><option value="wait">?????</option><option value="stop">?????</option></select></label>'
-        f'<label><span>??</span><select id="overviewSort"><option value="watch">????</option>'
-        f'<option value="score">??????</option><option value="risk">?????</option>'
-        f'<option value="wpct">52??????</option><option value="conf">????????</option></select></label>'
+        f'<label><span>類別</span><select id="overviewCat"><option value="all">全部</option>'
+        f'<option value="tw-etfs">台股 ETF</option><option value="tw-stocks">台股個股</option>'
+        f'<option value="us-etfs">美股 ETF</option><option value="us-stocks">美股個股</option><option value="bonds">債券/商品</option></select></label>'
+        f'<label><span>狀態</span><select id="overviewTone"><option value="all">全部狀態</option>'
+        f'<option value="ok">可分批/回檔</option><option value="wait">強勢或等待</option><option value="stop">過熱或轉弱</option></select></label>'
+        f'<label><span>排序</span><select id="overviewSort"><option value="watch">值得先看</option>'
+        f'<option value="score">健康分高到低</option><option value="risk">風險低到高</option>'
+        f'<option value="wpct">52週位置低到高</option><option value="conf">資料可信度高到低</option></select></label>'
         f'</div>'
         f'<div class="overview-list" id="overviewList">{"".join(rows)}</div>'
-        f'<div class="nd" id="overviewEmpty" style="display:none">??????????</div>'
+        f'<div class="nd" id="overviewEmpty" style="display:none">沒有符合篩選的標的。</div>'
         f'<script>{script}</script>'
         f'</section>'
     )
@@ -1499,38 +1499,38 @@ def visual_action_board_html(market_ctx=None):
         counts[action_tone(zone_status(BUY_NOW_DATA[tk]))] += 1
     total = max(1, sum(counts.values()))
     core_candidates = [tk for tk in ['0050.TW', '006208.TW'] if tk in BUY_NOW_DATA]
-    core_text = '?? ETF ????'
+    core_text = '核心 ETF 資料不足'
     core_range = 'N/A'
     if core_candidates:
         core = BUY_NOW_DATA[core_candidates[0]]
-        core_text = f'{core_candidates[0].replace(".TW", "")}?{zone_status(core)}'
+        core_text = f'{core_candidates[0].replace(".TW", "")}：{zone_status(core)}'
         core_range = zone_range_text(core)
-    temp = market_ctx.get('temperature', '??')
-    advice = market_ctx.get('advice', '????????????????????')
+    temp = market_ctx.get('temperature', '中性')
+    advice = market_ctx.get('advice', '先照計畫小額分批，不因單日訊號改變策略。')
 
     def bar(label, key, text):
         pct = counts[key] / total * 100
         return (
             f'<div class="visual-bar visual-{key}">'
-            f'<div><b>{h(label)}</b><span>{counts[key]} ?</span></div>'
+            f'<div><b>{h(label)}</b><span>{counts[key]} 檔</span></div>'
             f'<i><em style="width:{pct:.1f}%"></em></i>'
             f'<small>{h(text)}</small></div>'
         )
 
     return (
         f'<section class="sc visual-board" id="visual-board">'
-        f'<div class="tool-head"><div><div class="st">??????</div>'
-        f'<p>???????? ETF ???????????????????????????????????</p></div>'
-        f'<span class="section-meta">?????</span></div>'
+        f'<div class="tool-head"><div><div class="st">今日行動儀表</div>'
+        f'<p>把市場狀態、核心 ETF 與全標的掃描結果翻成一眼能看的行動地圖。這裡是總覽，細節仍在完整數據。</p></div>'
+        f'<span class="section-meta">視覺化總覽</span></div>'
         f'<div class="visual-grid">'
-        f'<div class="visual-main"><span>????</span><b>{h(temp)}</b><small>{h(advice)}</small></div>'
-        f'<div class="visual-main"><span>?? ETF</span><b>{h(core_text)}</b><small>?????{h(core_range)}</small></div>'
-        f'<div class="visual-main"><span>????</span><b>{h(market_ctx.get("chase_state", "??"))}</b><small>??????????????????</small></div>'
+        f'<div class="visual-main"><span>市場溫度</span><b>{h(temp)}</b><small>{h(advice)}</small></div>'
+        f'<div class="visual-main"><span>核心 ETF</span><b>{h(core_text)}</b><small>可看區間：{h(core_range)}</small></div>'
+        f'<div class="visual-main"><span>單筆追價</span><b>{h(market_ctx.get("chase_state", "保守"))}</b><small>先看雷達，再看價格區間，不用追熱門。</small></div>'
         f'</div>'
         f'<div class="visual-bars">'
-        f'{bar("???/??", "ok", "?????????????????")}'
-        f'{bar("?????", "wait", "???????????????")}'
-        f'{bar("?????", "stop", "??????????????????")}'
+        f'{bar("可分批/回檔", "ok", "值得打開完整卡，但仍要按區間分批。")}'
+        f'{bar("強勢或等待", "wait", "不是不能買，是不要用情緒追高。")}'
+        f'{bar("過熱或轉弱", "stop", "先等風險降低，或只保留原本定期定額。")}'
         f'</div>'
         f'</section>'
     )
@@ -1559,7 +1559,7 @@ def simple_backtest(close_series, monthly_amount, ticker, years=None):
     for px in monthly_prices:
         fee = calc_buy_fee(monthly_amount, ticker)
         net = max(0, monthly_amount - fee)
-        # ????????????????????????????????????
+        # 台股定期定額實務上以金額申購、分配股數；這裡用整股估算，對小白比較保守。
         units = int(net // float(px))
         shares += units
         fees += fee
@@ -1590,33 +1590,33 @@ def calc_investment_plan(ticker, price, a, ext, hist_close):
     reasons = []
     factor = 1.0
 
-    if profile['role'] == '????':
+    if profile['role'] == '個股觀察':
         factor = 0
-        reasons.append('??????ETF????????????')
+        reasons.append('新手階段先用ETF建立核心，個股只列觀察。')
     else:
         if risk_score < 45:
             factor = 0
-            reasons.append('?????????????')
+            reasons.append('風險分數偏低，本月不加碼。')
         if w_pct >= 90:
             factor *= 0.5
-            reasons.append('??52????????????')
+            reasons.append('接近52週高點，本月不追高加碼。')
         elif w_pct >= 75:
             factor *= 0.75
-            reasons.append('????????????')
-        elif w_pct <= 30 and ma_align != '????':
+            reasons.append('價格偏高，降低扣款比例。')
+        elif w_pct <= 30 and ma_align != '空頭排列':
             factor *= 1.25
-            reasons.append('?????????????')
+            reasons.append('價格相對低位，可小幅加碼。')
 
         if rsi is not None and rsi >= 75:
             factor *= 0.5
-            reasons.append('RSI?????????')
+            reasons.append('RSI過熱，再降低投入。')
         elif rsi is not None and rsi >= 70:
             factor *= 0.75
-            reasons.append('RSI????????')
+            reasons.append('RSI偏熱，避免追高。')
 
-        if ma_align == '????':
+        if ma_align == '空頭排列':
             factor = min(factor, 0.5)
-            reasons.append('?????????????')
+            reasons.append('趨勢偏空，只保留小額觀察。')
 
     amount = round_amount(base_amount * factor)
     if amount > 0 and amount < PUBLIC_EXAMPLE_PLAN['min_tw_dca_amount'] and is_tw_ticker(ticker):
@@ -1625,12 +1625,12 @@ def calc_investment_plan(ticker, price, a, ext, hist_close):
         amount = monthly_budget
 
     if not reasons:
-        reasons.append('???????????????????')
+        reasons.append('價格與趨勢未出現極端訊號，按計畫扣款。')
 
     if not is_tw_ticker(ticker):
         return dict(
             ticker=ticker, is_tw=False,
-            profile=profile, amount=0, fee=0, fee_text='?????????/????',
+            profile=profile, amount=0, fee=0, fee_text='海外標的需另設匯率/複委託費',
             shares=0, sell_fee=0, sell_tax=0, reasons=reasons, backtest=None
         )
 
@@ -1677,15 +1677,15 @@ def share_text(shares, ticker):
     except Exception:
         n = 0
     if n <= 0:
-        return '0 ?'
+        return '0 股'
     if is_tw_ticker(ticker):
         lots = n / 1000
         if n < 1000:
-            return f'{n:,} ?????? {lots:.3f} ??'
+            return f'{n:,} 股（零股，約 {lots:.3f} 張）'
         odd = n % 1000
-        lot_text = f'{n // 1000:,} ?' if odd == 0 else f'{n // 1000:,} ? + {odd:,} ???'
-        return f'{n:,} ??{lot_text}?'
-    return f'{n:,} ?'
+        lot_text = f'{n // 1000:,} 張' if odd == 0 else f'{n // 1000:,} 張 + {odd:,} 股零股'
+        return f'{n:,} 股（{lot_text}）'
+    return f'{n:,} 股'
 
 
 def clamp_float(value, low, high):
@@ -1713,16 +1713,16 @@ def volatility_profile(ticker, price, a, ext):
         atr = px * atr_pct / 100 if px > 0 else None
 
     if atr_pct < 1:
-        level = '???'
+        level = '低波動'
     elif atr_pct < 2:
-        level = '???'
+        level = '中波動'
     elif atr_pct < 4:
-        level = '???'
+        level = '高波動'
     else:
-        level = '????'
+        level = '極高波動'
 
     role = get_profile(ticker).get('role', '')
-    if role == '????':
+    if role == '長期核心':
         min_band, max_band, max_chase = 0.018, 0.065, 0.10
     elif is_etf_like(ticker):
         min_band, max_band, max_chase = 0.024, 0.095, 0.14
@@ -1751,12 +1751,12 @@ def calc_price_zones(ticker, price, a, ext):
 
     profile = get_profile(ticker)
     role = profile.get('role', '')
-    trend = ext.get('ma_align') or '???'
+    trend = ext.get('ma_align') or '盤整中'
     w_pct = safe_num(ext.get('w_pct'))
     if w_pct is None:
         w_pct = 50
     risk_score = a.get('factor_scores', {}).get('risk', 50)
-    is_core = role == '????'
+    is_core = role == '長期核心'
     vol = volatility_profile(ticker, px, a, ext)
     atr = safe_num(vol.get('atr')) or (px * 0.02)
     band_abs = safe_num(vol.get('band_abs')) or atr
@@ -1770,14 +1770,14 @@ def calc_price_zones(ticker, price, a, ext):
     macd_bull = a.get('macd_bull')
     kd_signal = a.get('kd_signal') or ''
 
-    if trend == '????':
+    if trend == '空頭排列':
         stop_raw = ma60 - 1.5 * band_abs
         lower_anchor = ma240 if ma240 is not None else safe_num(ext.get('w_low')) or ma60
         buy_low_raw = lower_anchor - 0.25 * band_abs
         buy_high_raw = ma60 - 0.35 * band_abs
         dynamic_chase = ma20 + 0.8 * band_abs
         chase_raw = max(dynamic_chase, buy_high_raw)
-        trend_note = '??????????????????????????????????'
+        trend_note = '空頭排列時，便宜不等於安全；價格地圖會把區間往下移，但加碼比例要降。'
     else:
         stop_raw = ma60 - 1.15 * band_abs
         buy_low_raw = min(ma60 + 0.15 * band_abs, ma20 - 0.85 * band_abs)
@@ -1786,10 +1786,10 @@ def calc_price_zones(ticker, price, a, ext):
         if boll_u is not None:
             dynamic_chase = min(dynamic_chase, boll_u * 1.01)
         chase_raw = max(buy_high_raw, dynamic_chase, ma20 * (1 + vol['chase_pct']))
-        trend_note = '? ATR/?????????????????????????????'
+        trend_note = '用 ATR/布林通道調整區間：波動大的標的區間放寬，但投入比例要降低。'
 
     buy_low_raw, buy_high_raw = sorted([buy_low_raw, buy_high_raw])
-    if ma240 is not None and trend != '????':
+    if ma240 is not None and trend != '多頭排列':
         buy_low_raw = min(buy_low_raw, ma240 * 1.02)
 
     stop_line = zone_price(ticker, stop_raw)
@@ -1807,7 +1807,7 @@ def calc_price_zones(ticker, price, a, ext):
         chase_limit = zone_price(ticker, buy_high * 1.03)
 
     trend_healthy = (
-        trend == '????'
+        trend == '多頭排列'
         and px >= ma20
         and risk_score >= 45
         and macd_bull is not False
@@ -1820,134 +1820,134 @@ def calc_price_zones(ticker, price, a, ext):
     turning_weak = (
         px < ma20
         or macd_bull is False
-        or '??' in kd_signal
+        or '死亡' in kd_signal
         or (bpct is not None and bpct < 45 and px < buy_high)
     )
 
     if px > chase_limit:
         if trend_healthy and not overheated:
-            status = '????'
-            summary = '??????????????????????????????????'
-            action = '?????????????????????????'
+            status = '健康創高'
+            summary = '價格在高位但趨勢仍健康；今天的高不一定是未來高點，但不適合一次重押。'
+            action = '想參與只能小額分批，保留資金等回測月線或可分批區。'
             tone = 'momentum'
         else:
-            status = '????'
-            summary = '????????????????/??????'
-            action = '???????????????????????????????'
+            status = '過熱追高'
+            summary = '價格已超過動態追高上限，短線報酬/風險不漂亮。'
+            action = '定期定額可照計畫；臨時單筆先不要追，等回到可分批區或強勢回測。'
             tone = 'hot'
     elif px < stop_line:
-        status = '????'
-        summary = '???????????????????????????????'
-        action = '??????????????????????????'
+        status = '轉弱下跌'
+        summary = '跌破保護線時不要把下跌直接當特價，先確認不是基本面或大盤變壞。'
+        action = '等站回保護線、趨勢回穩或基本面沒有惡化，再小額分批。'
         tone = 'danger'
     elif px < buy_low:
-        status = '????' if trend != '????' else '?????'
-        summary = '???????????????ETF?????????????????????'
-        action = '??ETF????????????????????????'
+        status = '健康回檔' if trend != '空頭排列' else '加碼觀察區'
+        summary = '價格拉回到分批區下緣附近；長期ETF可慢慢加，個股要先看營收與獲利有沒有壞掉。'
+        action = '核心ETF可分批加碼，個股只小比例試單，跌破保護線就停止。'
         tone = 'cool'
     elif px <= buy_high:
-        status = '????'
-        summary = '?????????????????????'
-        action = '????? 3-6 ???????????'
+        status = '可分批區'
+        summary = '不是保證會漲，而是相對不像在高檔一次追價。'
+        action = '想買可以拆 3-6 批；新手不要一次買完。'
         tone = 'ok'
     elif trend_healthy:
-        status = '????'
-        summary = '??????????????????????????'
-        action = '???????????????????ATR????????'
+        status = '強勢高位'
+        summary = '價格偏高但趨勢仍健康，不是不能買，而是不能重押追價。'
+        action = '可用小額分批參與；真正加碼等回測月線、ATR區間或可分批區。'
         tone = 'momentum'
     else:
-        status = '?????'
-        summary = '???????????????????????????????'
-        action = '?????????????????????'
+        status = '偏高等待區'
+        summary = '價格已離可分批區較遠，不代表永遠不能買，而是不要臨時加碼追高。'
+        action = '定期定額照扣；單筆等回落或只買很小一部分。'
         tone = 'warm'
 
     if is_core and px > buy_high and px <= chase_limit:
-        action = '??ETF?????????????????'
+        action = '核心ETF可照常扣款；額外加碼等回到區間內。'
     if risk_score < 40:
-        summary += ' ????????????????????'
+        summary += ' 風險分數偏低時，所有買進區間都要再保守。'
 
     range_text = f'{fmt_zone_price(buy_low)} ~ {fmt_zone_price(buy_high)}'
-    guard_text = f'?? {fmt_zone_price(chase_limit)} ????? {fmt_zone_price(stop_line)} ??'
+    guard_text = f'大於 {fmt_zone_price(chase_limit)} 不追；小於 {fmt_zone_price(stop_line)} 先停'
     reduce_watch = zone_price(ticker, chase_limit)
     trim_line = zone_price(ticker, max(chase_limit + 1.5 * atr, buy_high * 1.10))
     failure_line = stop_line
     if is_core:
-        sell_status = '??????????'
-        sell_text = f'?? {fmt_zone_price(reduce_watch)} ????????? {fmt_zone_price(trim_line)} ???????????????????'
-        fail_text = '??????ETF??????????????????'
+        sell_status = '核心部位不因漲多就賣'
+        sell_text = f'高於 {fmt_zone_price(reduce_watch)} 先停額外加碼；高於 {fmt_zone_price(trim_line)} 且超過目標配置時，只減碼額外加碼部位。'
+        fail_text = '先檢查大盤與ETF是否異常，核心定期定額不急著整筆賣。'
         sell_steps = [
-            ('???', '????', '???????????????'),
-            ('???', f'>{fmt_zone_price(reduce_watch)}', '?????????????????'),
-            ('???', '????', '?????????????????'),
+            ('不用賣', '核心續抱', '只是創高或偏熱，不是賣出理由。'),
+            ('先停買', f'>{fmt_zone_price(reduce_watch)}', '停止額外加碼，定期定額仍可照計畫。'),
+            ('小減碼', '超過配置', '只處理額外加碼部位，通常不動核心。'),
         ]
     elif is_etf_like(ticker):
-        sell_status = '???ETF?????'
-        sell_text = f'?? {fmt_zone_price(reduce_watch)} ????? {fmt_zone_price(trim_line)} ????/??????????????????'
-        fail_text = '?????????????ETF??/???????'
+        sell_status = '過熱或ETF異常才減碼'
+        sell_text = f'高於 {fmt_zone_price(reduce_watch)} 不追；高於 {fmt_zone_price(trim_line)} 且折溢價/集中度異常或超過配置時，可分批減碼。'
+        fail_text = '先確認是否只是市場回檔，或ETF追蹤/流動性出問題。'
         sell_steps = [
-            ('???', '????', 'ETF ????????????????????'),
-            ('????', f'>{fmt_zone_price(trim_line)}', '???????????????'),
-            ('????', f'<{fmt_zone_price(failure_line)}', '??????ETF??????????'),
+            ('不用賣', '正常波動', 'ETF 沒有折溢價、流動性或追蹤異常時不急著賣。'),
+            ('減碼觀察', f'>{fmt_zone_price(trim_line)}', '過熱又超過配置，才分批降一點。'),
+            ('風險出場', f'<{fmt_zone_price(failure_line)}', '跌破保護線且ETF資料異常，先降風險。'),
         ]
     else:
-        sell_status = '??????????????'
-        sell_text = f'?? {fmt_zone_price(reduce_watch)} ?????? {fmt_zone_price(trim_line)} ?????????25%~33%?'
-        fail_text = '??????EPS??????????????????'
+        sell_status = '不是現在賣，過熱且轉弱才減碼'
+        sell_text = f'高於 {fmt_zone_price(reduce_watch)} 先停買；高於 {fmt_zone_price(trim_line)} 且動能轉弱，可減碼25%~33%。'
+        fail_text = '若同時營收、EPS或毛利率轉弱，就是投資理由失效警告。'
         sell_steps = [
-            ('???', '????', '??????????????????'),
-            ('??25%', '????', '?????KD?????MACD??????????'),
-            ('???', '????', '??/EPS/???????????????'),
+            ('不用賣', '強勢健康', '高位但趨勢健康時，不因漲多就急著賣。'),
+            ('減碼25%', '高位轉弱', '跌破月線、KD死亡交叉或MACD轉弱，再處理一部分。'),
+            ('降風險', '基本面壞', '營收/EPS/毛利率轉弱，才是投資理由失效。'),
         ]
 
-    if status == '????':
+    if status == '健康創高':
         buy_steps = [
-            ('???', '10%~20%', '?????????????????'),
-            ('???', '????', f'?? {fmt_zone_price(ma20)} ?????????'),
-            ('????', '??', f'?? {fmt_zone_price(stop_line)} ?????????'),
+            ('第一批', '10%~20%', '只用小額參與，不把高位當低點重押。'),
+            ('第二批', '回測月線', f'回到 {fmt_zone_price(ma20)} 附近且沒轉弱再補。'),
+            ('停止條件', '轉弱', f'跌破 {fmt_zone_price(stop_line)} 或基本面轉弱就停。'),
         ]
-    elif status == '????':
+    elif status == '強勢高位':
         buy_steps = [
-            ('???', '15%~25%', '???????????????'),
-            ('???', '??????', f'?? {range_text} ???'),
-            ('????', '????', '????????????????'),
+            ('第一批', '15%~25%', '趨勢健康可小額分批，但不追滿。'),
+            ('第二批', '回到可分批區', f'接近 {range_text} 再補。'),
+            ('停止條件', '跌破月線', '強勢股失去月線支撐就先降低節奏。'),
         ]
-    elif status == '????':
+    elif status == '過熱追高':
         buy_steps = [
-            ('???', '0%~10%', '???????????????????'),
-            ('???', '??????', f'????? {range_text} ???'),
-            ('????', '?????', f'?? {fmt_zone_price(stop_line)} ?????'),
+            ('第一批', '0%~10%', '只適合試單或照定期定額，不做單筆加碼。'),
+            ('第二批', '回到可分批區', f'等價格回到 {range_text} 再買。'),
+            ('停止條件', '跌破保護線', f'低於 {fmt_zone_price(stop_line)} 先查原因。'),
         ]
-    elif status == '?????':
+    elif status == '偏高等待區':
         buy_steps = [
-            ('???', '10%~20%', '??????????????'),
-            ('???', '??20????', f'?????? {range_text} ???'),
-            ('????', '?????', f'?? {fmt_zone_price(stop_line)} ???'),
+            ('第一批', '10%~20%', '想買只能小買，不能一次用完。'),
+            ('第二批', '回到20日線附近', f'接近可分批區 {range_text} 再補。'),
+            ('停止條件', '跌破保護線', f'低於 {fmt_zone_price(stop_line)} 先停。'),
         ]
-    elif status == '????':
+    elif status == '可分批區':
         buy_steps = [
-            ('???', '30%~40%', '???????????????'),
-            ('???', '???????', f'?? {fmt_zone_price(buy_low)} ???'),
-            ('???', '?????', '???????????????'),
+            ('第一批', '30%~40%', '價格在合理區，可先建立一部分。'),
+            ('第二批', '再跌到區間下緣', f'接近 {fmt_zone_price(buy_low)} 再補。'),
+            ('第三批', '站穩或回升', '沒有跌破保護線且量能回穩再買。'),
         ]
-    elif status in ['?????', '????']:
+    elif status in ['加碼觀察區', '健康回檔']:
         buy_steps = [
-            ('???', 'ETF 40%~50%', '??ETF?????????????'),
-            ('???', '?????', '??????????????????'),
-            ('????', '?????', f'?? {fmt_zone_price(stop_line)} ????'),
+            ('第一批', 'ETF 40%~50%', '核心ETF可慢慢加，個股仍要小比例。'),
+            ('第二批', '確認沒變壞', '基本面沒惡化、價格沒跌破保護線再補。'),
+            ('停止條件', '跌破保護線', f'低於 {fmt_zone_price(stop_line)} 不硬接。'),
         ]
     else:
         buy_steps = [
-            ('???', 'ETF??/??0%', '?????????????'),
-            ('???', '?????', f'?? {fmt_zone_price(stop_line)} ?????????'),
-            ('????', '?????', '?????EPS???????????'),
+            ('第一批', 'ETF照扣/個股0%', '不要把跌破保護線當成特價。'),
+            ('第二批', '站回保護線', f'站回 {fmt_zone_price(stop_line)} 且風險降下來再看。'),
+            ('停止條件', '基本面轉壞', '個股營收、EPS、毛利率轉弱就降風險。'),
         ]
 
     watch_items = [
-        f'?????????? {range_text}',
-        f'??????? {fmt_zone_price(stop_line)}',
-        f'???????{trend}?{fmt_zone_price(ma20)} / {fmt_zone_price(ma60)}',
-        f'????{vol["level"]}?ATR ? {atr_pct:.2f}%/?????????????',
-        'ETF???????????????????EPS?ROE????',
+        f'價格是否回到可分批區 {range_text}',
+        f'是否守住保護線 {fmt_zone_price(stop_line)}',
+        f'趨勢是否維持：{trend}，{fmt_zone_price(ma20)} / {fmt_zone_price(ma60)}',
+        f'波動度：{vol["level"]}，ATR 約 {atr_pct:.2f}%/日，區間會跟著標的震幅調整',
+        'ETF看費用率、折溢價、成分股；個股看營收、EPS、ROE、毛利率',
     ]
     return dict(
         status=status,
@@ -1974,9 +1974,9 @@ def calc_price_zones(ticker, price, a, ext):
         volatility_label=vol['level'],
         turning_weak=turning_weak,
         overheated=overheated,
-        basis=f'{trend_note} ??????????????????',
-        ma_text=f'20?? {fmt_zone_price(ma20)}?60?? {fmt_zone_price(ma60)}'
-                + (f'?240?? {fmt_zone_price(ma240)}' if ma240 is not None else ''),
+        basis=f'{trend_note} 這是價格紀律，不是預測最低或最高點。',
+        ma_text=f'20日線 {fmt_zone_price(ma20)}、60日線 {fmt_zone_price(ma60)}'
+                + (f'、240日線 {fmt_zone_price(ma240)}' if ma240 is not None else ''),
         role=role,
         w_pct=round(w_pct, 1),
     )
@@ -2027,25 +2027,25 @@ def price_zone_html(zone):
         f'<span class="seg hot" style="left:{chase_pos}%;width:{max(0, 100-chase_pos)}%"></span>'
         f'<i style="left:{marker}%"></i>'
         f'</div>'
-        f'<div class="zone-labels"><span>??</span><span>???</span><span>??</span><span>??</span></div>'
+        f'<div class="zone-labels"><span>失效</span><span>可分批</span><span>強勢</span><span>過熱</span></div>'
         f'</div>'
     )
     return (
         f'<div class="zone-box">'
-        f'<div class="zone-head"><span>?? / ??????</span><b style="color:{tone_color}">{h(zone["status"])}</b></div>'
+        f'<div class="zone-head"><span>買進 / 減碼價格地圖</span><b style="color:{tone_color}">{h(zone["status"])}</b></div>'
         f'{zone_bar}'
         f'<div class="zone-grid">'
-        f'<div><span>????</span><b>{h(zone["range_text"])}</b><small>?????????????</small></div>'
-        f'<div><span>??/???</span><b>{h(zone["guard_text"])}</b><small>???????????</small></div>'
-        f'<div><span>????</span><b>{h(zone["sell_status"])}</b><small>{h(zone["sell_text"])}</small></div>'
-        f'<div><span>????</span><b>?? {h(fmt_zone_price(zone.get("failure_line")))}</b><small>{h(zone["fail_text"])}</small></div>'
+        f'<div><span>可分批區</span><b>{h(zone["range_text"])}</b><small>臨時想買，優先等這個區間。</small></div>'
+        f'<div><span>追高/保護線</span><b>{h(zone["guard_text"])}</b><small>上面不追，下面不硬接。</small></div>'
+        f'<div><span>減碼觀察</span><b>{h(zone["sell_status"])}</b><small>{h(zone["sell_text"])}</small></div>'
+        f'<div><span>失效提醒</span><b>低於 {h(fmt_zone_price(zone.get("failure_line")))}</b><small>{h(zone["fail_text"])}</small></div>'
         f'</div>'
         f'<p>{h(zone["summary"])}</p>'
         f'<small>{h(zone["action"])} {h(zone["basis"])} {h(zone["ma_text"])}</small>'
-        f'<details class="zone-more"><summary>??????????</summary>'
-        f'<div class="zone-subtitle">????</div><div class="zone-steps">{step_html}</div>'
-        f'<div class="zone-subtitle">????</div><div class="zone-steps">{sell_step_html}</div>'
-        f'<div class="zone-watch"><b>????</b><ul>{watch_items}</ul></div>'
+        f'<details class="zone-more"><summary>分批、賣出與觀察依據</summary>'
+        f'<div class="zone-subtitle">買進拆批</div><div class="zone-steps">{step_html}</div>'
+        f'<div class="zone-subtitle">賣出劇本</div><div class="zone-steps">{sell_step_html}</div>'
+        f'<div class="zone-watch"><b>觀察依據</b><ul>{watch_items}</ul></div>'
         f'</details>'
         f'</div>'
     )
@@ -2053,32 +2053,32 @@ def price_zone_html(zone):
 
 def investment_plan_html(plan):
     p = plan['profile']
-    reasons = '?'.join(plan['reasons'])
+    reasons = '；'.join(plan['reasons'])
     if plan['amount'] <= 0:
         return ''
     else:
-        cost_line = f'?????? {money(plan["fee"])} ??{plan["fee_text"]}'
-        buy_line = f'??????? {money(plan["amount"])} ????? {share_text(plan["shares"], plan.get("ticker", ""))}'
-    odd_lot_note = '<div class="plan-sub">????? 1,000 ?????????????????????</div>' if plan.get('is_tw') else ''
+        cost_line = f'買進手續費約 {money(plan["fee"])} 元，{plan["fee_text"]}'
+        buy_line = f'本月建議投入約 {money(plan["amount"])} 元，估可買 {share_text(plan["shares"], plan.get("ticker", ""))}'
+    odd_lot_note = '<div class="plan-sub">台股一張是 1,000 股；未滿一張就是零股，小資也可以買高價股。</div>' if plan.get('is_tw') else ''
 
     bt = plan['backtest']
     if bt:
         pnl_col = '#1D9E75' if bt['pnl'] >= 0 else '#D85A30'
         bt_html = (
-            f'<div class="plan-mini"><span>????</span>'
-            f'<b style="color:{pnl_col}">{money(bt["pnl"])} ??{bt["roi"]:+.1f}%?</b>'
-            f'<small>?? {money(plan["amount"] if plan["amount"] > 0 else PUBLIC_EXAMPLE_PLAN["min_tw_dca_amount"])} ??'
-            f'?? {money(bt["invested"])}?????????</small></div>'
+            f'<div class="plan-mini"><span>三年回測</span>'
+            f'<b style="color:{pnl_col}">{money(bt["pnl"])} 元（{bt["roi"]:+.1f}%）</b>'
+            f'<small>每月 {money(plan["amount"] if plan["amount"] > 0 else PUBLIC_EXAMPLE_PLAN["min_tw_dca_amount"])} 元，'
+            f'投入 {money(bt["invested"])}，未含配息與稅務。</small></div>'
         )
     else:
-        bt_html = '<div class="plan-mini"><span>????</span><b>N/A</b><small>?????????????</small></div>'
+        bt_html = '<div class="plan-mini"><span>三年回測</span><b>N/A</b><small>資料不足或海外費用未設定。</small></div>'
 
     return (
         f'<div class="plan-box">'
         f'<div class="plan-head"><span>{p["role"]}</span><b>{p["bucket"]}</b></div>'
         f'<div class="plan-main">{buy_line}</div>'
         f'<div class="plan-sub">{cost_line}</div>'
-        f'<div class="plan-sub">?????????? {money(plan["sell_fee"])} ????? {money(plan["sell_tax"])} ?</div>'
+        f'<div class="plan-sub">賣出成本估算：手續費 {money(plan["sell_fee"])} 元、交易稅 {money(plan["sell_tax"])} 元</div>'
         f'{odd_lot_note}'
         f'<div class="plan-note">{reasons}</div>'
         f'{bt_html}'
@@ -2092,12 +2092,12 @@ def decision_card_html(ticker, a, ext, rec, plan):
     q = data_quality_note(ticker, a)
     return (
         f'<div class="decision-card">'
-        f'<div class="decision-head"><span>?????</span><b>??????{q["confidence"]}</b></div>'
-        f'<div class="decision-row"><span>??</span><p>{d["conclusion"]}</p></div>'
-        f'<div class="decision-row"><span>??</span><p>{d["reason"]}</p></div>'
-        f'<div class="decision-row"><span>??</span><p>{d["counter"]}</p></div>'
-        f'<div class="decision-row"><span>??</span><p>{d["action"]}</p></div>'
-        f'<div class="decision-note"><b>??????</b>{q["reason"]}<br><span>?????{q["notes"]}</span></div>'
+        f'<div class="decision-head"><span>小白決策卡</span><b>資料可信度：{q["confidence"]}</b></div>'
+        f'<div class="decision-row"><span>結論</span><p>{d["conclusion"]}</p></div>'
+        f'<div class="decision-row"><span>原因</span><p>{d["reason"]}</p></div>'
+        f'<div class="decision-row"><span>反方</span><p>{d["counter"]}</p></div>'
+        f'<div class="decision-row"><span>行動</span><p>{d["action"]}</p></div>'
+        f'<div class="decision-note"><b>可信度原因：</b>{q["reason"]}<br><span>資料項目：{q["notes"]}</span></div>'
         f'</div>'
     )
 
@@ -2108,23 +2108,23 @@ def newbie_summary_html(market_ctx=None):
     satellite = round_amount(monthly * 0.20)
     defensive = round_amount(monthly * 0.15)
     cash = max(0, monthly - core - satellite - defensive)
-    themes = '?'.join(t['theme'] for t in NEWS_THEMES[:4])
+    themes = '、'.join(t['theme'] for t in NEWS_THEMES[:4])
     market_ctx = market_ctx or dict(
-        regime='????', temperature='??', advice='????????????????????',
-        headline='??????????????????????',
-        trend_state='????', emotion_state='??', risk_state='?', chase_state='??',
-        asia_state='????', asia_note='????????',
-        reasons=['?????'], counters=['??????'], actions=['???????????????'],
+        regime='資料不足', temperature='中性', advice='先照計畫小額分批，不因單日漲跌改變策略。',
+        headline='資料不足，先照原計畫，不因單日訊號改變策略。',
+        trend_state='資料不足', emotion_state='中性', risk_state='中', chase_state='保守',
+        asia_state='資料不足', asia_note='亞洲指數資料不足',
+        reasons=['資料不足。'], counters=['等資料更新。'], actions=['定期定額可照計畫，單筆先小額。'],
     )
     reasons = ''.join(f'<li>{h(x)}</li>' for x in market_ctx.get('reasons', [])[:4])
     counters = ''.join(f'<li>{h(x)}</li>' for x in market_ctx.get('counters', [])[:3])
     actions = ''.join(f'<li>{h(x)}</li>' for x in market_ctx.get('actions', [])[:3])
     status_cards = [
-        ('??', market_ctx.get('trend_state', market_ctx.get('regime', '????')), market_ctx.get('regime', '')),
-        ('??', market_ctx.get('emotion_state', '??'), f'VIX {market_ctx.get("vix", "N/A")}'),
-        ('??', market_ctx.get('risk_state', '?'), f'???? {market_ctx.get("position", 50)}%'),
-        ('??', market_ctx.get('asia_state', '????'), market_ctx.get('asia_note', '')),
-        ('??', market_ctx.get('chase_state', '??'), market_ctx.get('advice', '')),
+        ('趨勢', market_ctx.get('trend_state', market_ctx.get('regime', '資料不足')), market_ctx.get('regime', '')),
+        ('情緒', market_ctx.get('emotion_state', '中性'), f'VIX {market_ctx.get("vix", "N/A")}'),
+        ('風險', market_ctx.get('risk_state', '中'), f'台股位階 {market_ctx.get("position", 50)}%'),
+        ('亞洲', market_ctx.get('asia_state', '資料不足'), market_ctx.get('asia_note', '')),
+        ('追價', market_ctx.get('chase_state', '保守'), market_ctx.get('advice', '')),
     ]
     status_html = ''.join(
         f'<div><span>{h(label)}</span><b>{h(value)}</b><small>{h(note)}</small></div>'
@@ -2133,24 +2133,24 @@ def newbie_summary_html(market_ctx=None):
     return (
         f'<section class="sc intro-card" id="market-summary">'
         f'<div class="market-brief">'
-        f'<div><div class="st">??????</div>'
+        f'<div><div class="st">今日市場重點</div>'
         f'<h2>{h(market_ctx.get("headline", ""))}</h2>'
         f'<p>{h(market_ctx.get("advice", ""))}</p></div>'
         f'</div>'
         f'<div class="status-strip">{status_html}</div>'
         f'<div class="market-reason-grid">'
-        f'<div><b>???</b><ul>{reasons}</ul></div>'
-        f'<div><b>????</b><ul>{counters}</ul></div>'
-        f'<div><b>?????</b><ul>{actions}</ul></div>'
+        f'<div><b>為什麼</b><ul>{reasons}</ul></div>'
+        f'<div><b>反方條件</b><ul>{counters}</ul></div>'
+        f'<div><b>今天怎麼做</b><ul>{actions}</ul></div>'
         f'</div>'
-        f'<details class="intro-more"><summary>?????????</summary>'
+        f'<details class="intro-more"><summary>範例配置與題材觀察</summary>'
         f'<div class="intro-grid">'
-        f'<div><span>??????</span><b>{money(monthly)} ?</b><small>????????????????????????</small></div>'
-        f'<div><span>??ETF</span><b>{money(core)} ?</b><small>0050 ? 006208 ??????</small></div>'
-        f'<div><span>??/???</span><b>{money(satellite)} ?</b><small>??ETF????ETF???????</small></div>'
-        f'<div><span>??/??</span><b>{money(defensive + cash)} ?</b><small>??????????????</small></div>'
+        f'<div><span>範例每月預算</span><b>{money(monthly)} 元</b><small>可在試算工具自行調整，重點是先學會不要一次用完。</small></div>'
+        f'<div><span>核心ETF</span><b>{money(core)} 元</b><small>0050 或 006208 擇一作主力。</small></div>'
+        f'<div><span>衛星/高股息</span><b>{money(satellite)} 元</b><small>主題ETF或高股息ETF，小比例觀察。</small></div>'
+        f'<div><span>防守/現金</span><b>{money(defensive + cash)} 元</b><small>保留彈藥，避免高點一次投入。</small></div>'
         f'</div>'
-        f'<div class="intro-note">???????{themes}?????????????????????????</div>'
+        f'<div class="intro-note">題材觀察方向：{themes}。這不是買進訊號，只是把可能值得研究的產業列出來。</div>'
         f'</details>'
         f'</section>'
     )
@@ -2174,19 +2174,19 @@ def theme_radar_html():
         if item['watch']:
             watch = ''.join(f'<span>{h(ticker_label(tk))}</span>' for tk in item['watch'][:8])
         else:
-            watch = '<span>????????????</span>'
-        words = '?'.join(item['words'][:5])
+            watch = '<span>先觀察產業，不列買進名單</span>'
+        words = '、'.join(item['words'][:5])
         cards.append(
             f'<div class="theme-card">'
             f'<div class="theme-title">{h(item["theme"])}</div>'
-            f'<p>????{h(words)}</p>'
+            f'<p>關鍵字：{h(words)}</p>'
             f'<div class="theme-watch">{watch}</div>'
             f'</div>'
         )
     return (
         f'<section class="sc theme-radar" id="theme-radar">'
-        f'<div class="st">??????</div>'
-        f'<div class="method-lead">???????????????????????????????????????????????????????</div>'
+        f'<div class="st">題材觀察雷達</div>'
+        f'<div class="method-lead">這裡不是新聞買進訊號，只是把新聞可能提到的產業，轉成「可以研究的清單」。進場前仍要看估值、風險、趨勢與基本面。</div>'
         f'<div class="theme-grid">{"".join(cards)}</div>'
         f'</section>'
     )
@@ -2195,38 +2195,38 @@ def theme_radar_html():
 def methodology_html():
     return (
         f'<section class="sc methodology" id="methodology">'
-        f'<div class="st">??????</div>'
-        f'<div class="method-lead">??????????????????????????????????????????????</div>'
+        f'<div class="st">計算方式說明</div>'
+        f'<div class="method-lead">這個網站不是預測明天漲跌，而是把公開資料整理成「現在適不適合分批、要不要追高、風險在哪裡」。</div>'
         f'<div class="method-grid">'
-        f'<div><b>??????</b><p>???????????????????????????????????????????????</p></div>'
-        f'<div><b>ETF ??</b><p>?? 25% + ?? 15% + ??? 10% + ???? 10% + ?? 20% + ETF?? 20%?ETF ???????????????????</p></div>'
-        f'<div><b>????</b><p>?? 25% + ?? 15% + ??? 10% + ???? 10% + ?? 20% + ??? 20%?PE ???????????EPS?ROE?????</p></div>'
-        f'<div><b>????</b><p>???? Yahoo quote ?????????????????????????????????????????/?????????????</p></div>'
-        f'<div><b>??/????</b><p>????????????????????????????????????????????????????????</p></div>'
-        f'<div><b>ATR ????</b><p>??????? ATR ????????????????????????? ETF ????????????</p></div>'
-        f'<div><b>?????</b><p>?????????????????????1,000??????????????????????????</p></div>'
-        f'<div><b>RSI ????</b><p>RSI ???????????????????????????????KD ??????????????</p></div>'
+        f'<div><b>小白版怎麼看</b><p>先看今日市場重點，再看每張卡片的現在狀態與價格地圖。高分不代表保證賺錢，低分也不代表一定會跌。</p></div>'
+        f'<div><b>ETF 分數</b><p>趨勢 25% + 動能 15% + 成交量 10% + 價格位置 10% + 風險 20% + ETF資料 20%。ETF 要看成本、折溢價、規模、配息與總報酬。</p></div>'
+        f'<div><b>個股分數</b><p>趨勢 25% + 動能 15% + 成交量 10% + 價格位置 10% + 風險 20% + 基本面 20%。PE 只是入口，還要看營收、EPS、ROE與毛利率。</p></div>'
+        f'<div><b>價格基準</b><p>價格卡以 Yahoo quote 的資料時間為主：報價時間先顯示台灣時間，括號補原市場時間；價格顯示該交易日的最新價/收盤、開盤、昨收、高低價。</p></div>'
+        f'<div><b>買進/減碼區間</b><p>不是只回答買或不買，而是拆成健康創高、過熱追高、健康回檔、轉弱下跌等狀態。強勢高位不是不能買，而是只能小額分批。</p></div>'
+        f'<div><b>ATR 動態區間</b><p>價格地圖會參考 ATR 與布林通道。高波動股區間較寬但投入比例較低；低波動 ETF 區間較窄但可照紀律分批。</p></div>'
+        f'<div><b>零股怎麼算</b><p>個股是單一公司股票，不等於零股。台股一張是1,000股，未滿一張就是零股；試算會用股數與約幾張一起顯示。</p></div>'
+        f'<div><b>RSI 怎麼解讀</b><p>RSI 高不一定危險。若趨勢強、量能正常，可能是強勢延續；若高檔轉弱、KD 偏空、波動放大，才提高風險。</p></div>'
         f'</div>'
-        f'<div class="method-note">????????????????????????????API key ??????????</div>'
+        f'<div class="method-note">本頁只使用公開資料與固定規則，不放持倉、成本、券商帳戶、API key 或任何個人通知設定。</div>'
         f'</section>'
     )
 
 
 def public_readiness_html(update_time, market_ctx=None):
     market_ctx = market_ctx or {}
-    temp = market_ctx.get('temperature', '??')
-    regime = market_ctx.get('regime', '????')
+    temp = market_ctx.get('temperature', '中性')
+    regime = market_ctx.get('regime', '資料不足')
     return (
         f'<section class="sc public-check" id="data-check">'
-        f'<div class="st">????</div>'
-        f'<div class="method-lead">????????????????????????????????????</div>'
+        f'<div class="st">資料檢查</div>'
+        f'<div class="method-lead">這一區是出貨前自查用：本頁是靜態頁，數字只代表這次產生報告時抓到的資料。</div>'
         f'<div class="check-grid">'
-        f'<div><span>????</span><b>{h(update_time)} ????</b><small>??????????? generate.py ???</small></div>'
-        f'<div><span>????</span><b>TWSE / Yahoo</b><small>?????? TWSE ???????????? Yahoo ?????????????????????????</small></div>'
-        f'<div><span>????</span><b>{h(temp)}</b><small>{h(regime)}??????????????????</small></div>'
-        f'<div><span>?????</span><b>???</b><small>???????1??????????????????????</small></div>'
-        f'<div><span>????</span><b>??????</b><small>???????????API key?AI key ??????</small></div>'
-        f'<div><span>????</span><b>??????</b><small>??/???????????????????????????</small></div>'
+        f'<div><span>報告產生</span><b>{h(update_time)} 台灣時間</b><small>若過了交易日，請重新跑 generate.py 更新。</small></div>'
+        f'<div><span>資料來源</span><b>TWSE / Yahoo</b><small>台股價格優先 TWSE 盤後公開資料；其他欄位用 Yahoo 免費資料補足。每張卡會列報價時間、來源與市場狀態。</small></div>'
+        f'<div><span>市場狀態</span><b>{h(temp)}</b><small>{h(regime)}。這只調整分批與風險，不是保證漲跌。</small></div>'
+        f'<div><span>手續費邏輯</span><b>分兩套</b><small>定期定額用台股1元優惠假設；臨時買入用一般電子下單低消估算。</small></div>'
+        f'<div><span>資安檢查</span><b>不放個人資料</b><small>沒有持股、成本、券商、API key、AI key 或個人預算。</small></div>'
+        f'<div><span>限制提醒</span><b>不是下單系統</b><small>買進/減碼區間是紀律提醒，不能取代券商成交價與正式投資建議。</small></div>'
         f'</div>'
         f'</section>'
     )
@@ -2236,20 +2236,20 @@ def dca_simulator_html(market_ctx=None):
     if not DCA_SERIES:
         return ''
 
-    market_ctx = market_ctx or dict(regime='????', temperature='??', advice='????????????????????')
-    temp = market_ctx.get('temperature', '??')
-    if temp == '?':
-        dca_status = ('????', '?????????????????')
-        batch_status = ('??????', '???????? 3-6 ?????????')
-        lump_status = ('???', '???????????????????')
-    elif temp == '?':
-        dca_status = ('??????????', '??????????????????????????')
-        batch_status = ('????', '??????????????????')
-        lump_status = ('????', '????????????????????????')
+    market_ctx = market_ctx or dict(regime='資料不足', temperature='中性', advice='先照計畫小額分批，不因單日漲跌改變策略。')
+    temp = market_ctx.get('temperature', '中性')
+    if temp == '熱':
+        dca_status = ('適合持續', '照原本節奏扣款，不因為高檔就停扣。')
+        batch_status = ('可，但要分批', '想單筆買可以切成 3-6 次，不要一次用完。')
+        lump_status = ('不建議', '市場偏熱時，新手重押最容易買完就震盪。')
+    elif temp == '冷':
+        dca_status = ('適合持續，可小幅加碼', '市場偏冷時，長期資金可以分批買，但仍要留生活預備金。')
+        batch_status = ('適合分批', '可以把預算拆開慢慢買，避免猜最低點。')
+        lump_status = ('仍不建議', '就算看起來便宜，也不要把兩年內會用到的錢投進去。')
     else:
-        dca_status = ('????', '??????????????????????')
-        batch_status = ('??', '???????????????????')
-        lump_status = ('????', '??????????????????????')
+        dca_status = ('適合持續', '沒有極端訊號時，照計畫扣款通常比猜高低點穩。')
+        batch_status = ('可以', '若有額外資金，分批比一次買更適合新手。')
+        lump_status = ('少量即可', '除非很了解風險，否則不建議一次投入太大比例。')
 
     ordered = [tk for tk in DCA_SIM_TICKERS if tk in DCA_SERIES]
     options = ''.join(
@@ -2262,25 +2262,25 @@ def dca_simulator_html(market_ctx=None):
 
     return (
         f'<section class="sc dca-tool" id="dca-sim">'
-        f'<div class="tool-head"><div><div class="st">???????</div>'
-        f'<p>??????????????????????????????????????????????????</p></div>'
-        f'<span class="section-meta">????</span></div>'
+        f'<div class="tool-head"><div><div class="st">定期定額模擬器</div>'
+        f'<p>用歷史價格練習「如果我每月固定投入，過程會多痛、最後可能變多少」。這不是預測，只是幫新手先看懂風險。</p></div>'
+        f'<span class="section-meta">歷史模擬</span></div>'
         f'<div class="dca-controls">'
-        f'<label><span>??</span><select id="dcaTicker">{options}</select></label>'
-        f'<label><span>????</span><input id="dcaAmount" type="number" min="1000" step="1000" value="{monthly}"></label>'
-        f'<label><span>????</span><input id="dcaYears" type="number" min="1" max="20" step="1" value="5"></label>'
+        f'<label><span>標的</span><select id="dcaTicker">{options}</select></label>'
+        f'<label><span>每月投入</span><input id="dcaAmount" type="number" min="1000" step="1000" value="{monthly}"></label>'
+        f'<label><span>投資年限</span><input id="dcaYears" type="number" min="1" max="20" step="1" value="5"></label>'
         f'</div>'
         f'<div class="dca-result" id="dcaResult"></div>'
-        f'<div class="tool-note">?????ETF ??? Yahoo Adj Close ??????????????????????????????????ETF?????</div>'
+        f'<div class="tool-note">模擬基準：ETF 優先用 Yahoo Adj Close 做含息估算，較接近「配息再投入」；仍未完整計入匯率、稅務、券商差異與ETF內扣成本。</div>'
         f'<div class="strategy-grid">'
-        f'<div><span>????</span><b>{dca_status[0]}</b><small>{dca_status[1]}</small></div>'
-        f'<div><span>????</span><b>{batch_status[0]}</b><small>{batch_status[1]}</small></div>'
-        f'<div><span>????</span><b>{lump_status[0]}</b><small>{lump_status[1]}</small></div>'
+        f'<div><span>定期定額</span><b>{dca_status[0]}</b><small>{dca_status[1]}</small></div>'
+        f'<div><span>分批單筆</span><b>{batch_status[0]}</b><small>{batch_status[1]}</small></div>'
+        f'<div><span>重押單筆</span><b>{lump_status[0]}</b><small>{lump_status[1]}</small></div>'
         f'</div>'
-        f'<div class="panic-box"><b>?????</b>'
-        f'<div><span>-10%</span><p>??????????????????????????</p></div>'
-        f'<div><span>-20%</span><p>????????????????? ETF ?????????????????</p></div>'
-        f'<div><span>-30%</span><p>???????????????????????????????????</p></div>'
+        f'<div class="panic-box"><b>跌了怎麼辦</b>'
+        f'<div><span>-10%</span><p>先不要慌，檢查是不是整體市場震盪；定期定額通常照扣。</p></div>'
+        f'<div><span>-20%</span><p>這是新手最容易停扣的位置。若是核心 ETF 且資金是長期的，可以小額分批加碼。</p></div>'
+        f'<div><span>-30%</span><p>代表市場進入很痛的區間。不要借錢加碼，只用兩年內不會用到的閒錢慢慢買。</p></div>'
         f'</div>'
         f'</section>'
         f'<script>'
@@ -2295,11 +2295,11 @@ function runDcaSim(){{
   var out=document.getElementById('dcaResult');
   if(!ticker||!amountEl||!yearsEl||!out||!window.DCA_DATA) return;
   var item=window.DCA_DATA[ticker.value];
-  if(!item||!item.points||!item.points.length){{out.innerHTML='<div class="nd">????????????</div>';return;}}
+  if(!item||!item.points||!item.points.length){{out.innerHTML='<div class="nd">資料不足，暫時無法模擬。</div>';return;}}
   var amount=Math.max(0, Number(amountEl.value||0));
   var years=Math.max(1, Number(yearsEl.value||1));
   var points=(item.total_points&&item.total_points.length)?item.total_points:item.points;
-  var basisText=(item.total_points&&item.total_points.length)?item.total_basis:(item.basis||'?????');
+  var basisText=(item.total_points&&item.total_points.length)?item.total_basis:(item.basis||'市場收盤價');
   var lastDate=new Date(points[points.length-1][0]);
   var cutoff=new Date(lastDate);
   cutoff.setFullYear(cutoff.getFullYear()-years);
@@ -2311,7 +2311,7 @@ function runDcaSim(){{
     var key=monthKey(points[i][0]);
     if(!seen[key]){{monthly.push(points[i]);seen[key]=true;}}
   }}
-  if(monthly.length<3){{out.innerHTML='<div class="nd">?????????????</div>';return;}}
+  if(monthly.length<3){{out.innerHTML='<div class="nd">可用月份太少，請縮短年限。</div>';return;}}
   var units=0, invested=0, fees=0, peak=0, maxDrawdown=0, minRoi=0;
   var feePerBuy=ticker.value.endsWith('.TW') ? 1 : 0;
   for(var j=0;j<monthly.length;j++){{
@@ -2334,11 +2334,11 @@ function runDcaSim(){{
   var roiFinal=invested>0 ? pnl/invested*100 : 0;
   var pnlColor=pnl>=0?'#1D9E75':'#D85A30';
   out.innerHTML=
-    '<div class="dca-stat"><span>????</span><b>'+fmtMoney(invested)+' ?</b><small>'+monthly.length+' ????? '+fmtMoney(amount)+' ?</small></div>'+
-    '<div class="dca-stat"><span>??????</span><b style="color:'+pnlColor+'">'+fmtMoney(finalValue)+' ?</b><small>?? '+(pnl>=0?'+':'')+fmtMoney(pnl)+' ??'+roiFinal.toFixed(1)+'%?</small></div>'+
-    '<div class="dca-stat"><span>??????</span><b style="color:#D85A30">'+maxDrawdown.toFixed(1)+'%</b><small>????????????</small></div>'+
-    '<div class="dca-stat"><span>??????</span><b style="color:#D85A30">'+minRoi.toFixed(1)+'%</b><small>???????????</small></div>'+
-    '<div class="dca-stat"><span>????</span><b>'+basisText+'</b><small>????????????</small></div>';
+    '<div class="dca-stat"><span>累積投入</span><b>'+fmtMoney(invested)+' 元</b><small>'+monthly.length+' 個月，每月 '+fmtMoney(amount)+' 元</small></div>'+
+    '<div class="dca-stat"><span>期末資產估算</span><b style="color:'+pnlColor+'">'+fmtMoney(finalValue)+' 元</b><small>損益 '+(pnl>=0?'+':'')+fmtMoney(pnl)+' 元（'+roiFinal.toFixed(1)+'%）</small></div>'+
+    '<div class="dca-stat"><span>過程最大回撤</span><b style="color:#D85A30">'+maxDrawdown.toFixed(1)+'%</b><small>資產曾從高點往下跌的幅度</small></div>'+
+    '<div class="dca-stat"><span>最差帳面損益</span><b style="color:#D85A30">'+minRoi.toFixed(1)+'%</b><small>歷史過程中最難熬的一刻</small></div>'+
+    '<div class="dca-stat"><span>模擬口徑</span><b>'+basisText+'</b><small>含息估算不是正式保證報酬</small></div>';
 }}
 document.addEventListener('DOMContentLoaded',function(){{
   ['dcaTicker','dcaAmount','dcaYears'].forEach(function(id){{
@@ -2356,8 +2356,8 @@ document.addEventListener('DOMContentLoaded',function(){{
 def buy_now_tool_html(market_ctx=None):
     if not BUY_NOW_DATA:
         return ''
-    market_ctx = market_ctx or dict(temperature='??')
-    temp = market_ctx.get('temperature', '??')
+    market_ctx = market_ctx or dict(temperature='中性')
+    temp = market_ctx.get('temperature', '中性')
     ordered = [tk for tk in list(TW_ETFS.keys()) + list(US_ETFS.keys()) + list(TW_STOCKS.keys()) + list(US_STOCKS.keys()) if tk in BUY_NOW_DATA]
     options = ''.join(
         f'<option value="{tk}">{tk.replace(".TW", "")} {BUY_NOW_DATA[tk]["name"]}</option>'
@@ -2369,16 +2369,16 @@ def buy_now_tool_html(market_ctx=None):
     min_fee = PUBLIC_EXAMPLE_PLAN['regular_min_fee']
     return (
         f'<section class="sc buy-tool" id="buy-tool">'
-        f'<div class="tool-head"><div><div class="st">??????</div>'
-        f'<p>??????????????????????????????????????????????????????</p></div>'
-        f'<span class="section-meta">??????</span></div>'
+        f'<div class="tool-head"><div><div class="st">今天想買試算</div>'
+        f'<p>臨時想買時，不先問「會不會漲」，先問「現在能買幾成、剩下要留多少」。這裡用固定規則估算，不代表個人投資建議。</p></div>'
+        f'<span class="section-meta">臨時買入工具</span></div>'
         f'<div class="dca-controls">'
-        f'<label><span>??</span><select id="buyTicker">{options}</select></label>'
-        f'<label><span>????</span><input id="buyBudget" type="number" min="1000" step="1000" value="10000"></label>'
-        f'<label><span>????</span><input id="buyBatches" type="number" min="1" max="6" step="1" value="3"></label>'
+        f'<label><span>標的</span><select id="buyTicker">{options}</select></label>'
+        f'<label><span>今天預算</span><input id="buyBudget" type="number" min="1000" step="1000" value="10000"></label>'
+        f'<label><span>分批次數</span><input id="buyBatches" type="number" min="1" max="6" step="1" value="3"></label>'
         f'</div>'
         f'<div class="buy-result" id="buyResult"></div>'
-        f'<div class="tool-note">???????????????????????????????????????????????????????????????</div>'
+        f'<div class="tool-note">理由：臨時買入比定期定額更容易追高，所以預設只建議先投入一部分；剩下現金是保護，不是浪費。台股試算用零股股數，不要求買滿一張。</div>'
         f'</section>'
         f'<script>'
         f'window.BUY_NOW_DATA={data_json};window.MARKET_TEMP={json.dumps(temp, ensure_ascii=False)};'
@@ -2389,12 +2389,12 @@ function fmtShares(n,item){{
   n=Math.max(0, Math.floor(Number(n||0)));
   if(item&&item.is_tw){{
     var lots=n/1000;
-    if(n===0) return '0 ?';
-    if(n<1000) return n.toLocaleString('zh-TW')+' ????? '+lots.toFixed(3)+' ??';
+    if(n===0) return '0 股';
+    if(n<1000) return n.toLocaleString('zh-TW')+' 股零股（約 '+lots.toFixed(3)+' 張）';
     var whole=Math.floor(n/1000), odd=n%1000;
-    return odd>0 ? n.toLocaleString('zh-TW')+' ??'+whole+' ? + '+odd+' ????' : n.toLocaleString('zh-TW')+' ??'+whole+' ??';
+    return odd>0 ? n.toLocaleString('zh-TW')+' 股（'+whole+' 張 + '+odd+' 股零股）' : n.toLocaleString('zh-TW')+' 股（'+whole+' 張）';
   }}
-  return n.toLocaleString('zh-TW')+' ?';
+  return n.toLocaleString('zh-TW')+' 股';
 }}
 function runBuyNow(){{
   var ticker=document.getElementById('buyTicker');
@@ -2403,59 +2403,59 @@ function runBuyNow(){{
   var out=document.getElementById('buyResult');
   if(!ticker||!budgetEl||!batchEl||!out||!window.BUY_NOW_DATA) return;
   var item=window.BUY_NOW_DATA[ticker.value];
-  if(!item){{out.innerHTML='<div class="nd">????????????</div>';return;}}
+  if(!item){{out.innerHTML='<div class="nd">資料不足，暫時無法試算。</div>';return;}}
   var budget=Math.max(0, Number(budgetEl.value||0));
   var batches=Math.max(1, Number(batchEl.value||1));
   var ratio=Number(item.ratio||0);
   var zone=item.price_zone||{{}};
-  if(window.MARKET_TEMP==='?') ratio=Math.min(ratio, item.role==='????'?0.30:0.18);
-  if(window.MARKET_TEMP==='?') ratio=Math.min(ratio+0.08, item.role==='????'?0.50:0.30);
-  if(item.role==='????') ratio=Math.min(ratio,0.15);
-  if(zone.status==='????') ratio=Math.min(ratio, item.role==='????'?0.12:0.05);
-  if(zone.status==='????') ratio=Math.min(ratio, item.role==='????'?0.20:0.10);
-  if(zone.status==='????') ratio=Math.min(ratio, item.role==='????'?0.24:0.12);
-  if(zone.status==='?????') ratio=Math.min(ratio, item.role==='????'?0.20:0.08);
-  if(zone.status==='????') ratio=Math.min(ratio, item.role==='????'?0.10:0.00);
-  if(zone.status==='????') ratio=Math.max(ratio, item.role==='????'?0.25:0.08);
-  if(zone.status==='?????'||zone.status==='????') ratio=Math.max(ratio, item.role==='????'?0.30:0.08);
+  if(window.MARKET_TEMP==='熱') ratio=Math.min(ratio, item.role==='長期核心'?0.30:0.18);
+  if(window.MARKET_TEMP==='冷') ratio=Math.min(ratio+0.08, item.role==='長期核心'?0.50:0.30);
+  if(item.role==='個股觀察') ratio=Math.min(ratio,0.15);
+  if(zone.status==='過熱追高') ratio=Math.min(ratio, item.role==='長期核心'?0.12:0.05);
+  if(zone.status==='健康創高') ratio=Math.min(ratio, item.role==='長期核心'?0.20:0.10);
+  if(zone.status==='強勢高位') ratio=Math.min(ratio, item.role==='長期核心'?0.24:0.12);
+  if(zone.status==='偏高等待區') ratio=Math.min(ratio, item.role==='長期核心'?0.20:0.08);
+  if(zone.status==='轉弱下跌') ratio=Math.min(ratio, item.role==='長期核心'?0.10:0.00);
+  if(zone.status==='可分批區') ratio=Math.max(ratio, item.role==='長期核心'?0.25:0.08);
+  if(zone.status==='加碼觀察區'||zone.status==='健康回檔') ratio=Math.max(ratio, item.role==='長期核心'?0.30:0.08);
   var firstAmount=Math.round((budget*ratio)/100)*100;
   if(ratio>0 && firstAmount<1000) firstAmount=Math.min(budget,1000);
   var reserve=Math.max(0,budget-firstAmount);
   var batchAmount=batches>1?Math.round((firstAmount/batches)/100)*100:firstAmount;
-  var fee=0, feeText='????????';
+  var fee=0, feeText='海外標的費率另計';
   if(item.is_tw && firstAmount>0){{
     fee=Math.max(window.BUY_MIN_FEE, Math.round(firstAmount*window.BUY_FEE_RATE));
-    feeText='?????? '+fmtMoney(fee)+' ???????????';
+    feeText='買進手續費約 '+fmtMoney(fee)+' 元，未含日後賣出交易稅';
   }}else if(item.is_tw){{
-    feeText='???????????????';
+    feeText='本次先不買，所以沒有買進手續費';
   }}
   var zoneHtml='';
   if(zone.status){{
-    var sellText=zone.sell_status ? zone.sell_status+'?'+zone.sell_text : '???????????????';
+    var sellText=zone.sell_status ? zone.sell_status+'：'+zone.sell_text : '看配置與風險，不用因為漲就亂賣';
     var stepText='';
     if(zone.buy_steps&&zone.buy_steps.length){{
-      stepText=zone.buy_steps.map(function(s){{return s[0]+' '+s[1]+'?'+s[2];}}).join(' / ');
+      stepText=zone.buy_steps.map(function(s){{return s[0]+' '+s[1]+'：'+s[2];}}).join(' / ');
     }}
     zoneHtml=
-      '<div class="dca-stat"><span>????</span><b>'+zone.status+'</b><small>'+zone.summary+'</small></div>'+
-      '<div class="dca-stat"><span>????</span><b>'+zone.range_text+'</b><small>'+zone.guard_text+'</small></div>'+
-      '<div class="dca-stat"><span>????</span><b>????????</b><small>'+stepText+'</small></div>'+
-      '<div class="dca-stat"><span>????</span><b>'+zone.sell_status+'</b><small>'+sellText+'</small></div>';
+      '<div class="dca-stat"><span>價格區間</span><b>'+zone.status+'</b><small>'+zone.summary+'</small></div>'+
+      '<div class="dca-stat"><span>可分批區</span><b>'+zone.range_text+'</b><small>'+zone.guard_text+'</small></div>'+
+      '<div class="dca-stat"><span>分批依據</span><b>按區間，不按感覺</b><small>'+stepText+'</small></div>'+
+      '<div class="dca-stat"><span>減碼提醒</span><b>'+zone.sell_status+'</b><small>'+sellText+'</small></div>';
   }}
   var shares=firstAmount>fee && item.price>0 ? Math.floor((firstAmount-fee)/item.price) : 0;
   var amountColor=firstAmount>0?'#1D9E75':'#D85A30';
-  var headline=firstAmount>0?'????????????':'?????????';
+  var headline=firstAmount>0?'先買一部分，不要一次用完':'先不要買，保留現金';
   out.innerHTML=
-    '<div class="buy-summary"><span>'+item.role+' / '+item.bucket+'</span><b>'+headline+'</b><small>??????'+item.confidence+'?'+item.data_note+'</small></div>'+
-    '<div class="dca-stat"><span>?????</span><b style="color:'+amountColor+'">'+fmtMoney(firstAmount)+' ?</b><small>??? '+(ratio*100).toFixed(0)+'%?? '+fmtShares(shares,item)+'</small></div>'+
-    '<div class="dca-stat"><span>????</span><b>'+fmtMoney(reserve)+' ?</b><small>?????????????</small></div>'+
-    '<div class="dca-stat"><span>????</span><b>'+fmtMoney(batchAmount)+' ?/?</b><small>'+batches+' ??????????????</small></div>'+
-    '<div class="dca-stat"><span>????</span><b>'+feeText+'</b><small>????????????</small></div>'+
+    '<div class="buy-summary"><span>'+item.role+' / '+item.bucket+'</span><b>'+headline+'</b><small>資料可信度：'+item.confidence+'。'+item.data_note+'</small></div>'+
+    '<div class="dca-stat"><span>建議先投入</span><b style="color:'+amountColor+'">'+fmtMoney(firstAmount)+' 元</b><small>約預算 '+(ratio*100).toFixed(0)+'%，估 '+fmtShares(shares,item)+'</small></div>'+
+    '<div class="dca-stat"><span>保留現金</span><b>'+fmtMoney(reserve)+' 元</b><small>避免買完立刻遇到回檔沒子彈</small></div>'+
+    '<div class="dca-stat"><span>分批買法</span><b>'+fmtMoney(batchAmount)+' 元/批</b><small>'+batches+' 批；高檔時分批比猜最低點實際</small></div>'+
+    '<div class="dca-stat"><span>成本提醒</span><b>'+feeText+'</b><small>不同券商折扣與低消會不同</small></div>'+
     zoneHtml+
-    '<div class="decision-card buy-decision"><div class="decision-row"><span>??</span><p>'+item.conclusion+'</p></div>'+
-    '<div class="decision-row"><span>??</span><p>'+item.reason+'</p></div>'+
-    '<div class="decision-row"><span>??</span><p>'+item.counter+'</p></div>'+
-    '<div class="decision-row"><span>??</span><p>'+item.action+'</p></div></div>';
+    '<div class="decision-card buy-decision"><div class="decision-row"><span>結論</span><p>'+item.conclusion+'</p></div>'+
+    '<div class="decision-row"><span>原因</span><p>'+item.reason+'</p></div>'+
+    '<div class="decision-row"><span>反方</span><p>'+item.counter+'</p></div>'+
+    '<div class="decision-row"><span>行動</span><p>'+item.action+'</p></div></div>';
 }}
 document.addEventListener('DOMContentLoaded',function(){{
   ['buyTicker','buyBudget','buyBatches'].forEach(function(id){{
@@ -2473,8 +2473,8 @@ document.addEventListener('DOMContentLoaded',function(){{
 def daily_order_overview_html(market_ctx=None):
     if not BUY_NOW_DATA:
         return ''
-    market_ctx = market_ctx or dict(temperature='??')
-    temp = market_ctx.get('temperature', '??')
+    market_ctx = market_ctx or dict(temperature='中性')
+    temp = market_ctx.get('temperature', '中性')
     ordered = [
         tk for tk in
         list(TW_ETFS.keys()) + list(TW_STOCKS.keys()) + list(US_ETFS.keys()) + list(US_STOCKS.keys()) + list(BONDS.keys())
@@ -2506,9 +2506,9 @@ function fmtOrderPrice(v,item){
   return v.toLocaleString('zh-TW',{minimumFractionDigits:item&&item.is_tw?2:2,maximumFractionDigits:item&&item.is_tw?2:2});
 }
 function orderConfidenceFactor(text){
-  if(text==='?') return 1.00;
-  if(text==='?') return 0.85;
-  if(text==='??') return 0.55;
+  if(text==='高') return 1.00;
+  if(text==='中') return 0.85;
+  if(text==='偏低') return 0.55;
   return 0.35;
 }
 function orderCategory(item){
@@ -2520,16 +2520,16 @@ function orderCategory(item){
 function calcOrderRatio(item){
   var z=item.price_zone||{};
   var ratio=Number(item.ratio||0);
-  if(window.MARKET_TEMP==='?') ratio=Math.min(ratio, item.role==='????'?0.30:0.18);
-  if(window.MARKET_TEMP==='?') ratio=Math.min(ratio+0.08, item.role==='????'?0.50:0.30);
-  if(item.role==='????') ratio=Math.min(ratio,0.10);
-  if(z.status==='????') ratio=Math.min(ratio, item.role==='????'?0.10:0.04);
-  if(z.status==='????') ratio=Math.min(ratio, item.role==='????'?0.18:0.08);
-  if(z.status==='????') ratio=Math.min(ratio, item.role==='????'?0.22:0.10);
-  if(z.status==='?????') ratio=Math.min(ratio, item.role==='????'?0.18:0.07);
-  if(z.status==='????') ratio=0;
-  if(z.status==='????') ratio=Math.max(ratio, item.role==='????'?0.25:0.06);
-  if(z.status==='?????'||z.status==='????') ratio=Math.max(ratio, item.role==='????'?0.28:(item.is_etf?0.08:0.04));
+  if(window.MARKET_TEMP==='熱') ratio=Math.min(ratio, item.role==='長期核心'?0.30:0.18);
+  if(window.MARKET_TEMP==='冷') ratio=Math.min(ratio+0.08, item.role==='長期核心'?0.50:0.30);
+  if(item.role==='個股觀察') ratio=Math.min(ratio,0.10);
+  if(z.status==='過熱追高') ratio=Math.min(ratio, item.role==='長期核心'?0.10:0.04);
+  if(z.status==='健康創高') ratio=Math.min(ratio, item.role==='長期核心'?0.18:0.08);
+  if(z.status==='強勢高位') ratio=Math.min(ratio, item.role==='長期核心'?0.22:0.10);
+  if(z.status==='偏高等待區') ratio=Math.min(ratio, item.role==='長期核心'?0.18:0.07);
+  if(z.status==='轉弱下跌') ratio=0;
+  if(z.status==='可分批區') ratio=Math.max(ratio, item.role==='長期核心'?0.25:0.06);
+  if(z.status==='加碼觀察區'||z.status==='健康回檔') ratio=Math.max(ratio, item.role==='長期核心'?0.28:(item.is_etf?0.08:0.04));
   if(Number(item.risk_score||50)<40) ratio*=0.60;
   ratio*=orderConfidenceFactor(item.confidence);
   return Math.max(0, Math.min(0.50, ratio));
@@ -2541,45 +2541,45 @@ function calcOrderTarget(item){
   var status=z.status||'';
   var risk=Number(item.risk_score||50);
   var w=Number(item.w_pct||50);
-  var pull=item.role==='????'?0.003:0.006;
+  var pull=item.role==='長期核心'?0.003:0.006;
   if(risk<45) pull+=0.004;
   if(w>=85) pull+=0.004;
-  var target=price, action='???', cls='order-ok', note='????????????????';
-  if(status==='????'){
+  var target=price, action='可掛單', cls='order-ok', note='在可分批區內低掛，沒成交不追價。';
+  if(status==='過熱追高'){
     target=high||price*0.97;
-    action='???';
+    action='等回檔';
     cls='order-wait';
-    note='????????????????????';
-  }else if(status==='????'){
+    note='掛在可分批區上緣附近，今天沒碰到就不追。';
+  }else if(status==='健康創高'){
     target=Math.min(high||price*0.995, price*0.992);
-    action='????';
+    action='小額低掛';
     cls='order-wait';
-    note='???????????????????????';
-  }else if(status==='????'){
+    note='趨勢健康但位置高，只能小額參與，沒成交不抬價。';
+  }else if(status==='強勢高位'){
     target=Math.min(high||price*0.996, price*0.994);
-    action='????';
+    action='小額分批';
     cls='order-ok';
-    note='????????????????????????';
-  }else if(status==='?????'){
+    note='強勢不是不能買，但只能小額分批，真正加碼等回測。';
+  }else if(status==='偏高等待區'){
     target=Math.min(high||price*0.99, price*0.99);
-    action='????';
+    action='低掛小單';
     cls='order-wait';
-    note='????????????????????';
-  }else if(status==='????'){
+    note='價格偏高，只能低掛，成交不到也不要抬價。';
+  }else if(status==='可分批區'){
     target=Math.max(low||0, Math.min(high||price, price*(1-pull)));
-  }else if(status==='?????'||status==='????'){
+  }else if(status==='加碼觀察區'||status==='健康回檔'){
     target=price*(item.is_etf?0.998:0.994);
     if(stop) target=Math.max(target, stop*1.01);
-    action=item.is_etf?'????':'????';
-    note=item.is_etf?'????????????????':'?????????????????';
-  }else if(status==='????'){
+    action=item.is_etf?'可小加碼':'小額試單';
+    note=item.is_etf?'低位可小幅分批，但仍要保留現金。':'個股只小額試單，確認基本面沒變壞。';
+  }else if(status==='轉弱下跌'){
     target=stop||price;
-    action='???';
+    action='先不買';
     cls='order-stop';
-    note='???????????????????';
+    note='跌破保護線時不要硬接，等站回再重新算。';
   }
-  if(high && target>high && status!=='?????'&&status!=='????') target=high;
-  if(low && target<low && status==='????') target=low;
+  if(high && target>high && status!=='加碼觀察區'&&status!=='健康回檔') target=high;
+  if(low && target<low && status==='可分批區') target=low;
   return {price:roundOrderPrice(item,target,'buy'), action:action, cls:cls, note:note};
 }
 function runDailyOrders(){
@@ -2601,7 +2601,7 @@ function runDailyOrders(){
     var z=item.price_zone||{};
     var target=calcOrderTarget(item);
     var ratio=calcOrderRatio(item);
-    if(target.action==='???') ratio=0;
+    if(target.action==='先不買') ratio=0;
     var amount=Math.round((budget*ratio)/100)*100;
     var fee=0;
     if(item.is_tw&&amount>0) fee=Math.max(window.BUY_MIN_FEE||20, Math.round(amount*(window.BUY_FEE_RATE||0.000855)));
@@ -2619,33 +2619,33 @@ function runDailyOrders(){
     var sellWatch=roundOrderPrice(item, z.trim_line||z.reduce_watch||0, 'sell');
     var failLine=roundOrderPrice(item, z.failure_line||z.stop_line||0, 'sell');
     var code=tk.replace('.TW','');
-    var currency=item.is_tw?'TWD':'USD?';
-    var feeText=item.is_tw?(fee>0?'????? '+fmtMoney(fee)+' ?':'????????'):'?????/????';
+    var currency=item.is_tw?'TWD':'USD估';
+    var feeText=item.is_tw?(fee>0?'含手續費約 '+fmtMoney(fee)+' 元':'無買進手續費估算'):'海外手續費/匯率另計';
     html+=
       '<tr>'+
       '<td><b>'+code+' '+item.name+'</b><small>'+item.role+' / '+item.bucket+' / '+currency+'</small></td>'+
       '<td><span class="order-action '+target.cls+'">'+target.action+'</span><small>'+target.note+'</small></td>'+
-      '<td><b>'+fmtOrderPrice(target.price,item)+'</b><small>?? '+fmtOrderPrice(item.price,item)+'</small></td>'+
-      '<td><b>'+fmtMoney(spend)+' ?</b><small>'+fmtShares(shares,item)+'?'+feeText+'</small></td>'+
-      '<td><b>'+fmtOrderPrice(maxBuy,item)+'</b><small>????????</small></td>'+
-      '<td><b>'+fmtOrderPrice(sellWatch,item)+'</b><small>'+(z.sell_status||'?????')+'</small></td>'+
-      '<td><b>'+fmtOrderPrice(failLine,item)+'</b><small>????????</small></td>'+
-      '<td><small>'+((z.status||'????')+'???? '+item.confidence+'??? '+(item.risk_score||'N/A'))+'</small></td>'+
+      '<td><b>'+fmtOrderPrice(target.price,item)+'</b><small>現價 '+fmtOrderPrice(item.price,item)+'</small></td>'+
+      '<td><b>'+fmtMoney(spend)+' 元</b><small>'+fmtShares(shares,item)+'；'+feeText+'</small></td>'+
+      '<td><b>'+fmtOrderPrice(maxBuy,item)+'</b><small>高於此價不抬價追</small></td>'+
+      '<td><b>'+fmtOrderPrice(sellWatch,item)+'</b><small>'+(z.sell_status||'轉弱才減碼')+'</small></td>'+
+      '<td><b>'+fmtOrderPrice(failLine,item)+'</b><small>跌破先停，不硬接</small></td>'+
+      '<td><small>'+((z.status||'區間待補')+'；可信度 '+item.confidence+'；風險 '+(item.risk_score||'N/A'))+'</small></td>'+
       '</tr>';
     cardHtml+=
       '<article class="order-card">'+
       '<div class="order-card-head"><div><b>'+code+' '+item.name+'</b><span>'+item.role+' / '+item.bucket+'</span></div><span class="order-action '+target.cls+'">'+target.action+'</span></div>'+
       '<div class="order-card-grid">'+
-      '<div><span>???</span><b>'+fmtOrderPrice(target.price,item)+'</b><small>?? '+fmtOrderPrice(item.price,item)+'</small></div>'+
-      '<div><span>????</span><b>'+fmtMoney(spend)+' ?</b><small>'+fmtShares(shares,item)+'</small></div>'+
-      '<div><span>????</span><b>'+fmtOrderPrice(sellWatch,item)+'</b><small>'+(z.sell_status||'?????')+'</small></div>'+
-      '<div><span>???</span><b>'+fmtOrderPrice(failLine,item)+'</b><small>????????</small></div>'+
+      '<div><span>掛單價</span><b>'+fmtOrderPrice(target.price,item)+'</b><small>現價 '+fmtOrderPrice(item.price,item)+'</small></div>'+
+      '<div><span>建議投入</span><b>'+fmtMoney(spend)+' 元</b><small>'+fmtShares(shares,item)+'</small></div>'+
+      '<div><span>賣出觀察</span><b>'+fmtOrderPrice(sellWatch,item)+'</b><small>'+(z.sell_status||'轉弱才減碼')+'</small></div>'+
+      '<div><span>失效線</span><b>'+fmtOrderPrice(failLine,item)+'</b><small>跌破先停，不硬接</small></div>'+
       '</div>'+
-      '<p>'+target.note+'</p><small>'+((z.status||'????')+'???? '+item.confidence+'??? '+(item.risk_score||'N/A'))+'</small>'+
+      '<p>'+target.note+'</p><small>'+((z.status||'區間待補')+'；可信度 '+item.confidence+'；風險 '+(item.risk_score||'N/A'))+'</small>'+
       '</article>';
   });
-  out.innerHTML=html||'<tr><td colspan="8"><div class="nd">??????????</div></td></tr>';
-  if(cards) cards.innerHTML=cardHtml||'<div class="nd">??????????</div>';
+  out.innerHTML=html||'<tr><td colspan="8"><div class="nd">沒有符合篩選的標的。</div></td></tr>';
+  if(cards) cards.innerHTML=cardHtml||'<div class="nd">沒有符合篩選的標的。</div>';
 }
 document.addEventListener('DOMContentLoaded',function(){
   ['orderBudget','orderFilter'].forEach(function(id){
@@ -2658,27 +2658,27 @@ document.addEventListener('DOMContentLoaded',function(){
 '''
     return (
         f'<section class="sc order-tool" id="daily-orders">'
-        f'<div class="tool-head"><div><div class="st">??????</div>'
-        f'<p>????????????????????????????????????????????????</p></div>'
-        f'<span class="section-meta">?????</span></div>'
+        f'<div class="tool-head"><div><div class="st">今日掛單總覽</div>'
+        f'<p>把每檔標的轉成今天能執行的掛單價、投入金額與風險線。掛單價是紀律價，不是預測價；沒成交就不追高。</p></div>'
+        f'<span class="section-meta">全標的試算</span></div>'
         f'<div class="order-filter">'
-        f'<label><span>????</span><input id="orderBudget" type="number" min="1000" step="1000" value="{default_budget}"></label>'
-        f'<label><span>??</span><select id="orderFilter">'
-        f'<option value="all">??</option><option value="tw-etf">?? ETF</option><option value="tw-stock">????</option>'
-        f'<option value="us-etf">?? ETF</option><option value="us-stock">????</option></select></label>'
-        f'<label><span>????</span><select disabled><option>???? + ?? + ?????</option></select></label>'
+        f'<label><span>今日預算</span><input id="orderBudget" type="number" min="1000" step="1000" value="{default_budget}"></label>'
+        f'<label><span>類別</span><select id="orderFilter">'
+        f'<option value="all">全部</option><option value="tw-etf">台股 ETF</option><option value="tw-stock">台股個股</option>'
+        f'<option value="us-etf">美股 ETF</option><option value="us-stock">美股個股</option></select></label>'
+        f'<label><span>規則口徑</span><select disabled><option>價格區間 + 風險 + 資料可信度</option></select></label>'
         f'</div>'
         f'<div class="order-wrap"><table class="order-table">'
-        f'<thead><tr><th>??</th><th>????</th><th>?????</th><th>????</th><th>????</th><th>?????</th><th>???</th><th>??</th></tr></thead>'
+        f'<thead><tr><th>標的</th><th>今日動作</th><th>買入掛單價</th><th>建議投入</th><th>最高買價</th><th>賣出觀察價</th><th>失效線</th><th>理由</th></tr></thead>'
         f'<tbody id="orderRows"></tbody></table></div>'
         f'<div id="orderCards" class="order-cards"></div>'
-        f'<div class="tool-note">??????????????????????????????????????????????????????????????????ETF???</div>'
+        f'<div class="tool-note">買入掛單價會依台股跳動單位取合法價位；台股用零股估算，海外標的未含匯率與複委託成本。賣出觀察價不是到價就賣，還要搭配轉弱、超過配置或ETF異常。</div>'
         f'</section>'
         f'<script>window.ORDER_KEYS={keys_json};</script><script>{script}</script>'
     )
 
 
-def calc_extended(close_series, close_val, ohlc, ticker, adj_close_series=None, price_basis_note='?????', price_basis_adjusted=False):
+def calc_extended(close_series, close_val, ohlc, ticker, adj_close_series=None, price_basis_note='市場收盤價', price_basis_adjusted=False):
     c = close_series.dropna()
 
     period = min(252, len(c))
@@ -2691,11 +2691,11 @@ def calc_extended(close_series, close_val, ohlc, ticker, adj_close_series=None, 
     ma60 = float(c.rolling(60).mean().iloc[-1]) if len(c) >= 60 else None
     ma240 = float(c.rolling(240).mean().iloc[-1]) if len(c) >= 240 else None
     if ma5 and ma20 and ma60:
-        if ma5 > ma20 > ma60:   ma_align = '????'
-        elif ma5 < ma20 < ma60: ma_align = '????'
-        else:                   ma_align = '???'
+        if ma5 > ma20 > ma60:   ma_align = '多頭排列'
+        elif ma5 < ma20 < ma60: ma_align = '空頭排列'
+        else:                   ma_align = '盤整中'
     else:
-        ma_align = '???'
+        ma_align = '盤整中'
 
     year_str = str(datetime.now(ZoneInfo('Asia/Taipei')).year)
     ytd_data = c[c.index.astype(str) >= year_str]
@@ -2780,55 +2780,55 @@ def analyze(res, close_val):
             score += 8
             if cross_up:
                 score += 6
-                kd_signal = '????'
+                kd_signal = '黃金交叉'
             else:
-                kd_signal = 'KD??'
+                kd_signal = 'KD偏多'
             if k < 25:
                 score += 6
-                reasons.append(f'KD ??{kd_signal}??????')
+                reasons.append(f'KD 低檔{kd_signal}（較強買訊）')
             else:
                 reasons.append(kd_signal)
         else:
             score -= 8
             if cross_down:
                 score -= 6
-                kd_signal = '????'
+                kd_signal = '死亡交叉'
             else:
-                kd_signal = 'KD??'
+                kd_signal = 'KD偏空'
             if k > 75:
                 score -= 6
-                reasons.append(f'KD ??{kd_signal}??????')
+                reasons.append(f'KD 高檔{kd_signal}（注意風險）')
             else:
                 reasons.append(kd_signal)
 
     if ok(rsi):
-        if rsi < 30:   score += 14; reasons.append(f'RSI {rsi:.0f} ?????????')
-        elif rsi > 70: score -= 14; reasons.append(f'RSI {rsi:.0f} ?????????')
-        elif 40 <= rsi <= 60: score += 4; reasons.append(f'RSI {rsi:.0f} ????')
+        if rsi < 30:   score += 14; reasons.append(f'RSI {rsi:.0f} 超賣區，有反彈機會')
+        elif rsi > 70: score -= 14; reasons.append(f'RSI {rsi:.0f} 超買區，追高有風險')
+        elif 40 <= rsi <= 60: score += 4; reasons.append(f'RSI {rsi:.0f} 健康區間')
 
     if ok(macd) and ok(msig):
-        if macd > msig: score += 8; reasons.append('MACD ????')
-        else:           score -= 8; reasons.append('MACD ????')
+        if macd > msig: score += 8; reasons.append('MACD 多頭排列')
+        else:           score -= 8; reasons.append('MACD 空頭排列')
 
     if ok(close_val) and ok(ma20):
         if close_val > ma20:
             score += 7
-            if ok(ma60) and close_val > ma60: score += 6; reasons.append('?????????????')
-            else: reasons.append('????')
+            if ok(ma60) and close_val > ma60: score += 6; reasons.append('站上月線與季線（強勢格局）')
+            else: reasons.append('站上月線')
         else:
             score -= 7
-            if ok(ma60) and close_val < ma60: score -= 6; reasons.append('?????????????')
-            else: reasons.append('????')
+            if ok(ma60) and close_val < ma60: score -= 6; reasons.append('跌破月線與季線（弱勢格局）')
+            else: reasons.append('跌破月線')
 
     if ok(dev):
-        if   dev < -8:  score += 12; reasons.append(f'20??? {dev:.1f}%?????')
-        elif dev >  10: score -= 12; reasons.append(f'20??? +{dev:.1f}%?????')
-        elif dev < -5:  score += 6;  reasons.append(f'20??? {dev:.1f}%??????')
-        elif dev >   5: score -= 6;  reasons.append(f'20??? +{dev:.1f}%?????')
+        if   dev < -8:  score += 12; reasons.append(f'20日乖離 {dev:.1f}%，嚴重超賣')
+        elif dev >  10: score -= 12; reasons.append(f'20日乖離 +{dev:.1f}%，嚴重過熱')
+        elif dev < -5:  score += 6;  reasons.append(f'20日乖離 {dev:.1f}%，偏低有機會')
+        elif dev >   5: score -= 6;  reasons.append(f'20日乖離 +{dev:.1f}%，偏高注意')
 
     if ok(adx) and ok(dip) and ok(dim) and adx > 25:
-        if dip > dim: score += 7; reasons.append(f'ADX {adx:.0f} ??????')
-        else:         score -= 7; reasons.append(f'ADX {adx:.0f} ??????')
+        if dip > dim: score += 7; reasons.append(f'ADX {adx:.0f} 多頭趨勢確立')
+        else:         score -= 7; reasons.append(f'ADX {adx:.0f} 空頭趨勢確立')
 
     if ok(vr):
         if vr >= 1.5 and score > 50: score += 4
@@ -2836,10 +2836,10 @@ def analyze(res, close_val):
 
     score = max(0, min(100, int(score)))
 
-    if   score >= 70: sig, stxt = 'buy',  '?????'
-    elif score >= 55: sig, stxt = 'hold', '??/????'
-    elif score >= 40: sig, stxt = 'wait', '????'
-    else:             sig, stxt = 'sell', '????'
+    if   score >= 70: sig, stxt = 'buy',  '可考慮買進'
+    elif score >= 55: sig, stxt = 'hold', '持有/逢低布局'
+    elif score >= 40: sig, stxt = 'wait', '觀望等待'
+    else:             sig, stxt = 'sell', '注意風險'
 
     bpct = None
     if ok(bu) and ok(bl) and (bu - bl) > 0:
@@ -2894,103 +2894,103 @@ def score_stock_fundamental(meta, items):
     growth_hint = max([v for v in [revenue_growth, earnings_growth] if v is not None], default=None)
 
     if pe is None:
-        notes.append('PE??')
+        notes.append('PE待補')
     else:
         used += 1
         if pe <= 0:
             score -= 14
-            add_score_item(items, -14, 'PE??????')
+            add_score_item(items, -14, 'PE不適用或虧損')
         elif pe < 8:
             score -= 4
-            add_score_item(items, -4, 'PE???????????')
+            add_score_item(items, -4, 'PE很低，需查是否景氣下滑')
         elif pe <= 25:
             score += 8
-            add_score_item(items, 8, 'PE????')
+            add_score_item(items, 8, 'PE在合理區')
         elif pe <= 40:
             score += 2
-            add_score_item(items, 2, 'PE???????')
+            add_score_item(items, 2, 'PE偏高但尚可觀察')
         elif growth_hint is not None and growth_hint >= 0.25:
             score -= 3
-            add_score_item(items, -3, 'PE??????')
+            add_score_item(items, -3, 'PE高但成長仍快')
         else:
             score -= 12
-            add_score_item(items, -12, 'PE??')
+            add_score_item(items, -12, 'PE偏高')
 
     if fpe is None:
-        notes.append('Forward PE??')
+        notes.append('Forward PE待補')
     else:
         used += 1
         if pe is not None and fpe < pe * 0.85:
             score += 6
-            add_score_item(items, 6, 'Forward PE??')
+            add_score_item(items, 6, 'Forward PE下降')
         elif pe is not None and fpe > pe * 1.20:
             score -= 5
-            add_score_item(items, -5, 'Forward PE??')
+            add_score_item(items, -5, 'Forward PE上升')
 
     if revenue_growth is None:
-        notes.append('??????')
+        notes.append('營收成長待補')
     else:
         used += 1
         if revenue_growth >= 0.20:
             score += 10
-            add_score_item(items, 10, '?????')
+            add_score_item(items, 10, '營收成長強')
         elif revenue_growth >= 0.05:
             score += 5
-            add_score_item(items, 5, '??????')
+            add_score_item(items, 5, '營收成長穩定')
         elif revenue_growth < 0:
             score -= 12
-            add_score_item(items, -12, '??????')
+            add_score_item(items, -12, '營收成長轉弱')
 
     if earnings_growth is None:
-        notes.append('EPS/??????')
+        notes.append('EPS/獲利成長待補')
     else:
         used += 1
         if earnings_growth >= 0.20:
             score += 10
-            add_score_item(items, 10, 'EPS/?????')
+            add_score_item(items, 10, 'EPS/獲利成長強')
         elif earnings_growth >= 0.05:
             score += 5
-            add_score_item(items, 5, 'EPS/??????')
+            add_score_item(items, 5, 'EPS/獲利成長穩定')
         elif earnings_growth < 0:
             score -= 12
-            add_score_item(items, -12, 'EPS/??????')
+            add_score_item(items, -12, 'EPS/獲利成長轉弱')
 
     if roe is None:
-        notes.append('ROE??')
+        notes.append('ROE待補')
     else:
         used += 1
         if roe >= 0.20:
             score += 10
-            add_score_item(items, 10, 'ROE?')
+            add_score_item(items, 10, 'ROE高')
         elif roe >= 0.10:
             score += 4
-            add_score_item(items, 4, 'ROE??')
+            add_score_item(items, 4, 'ROE尚可')
         elif roe < 0.05:
             score -= 8
-            add_score_item(items, -8, 'ROE??')
+            add_score_item(items, -8, 'ROE偏低')
 
     if gross is None:
-        notes.append('?????')
+        notes.append('毛利率待補')
     else:
         used += 1
         if gross >= 0.40:
             score += 6
-            add_score_item(items, 6, '????')
+            add_score_item(items, 6, '毛利率高')
         elif gross < 0.15:
             score -= 6
-            add_score_item(items, -6, '?????')
+            add_score_item(items, -6, '毛利率偏低')
 
     if debt is not None:
         used += 1
         if debt <= 50:
             score += 4
-            add_score_item(items, 4, '???????')
+            add_score_item(items, 4, '負債比壓力較低')
         elif debt >= 150:
             score -= 8
-            add_score_item(items, -8, '?????')
+            add_score_item(items, -8, '負債比偏高')
 
     if used < 4:
-        notes.append('???????')
+        notes.append('基本面欄位不足')
     return clamp_score(score), notes, used
 
 
@@ -2999,16 +2999,16 @@ def score_etf_quality(meta, items, ticker):
     notes = []
     used = 0
     expense = meta.get('expense_ratio')
-    expense_label = 'ETF???'
+    expense_label = 'ETF費用率'
     if (
         expense is None
         and meta.get('official_fee_annualized_estimate') is not None
         and not meta.get('official_fee_stale')
     ):
         expense = meta.get('official_fee_annualized_estimate')
-        expense_label = '????????'
+        expense_label = '官方費用年化估算'
     elif expense is None and meta.get('official_fee_annualized_estimate') is not None:
-        notes.append('????????????ETF????')
+        notes.append('官方費用資料偏舊，未納入ETF費用評分')
     premium = meta.get('premium_discount')
     assets = meta.get('total_assets')
     div_yield = meta.get('dividend_yield')
@@ -3016,82 +3016,82 @@ def score_etf_quality(meta, items, ticker):
     top1_weight = meta.get('top1_weight')
 
     if expense is None:
-        notes.append('?????')
+        notes.append('費用率待補')
     else:
         used += 1
         if expense <= 0.20:
             score += 10
-            add_score_item(items, 10, f'{expense_label}?')
+            add_score_item(items, 10, f'{expense_label}低')
         elif expense <= 0.50:
             score += 5
-            add_score_item(items, 5, f'{expense_label}??')
+            add_score_item(items, 5, f'{expense_label}尚可')
         elif expense >= 0.80:
             score -= 8
-            add_score_item(items, -8, f'{expense_label}??')
+            add_score_item(items, -8, f'{expense_label}偏高')
 
     if premium is None:
-        notes.append('?????')
+        notes.append('折溢價待補')
     else:
         used += 1
         ap = abs(premium)
         if ap <= 0.5:
             score += 8
-            add_score_item(items, 8, '???????')
+            add_score_item(items, 8, '折溢價貼近淨值')
         elif ap <= 1.5:
             score -= 3
-            add_score_item(items, -3, '??????')
+            add_score_item(items, -3, '折溢價需觀察')
         else:
             score -= 12
-            add_score_item(items, -12, '?????')
+            add_score_item(items, -12, '折溢價偏大')
 
     if assets is None:
-        notes.append('??????')
+        notes.append('基金規模待補')
     else:
         used += 1
         if assets >= 10_000_000_000:
             score += 6
-            add_score_item(items, 6, 'ETF????')
+            add_score_item(items, 6, 'ETF規模較大')
         elif assets < 100_000_000:
             score -= 8
-            add_score_item(items, -8, 'ETF????')
+            add_score_item(items, -8, 'ETF規模偏小')
 
     if div_yield is None:
-        notes.append('???????')
+        notes.append('配息殖利率待補')
     else:
         used += 1
         profile = get_profile(ticker)
-        if profile['role'] == '???' and 3 <= div_yield <= 8:
+        if profile['role'] == '現金流' and 3 <= div_yield <= 8:
             score += 4
-            add_score_item(items, 4, '????????????')
+            add_score_item(items, 4, '配息殖利率符合現金流用途')
         elif div_yield > 10:
             score -= 5
-            add_score_item(items, -5, '???????????')
+            add_score_item(items, -5, '殖利率過高需查配息來源')
 
     if top10_weight is None:
-        notes.append('????????')
+        notes.append('成分股集中度待補')
     else:
         used += 1
         if top1_weight is not None and top1_weight >= 40:
             score -= 8
-            add_score_item(items, -8, '?????????')
+            add_score_item(items, -8, '第一大持股占比很高')
         elif top10_weight >= 70:
             score -= 6
-            add_score_item(items, -6, '???????')
+            add_score_item(items, -6, '前十大持股集中')
         elif top10_weight <= 35:
             score += 5
-            add_score_item(items, 5, '??????')
+            add_score_item(items, 5, '成分股較分散')
 
     if used < 3:
-        notes.append('ETF??????')
+        notes.append('ETF專用資料不足')
     return clamp_score(score), notes, used
 
 
 def apply_factor_framework(ticker, a, ext, meta=None):
-    """??????????????????
+    """把技術指標轉成新手能理解的因子分數。
 
-    ???????RSI ?????????????
-    ????? RSI 70-80 ?????????????????KD???
-    ????/????????????
+    這裡刻意避免「RSI 高就一定危險」的粗暴判斷：
+    強勢趨勢中 RSI 70-80 可能是動能延續；只有搭配趨勢轉弱、KD偏空、
+    或成交量/波動異常時，才提高風險。
     """
     items = []
     ma_align = ext['ma_align']
@@ -3108,179 +3108,179 @@ def apply_factor_framework(ticker, a, ext, meta=None):
     a['meta'] = meta
 
     trend = 50
-    if ma_align == '????':
+    if ma_align == '多頭排列':
         trend += 24
-        add_score_item(items, 24, '??????')
-    elif ma_align == '????':
+        add_score_item(items, 24, '均線多頭排列')
+    elif ma_align == '空頭排列':
         trend -= 24
-        add_score_item(items, -24, '??????')
+        add_score_item(items, -24, '均線空頭排列')
     else:
-        add_score_item(items, 0, '????')
+        add_score_item(items, 0, '均線盤整')
 
     if a['macd_bull'] is not None:
         if macd_bull:
             trend += 18
-            add_score_item(items, 18, 'MACD ??')
+            add_score_item(items, 18, 'MACD 多頭')
         else:
             trend -= 18
-            add_score_item(items, -18, 'MACD ??')
+            add_score_item(items, -18, 'MACD 空頭')
 
     if ext['ytd'] is not None:
         if ext['ytd'] > 20:
             trend += 6
-            add_score_item(items, 6, '??????')
+            add_score_item(items, 6, '今年報酬強勢')
         elif ext['ytd'] < -15:
             trend -= 8
-            add_score_item(items, -8, '??????')
+            add_score_item(items, -8, '今年報酬偏弱')
     trend = clamp_score(trend)
 
     momentum = 50
     if kd_bull:
         momentum += 10
-        add_score_item(items, 10, a.get('kd_signal') or 'KD??')
+        add_score_item(items, 10, a.get('kd_signal') or 'KD偏多')
     elif a['k'] is not None and a['d'] is not None:
         momentum -= 10
-        add_score_item(items, -10, a.get('kd_signal') or 'KD??')
+        add_score_item(items, -10, a.get('kd_signal') or 'KD偏空')
 
     if rsi is not None:
         if 45 <= rsi <= 65:
             momentum += 10
-            add_score_item(items, 10, 'RSI ????')
+            add_score_item(items, 10, 'RSI 健康區間')
         elif 65 < rsi <= 80:
             if trend >= 70:
                 momentum += 12
-                add_score_item(items, 12, 'RSI ??????')
+                add_score_item(items, 12, 'RSI 偏高但趨勢強')
             else:
                 momentum -= 10
-                add_score_item(items, -10, 'RSI ???????')
+                add_score_item(items, -10, 'RSI 偏高且趨勢不足')
         elif rsi > 80:
             if trend >= 75 and kd_bull:
                 momentum += 5
-                add_score_item(items, 5, 'RSI ???????')
+                add_score_item(items, 5, 'RSI 鈍化，仍屬強勢')
             else:
                 momentum -= 18
-                add_score_item(items, -18, 'RSI ??')
+                add_score_item(items, -18, 'RSI 過熱')
         elif rsi < 30:
             momentum -= 6
-            add_score_item(items, -6, 'RSI ????')
+            add_score_item(items, -6, 'RSI 弱勢超賣')
     momentum = clamp_score(momentum)
 
     volume = 50
     if vr is not None:
         if vr >= 1.5 and trend >= 65:
             volume += 20
-            add_score_item(items, 20, '??????')
+            add_score_item(items, 20, '放量配合趨勢')
         elif vr >= 1.2:
             volume += 10
-            add_score_item(items, 10, '?????')
+            add_score_item(items, 10, '成交量放大')
         elif vr < 0.5:
             volume -= 15
-            add_score_item(items, -15, '???????')
+            add_score_item(items, -15, '成交量明顯不足')
         elif vr < 0.8:
             volume -= 6
-            add_score_item(items, -6, '?????')
+            add_score_item(items, -6, '成交量偏低')
     volume = clamp_score(volume)
 
     position = 50
     if w_pct < 25:
         position += 25
-        add_score_item(items, 25, '52?????')
+        add_score_item(items, 25, '52週位置偏低')
     elif w_pct < 45:
         position += 12
-        add_score_item(items, 12, '52???????')
+        add_score_item(items, 12, '52週位置合理偏低')
     elif w_pct > 92:
         if trend >= 75 and momentum >= 65:
             position -= 6
-            add_score_item(items, -6, '??52????????')
+            add_score_item(items, -6, '接近52週高點但趨勢延續')
         else:
             position -= 22
-            add_score_item(items, -22, '??52???')
+            add_score_item(items, -22, '接近52週高點')
     elif w_pct > 80:
         position -= 10
-        add_score_item(items, -10, '52?????')
+        add_score_item(items, -10, '52週位置偏高')
     position = clamp_score(position)
 
     risk = 75
     if vol is not None:
         if vol < 15:
             risk += 10
-            add_score_item(items, 10, '????')
+            add_score_item(items, 10, '波動率低')
         elif vol > 45:
             risk -= 28
-            add_score_item(items, -28, '?????')
+            add_score_item(items, -28, '波動率很高')
         elif vol > 30:
             risk -= 15
-            add_score_item(items, -15, '?????')
+            add_score_item(items, -15, '波動率偏高')
     if max_dd is not None:
         if max_dd <= -40:
             risk -= 20
-            add_score_item(items, -20, '????????')
+            add_score_item(items, -20, '歷史最大回撤很深')
         elif max_dd <= -25:
             risk -= 12
-            add_score_item(items, -12, '??????')
+            add_score_item(items, -12, '歷史回撤偏大')
         elif max_dd > -15:
             risk += 8
-            add_score_item(items, 8, '??????')
+            add_score_item(items, 8, '歷史回撤較淺')
     if beta is not None:
         if beta > 1.35:
             risk -= 8
-            add_score_item(items, -8, 'Beta ????')
+            add_score_item(items, -8, 'Beta 高於大盤')
         elif beta < 0.75:
             risk += 6
-            add_score_item(items, 6, 'Beta ????')
+            add_score_item(items, 6, 'Beta 低於大盤')
     if w_pct > 90 and rsi is not None and rsi > 75 and not kd_bull:
         risk -= 18
-        add_score_item(items, -18, '??????')
+        add_score_item(items, -18, '高檔動能轉弱')
     risk = clamp_score(risk)
 
-    data_notes = ['?????????????']
-    if ext.get('market_status') == '???':
-        data_notes.append('????????????')
+    data_notes = ['價格、成交量與技術資料可用']
+    if ext.get('market_status') == '開盤中':
+        data_notes.append('盤中資料，技術指標會變動')
     if 'TWSE STOCK_DAY_ALL' in str(ext.get('quote_note', '')):
-        data_notes.append('TWSE???????')
-    if meta.get('twse_validation_note') and '??' in str(meta.get('twse_validation_note')):
-        data_notes.append('????Yahoo???TWSE???????')
+        data_notes.append('TWSE盤後日資料優先')
+    if meta.get('twse_validation_note') and '盤中' in str(meta.get('twse_validation_note')):
+        data_notes.append('盤中優先Yahoo報價，TWSE作正式收盤參考')
     elif meta.get('twse_validation_note'):
-        data_notes.append('TWSE????????????Yahoo??')
+        data_notes.append('TWSE價格尺度驗證未通過，改用Yahoo報價')
     if meta.get('finmind_available'):
-        data_notes.append('FinMind?????/????')
+        data_notes.append('FinMind台股基本面/籌碼可用')
     if meta.get('finmind_errors'):
-        data_notes.append('??FinMind???????')
+        data_notes.append('部分FinMind欄位暫時抓不到')
     if 'Delayed' in str(ext.get('quote_note', '')):
-        data_notes.append('????')
+        data_notes.append('延遲報價')
     if max_dd is None:
-        data_notes.append('????????')
+        data_notes.append('最大回撤資料不足')
     if beta is None:
-        data_notes.append('Beta????')
+        data_notes.append('Beta資料不足')
     if ext.get('price_basis_adjusted'):
-        data_notes.append('????????????')
+        data_notes.append('已用還原價格避免分割失真')
 
     if is_etf:
         fundamental, quality_notes, meta_used = score_etf_quality(meta, items, ticker)
         data_notes.extend(quality_notes)
         if meta.get('official_etf_available'):
-            data_notes.append('ETF????????')
+            data_notes.append('ETF官方基本資料可用')
         if meta.get('official_nav_date') or meta.get('official_nav') is not None:
-            data_notes.append('??ETF??????')
+            data_notes.append('官方ETF每日淨值可用')
         if meta.get('official_fee_total_rate') is not None:
-            data_notes.append('??ETF??????')
+            data_notes.append('官方ETF費用資料可用')
         if meta.get('official_fee_stale'):
-            data_notes.append('??ETF???????????')
+            data_notes.append('官方ETF費用資料偏舊，僅供參考')
         if meta_used >= 3:
-            data_notes.append('???/NAV/???ETF????')
+            data_notes.append('費用率/NAV/規模等ETF資料可用')
         if meta.get('official_dividend_12m_amount') is not None:
-            data_notes.append('??ETF??????')
+            data_notes.append('官方ETF配息資料可用')
         if ext.get('total_return_3y') is not None:
-            data_notes.append('Adj Close??????')
+            data_notes.append('Adj Close含息估算可用')
         else:
-            data_notes.append('???????')
+            data_notes.append('含息總報酬待補')
         if ext.get('tracking_error') is not None:
             if ext.get('tracking_mode') == 'tracking':
-                data_notes.append('???????')
+                data_notes.append('簡易追蹤差可用')
             else:
-                data_notes.append('????????????????')
+                data_notes.append('指數對照偏離可用，非正式追蹤誤差')
         else:
-            data_notes.append('????????')
+            data_notes.append('正式追蹤誤差待補')
         confidence = 54 + min(24, meta_used * 6)
         if meta.get('official_etf_available'):
             confidence += 8
@@ -3289,14 +3289,14 @@ def apply_factor_framework(ticker, a, ext, meta=None):
         fundamental, quality_notes, meta_used = score_stock_fundamental(meta, items)
         data_notes.extend(quality_notes)
         if meta_used >= 4:
-            data_notes.append('PE/??/EPS/ROE??????')
+            data_notes.append('PE/營收/EPS/ROE等基本面可用')
         confidence = 42 + min(30, meta_used * 5)
         if meta.get('finmind_available'):
             confidence += 8
 
     if not meta.get('info_available'):
         confidence -= 10
-        data_notes.append('Yahoo?????????')
+        data_notes.append('Yahoo基本資料暫時抓不到')
     if max_dd is None:
         confidence -= 8
     if beta is None:
@@ -3338,13 +3338,13 @@ def apply_factor_framework(ticker, a, ext, meta=None):
     a['score'] = clamp_score(total)
 
     if a['score'] >= 75:
-        a['sig'], a['stxt'] = 'buy', '????'
+        a['sig'], a['stxt'] = 'buy', '適合分批'
     elif a['score'] >= 60:
-        a['sig'], a['stxt'] = 'hold', '????/????'
+        a['sig'], a['stxt'] = 'hold', '持續觀察/正常扣款'
     elif a['score'] >= 45:
-        a['sig'], a['stxt'] = 'wait', '?????????'
+        a['sig'], a['stxt'] = 'wait', '偏中性，等更好位置'
     else:
-        a['sig'], a['stxt'] = 'sell', '????'
+        a['sig'], a['stxt'] = 'sell', '風險偏高'
     return a
 
 
@@ -3353,13 +3353,13 @@ def factor_score_html(a, ticker):
     if not fs:
         return ''
     rows = [
-        ('??', fs['trend']),
-        ('??', fs['momentum']),
-        ('???', fs['volume']),
-        ('??', fs['position']),
-        ('??', fs['risk']),
+        ('趨勢', fs['trend']),
+        ('動能', fs['momentum']),
+        ('成交量', fs['volume']),
+        ('位置', fs['position']),
+        ('風險', fs['risk']),
     ]
-    rows.append(('ETF??' if is_etf_like(ticker) else '???', fs['fundamental']))
+    rows.append(('ETF資料' if is_etf_like(ticker) else '基本面', fs['fundamental']))
 
     def color(v):
         return '#1D9E75' if v >= 70 else '#185FA5' if v >= 55 else '#BA7517' if v >= 40 else '#D85A30'
@@ -3378,7 +3378,7 @@ def factor_score_html(a, ticker):
     conf_text = confidence_text(confidence)
     return (
         f'<div class="factor-box">'
-        f'<div class="factor-title"><b>????</b><span>????{conf_text}</span></div>'
+        f'<div class="factor-title"><b>因子分數</b><span>信心度：{conf_text}</span></div>'
         f'<div class="factor-grid">{factors}</div>'
         f'<ul class="score-change">{changes}</ul>'
         f'</div>'
@@ -3391,67 +3391,67 @@ def get_recommendations(a, ext):
     w_pct    = ext['w_pct']
     ma_align = ext['ma_align']
     vr       = a['vol_ratio']
-    vr_text  = f'{vr:.1f}?' if vr is not None else '????'
+    vr_text  = f'{vr:.1f}倍' if vr is not None else '資料不足'
     fs       = a.get('factor_scores', {})
-    strong_trend = fs.get('trend', 0) >= 70 and ma_align == '????'
+    strong_trend = fs.get('trend', 0) >= 70 and ma_align == '多頭排列'
     hot_price = (rsi is not None and rsi > 72) or w_pct > 90
     risk_score = fs.get('risk', 50)
 
     if hot_price and strong_trend:
-        rsi_text = f'RSI {rsi:.0f}' if rsi is not None else 'RSI ????'
-        trade = ('??????', 'hold',
-                 f'{rsi_text}????? {w_pct:.0f}%????????????????????????????????????')
+        rsi_text = f'RSI {rsi:.0f}' if rsi is not None else 'RSI 資料不足'
+        trade = ('強勢但不追高', 'hold',
+                 f'{rsi_text}，價格位置 {w_pct:.0f}%。這比較像強勢趨勢，不是單純危險；適合小額分批或等拉回，不建議一次重押。')
     elif hot_price:
-        rsi_text = f'RSI {rsi:.0f}' if rsi is not None else 'RSI ????'
-        trade = ('????????', 'wait',
-                 f'{rsi_text} ??????52????{w_pct:.0f}%????????????????????????')
-    elif score >= 70 and ma_align == '????' and vr is not None and vr >= 1.2:
-        trade = ('??????', 'buy',
-                 f'??????????????? {vr:.1f} ??????????????????')
-    elif score >= 70 and ma_align != '????':
-        trade = ('?????', 'buy',
-                 f'????????????????{vr_text}?????????????????')
+        rsi_text = f'RSI {rsi:.0f}' if rsi is not None else 'RSI 資料不足'
+        trade = ('短線偏熱，等回檔', 'wait',
+                 f'{rsi_text} 或價格已接近52週高點（{w_pct:.0f}%）。追高風險大，建議定期小額即可，不要一次重壓。')
+    elif score >= 70 and ma_align == '多頭排列' and vr is not None and vr >= 1.2:
+        trade = ('現在可以買進', 'buy',
+                 f'多項指標偏多，趨勢向上，成交量 {vr:.1f} 倍確認。技術面訊號明確，可考慮進場。')
+    elif score >= 70 and ma_align != '空頭排列':
+        trade = ('可考慮買進', 'buy',
+                 f'技術指標偏多，趨勢正確。成交量為{vr_text}，建議小量試單，觀察量能是否跟進。')
     elif score >= 65:
-        trade = ('?????', 'hold',
-                 '???????????????????????????????????????')
+        trade = ('可小量試單', 'hold',
+                 '部分指標偏多但尚未完全確認。可先小量進場，等待訊號更明確後再加碼，設好停損點。')
     elif (rsi is not None and rsi > 68) or w_pct > 85:
-        rsi_text = f'RSI {rsi:.0f}' if rsi is not None else 'RSI ????'
-        trade = ('????????', 'wait',
-                 f'{rsi_text} ??????52????{w_pct:.0f}%????????????????????')
+        rsi_text = f'RSI {rsi:.0f}' if rsi is not None else 'RSI 資料不足'
+        trade = ('短線偏熱，等回檔', 'wait',
+                 f'{rsi_text} 偏高或已接近52週高點（{w_pct:.0f}%）。追高風險大，建議等拉回整理後再進場。')
     elif score >= 45:
-        trade = ('??????', 'wait',
-                 '?????????????????KD?????RSI?????????????')
+        trade = ('等待更好時機', 'wait',
+                 '指標偏中性，尚無明確買訊。建議等待KD黃金交叉、RSI回到健康區間後再考慮進場。')
     else:
-        trade = ('???????', 'sell',
-                 f'?????????????{score}????????????????????????')
+        trade = ('目前不建議買進', 'sell',
+                 f'多項技術指標偏空（健康分數{score}）。建議等待落底訊號，趨勢確認轉多後再考慮進場。')
 
     if risk_score < 45:
-        dca = ('????????', 'wait',
-               f'???????{risk_score}??????????????????????????????????????')
-    elif w_pct < 25 and ma_align in ['????', '???']:
-        dca = ('?????', 'buy',
-               f'???52??????{w_pct:.0f}%??????????????????????????')
-    elif w_pct < 40 and ma_align == '????':
-        dca = ('?????', 'hold',
-               f'?????{w_pct:.0f}%??????????????????????????????')
+        dca = ('小額觀察，不加碼', 'wait',
+               f'風險分數偏低（{risk_score}），可能是波動或歷史回撤太大。就算位置看起來不高，也先不要把它當便宜貨重押。')
+    elif w_pct < 25 and ma_align in ['多頭排列', '盤整中']:
+        dca = ('加碼好時機', 'buy',
+               f'價格在52週相對低位（{w_pct:.0f}%），趨勢尚穩。定期定額加碼的好機會，可適度增加金額。')
+    elif w_pct < 40 and ma_align == '多頭排列':
+        dca = ('可略為加碼', 'hold',
+               f'價格偏低（{w_pct:.0f}%）且趨勢向上，可適度增加本月扣款金額，有助降低長期持有成本。')
     elif w_pct > 85 and strong_trend:
-        dca = ('????????', 'hold',
-               f'?????{w_pct:.0f}%??????????????????????????????')
+        dca = ('持續扣款，不加碼', 'hold',
+               f'價格偏高（{w_pct:.0f}%）但趨勢仍強。長期定期定額可照常，小白不需要因為高檔就停扣。')
     elif w_pct > 85:
-        dca = ('????????', 'wait',
-               f'?????52????{w_pct:.0f}%?????????????????????????')
-    elif ma_align == '????':
-        dca = ('??????', 'sell',
-               '??????????????????????????????????')
+        dca = ('正常扣款，勿加碼', 'wait',
+               f'價格已接近52週高點（{w_pct:.0f}%）。按原計畫正常扣款即可，此時加碼成本偏高不划算。')
+    elif ma_align == '空頭排列':
+        dca = ('考慮暫停扣款', 'sell',
+               '趨勢轉為空頭排列，建議暫停或減少定期定額金額，等待趨勢回穩後再繼續。')
     else:
-        dca = ('??????', 'hold',
-               f'?????????????{w_pct:.0f}%????????????????????')
+        dca = ('繼續正常扣款', 'hold',
+               f'趨勢穩定，價格在合理區間（{w_pct:.0f}%）。按原計畫繼續定期定額，無需特別調整。')
 
     return {'trade': trade, 'dca': dca}
 
 
 # =============================================================
-# SVG ?????
+# SVG 迷你走勢圖
 # =============================================================
 
 def sparkline(prices, w=220, h=44):
@@ -3476,7 +3476,7 @@ def sparkline(prices, w=220, h=44):
 
 
 # =============================================================
-# ????
+# 色彩設定
 # =============================================================
 
 SCORE_COL = {'buy': '#1D9E75', 'hold': '#185FA5', 'wait': '#BA7517', 'sell': '#D85A30'}
@@ -3489,14 +3489,14 @@ BADGE = {
 
 
 # =============================================================
-# HTML ??
+# HTML 元件
 # =============================================================
 
 def idx_card(ticker, name, price, chg, inverse=False, note=''):
     up   = chg >= 0
     good = (not up) if inverse else up
     col  = '#1D9E75' if good else '#D85A30'
-    arr  = '?' if up else '?'
+    arr  = '▲' if up else '▼'
     sign = '+' if chg >= 0 else ''
     return (f'<div class="ic"><div class="ic-l">{name}</div>'
             f'<div class="ic-v">{price:,.2f}</div>'
@@ -3504,11 +3504,11 @@ def idx_card(ticker, name, price, chg, inverse=False, note=''):
             f'<div class="ic-note">{h(note)}</div></div>')
 
 
-def idx_missing_card(name, note='?????????????'):
+def idx_missing_card(name, note='資料不足，暫不納入市場判斷'):
     return (
         f'<div class="ic"><div class="ic-l">{h(name)}</div>'
         f'<div class="ic-v">N/A</div>'
-        f'<div class="ic-c" style="color:#BA7517">????</div>'
+        f'<div class="ic-c" style="color:#BA7517">資料不足</div>'
         f'<div class="ic-note">{h(note)}</div></div>'
     )
 
@@ -3536,13 +3536,13 @@ def index_group_html(title, note, tickers, cards, collapsed=False):
 def indices_radar_html(cards):
     return (
         f'<section class="sc market-radar" id="market-radar">'
-        f'<div class="st">????</div>'
-        f'<div class="method-lead">???????????????????????????????????????????????</div>'
+        f'<div class="st">市場雷達</div>'
+        f'<div class="method-lead">這裡看大方向，不直接當成買賣訊號。核心看台股、美股科技、亞洲核心；波動與次要市場放在更多觀察。</div>'
         f'<div class="radar-layout">'
-        f'{index_group_html("??", "??????", ["^TWII"], cards)}'
-        f'{index_group_html("???? / ??", "???????? VIX ???????", ["^GSPC", "^IXIC", "^SOX", "^VIX"], cards)}'
-        f'{index_group_html("????", "?????????????", ["^N225", "^KS11", "^HSI"], cards)}'
-        f'{index_group_html("??????", "????? KOSDAQ ??????????", ["HSTECH.HK", "^KQ11"], cards, collapsed=True)}'
+        f'{index_group_html("台股", "本地市場本體", ["^TWII"], cards)}'
+        f'{index_group_html("美股科技 / 風險", "那斯達克、費半與 VIX 影響台股科技鏈", ["^GSPC", "^IXIC", "^SOX", "^VIX"], cards)}'
+        f'{index_group_html("亞洲核心", "看日本、韓國、香港是否同步", ["^N225", "^KS11", "^HSI"], cards)}'
+        f'{index_group_html("更多亞洲觀察", "恒生科技與 KOSDAQ 只作次要風險情緒參考", ["HSTECH.HK", "^KQ11"], cards, collapsed=True)}'
         f'</div></section>'
     )
 
@@ -3558,11 +3558,11 @@ def metric_tile(label, value, hint=''):
 def dividend_composition_text(meta):
     parts = []
     labels = [
-        ('??', meta.get('official_dividend_equity_income_pct')),
-        ('??', meta.get('official_dividend_interest_income_pct')),
-        ('???', meta.get('official_dividend_equalization_pct')),
-        ('????', meta.get('official_dividend_capital_gain_pct')),
-        ('??', meta.get('official_dividend_other_income_pct')),
+        ('股利', meta.get('official_dividend_equity_income_pct')),
+        ('利息', meta.get('official_dividend_interest_income_pct')),
+        ('平準金', meta.get('official_dividend_equalization_pct')),
+        ('資本利得', meta.get('official_dividend_capital_gain_pct')),
+        ('其他', meta.get('official_dividend_other_income_pct')),
     ]
     for label, value in labels:
         v = safe_num(value)
@@ -3577,72 +3577,72 @@ def metadata_detail_html(ticker, a, ext=None):
     if not meta or (not meta.get('info_available') and not meta.get('finmind_available') and not meta.get('official_etf_available')):
         return (
             f'<div class="detail-box">'
-            f'<div class="detail-title">??????</div>'
-            f'<div class="detail-note">Yahoo ????????????????????????????????????????</div>'
+            f'<div class="detail-title">基本資料詳情</div>'
+            f'<div class="detail-note">Yahoo 基本資料暫時抓不到，所以這張卡只能先看價格、趨勢與風險。不要把它當完整買賣依據。</div>'
             f'</div>'
         )
 
     if is_etf_like(ticker):
         premium = meta.get('premium_discount')
         premium_text = 'N/A' if premium is None else f'{premium:+.2f}%'
-        premium_hint = '?? 0% ?????????'
+        premium_hint = '接近 0% 代表成交價貼近淨值'
         if premium is not None and abs(premium) > 1.5:
-            premium_hint = '??????????????'
+            premium_hint = '偏離淨值較多，小白不要急著追'
         if meta.get('official_premium_discount') is not None:
-            premium_hint = '???NAV?????'
+            premium_hint = '用公開NAV與市價估算'
 
         fee_value = fmt_expense_pct(meta.get('expense_ratio'))
-        fee_hint = '?????????'
+        fee_hint = '內扣成本，越低越好'
         if (
             meta.get('expense_ratio') is None
             and meta.get('official_fee_annualized_estimate') is not None
             and not meta.get('official_fee_stale')
         ):
             fee_value = fmt_optional_pct(meta.get('official_fee_annualized_estimate'))
-            fee_hint = '??????????????'
+            fee_hint = '官方費用年化估算，非保證全年'
         elif meta.get('expense_ratio') is None and meta.get('official_fee_annualized_estimate') is not None:
             fee_value = 'N/A'
-            fee_hint = '?????????????????'
+            fee_hint = '官方費用資料偏舊，先不當正式費用率'
 
-        price_return_label = '3??????' if ext.get('price_basis_adjusted') else '3?????'
-        price_return_hint = '??????????????????' if ext.get('price_basis_adjusted') else '???????????'
-        tracking_label = ext.get('tracking_label') or '?????'
-        tracking_hint = ext.get('tracking_hint') or f'? {ext.get("tracking_benchmark") or "????"}????????'
+        price_return_label = '3年還原價報酬' if ext.get('price_basis_adjusted') else '3年價格報酬'
+        price_return_hint = '使用還原價格，避免分割造成高低點失真' if ext.get('price_basis_adjusted') else '只看市價，不含完整配息'
+        tracking_label = ext.get('tracking_label') or '正式追蹤差'
+        tracking_hint = ext.get('tracking_hint') or f'對 {ext.get("tracking_benchmark") or "基準待補"}，非正式追蹤誤差'
         if ext.get('tracking_error') is not None and ext.get('tracking_benchmark'):
-            tracking_hint = f'? {ext.get("tracking_benchmark")}?{tracking_hint}'
+            tracking_hint = f'對 {ext.get("tracking_benchmark")}；{tracking_hint}'
         div_yield = meta.get('official_dividend_yield_12m')
-        div_yield_hint = '????12???/????'
+        div_yield_hint = '用官方近12月配息/市價估算'
         if div_yield is None:
             div_yield = meta.get('dividend_yield')
-            div_yield_hint = '??????????????'
+            div_yield_hint = '配息是現金流，不等於保證賺錢'
 
         tile_items = [
-            metric_tile('???', fee_value, fee_hint),
-            metric_tile('???', premium_text, premium_hint),
-            metric_tile('?????', f'{div_yield:.1f}%' if div_yield is not None else 'N/A', div_yield_hint),
-            metric_tile('????', fmt_compact(meta.get('total_assets')), '????????'),
-            metric_tile('NAV??', fmt_plain_num(meta.get('nav_price'), 2), 'ETF????????'),
+            metric_tile('費用率', fee_value, fee_hint),
+            metric_tile('折溢價', premium_text, premium_hint),
+            metric_tile('配息殖利率', f'{div_yield:.1f}%' if div_yield is not None else 'N/A', div_yield_hint),
+            metric_tile('基金規模', fmt_compact(meta.get('total_assets')), '太小要小心流動性'),
+            metric_tile('NAV淨值', fmt_plain_num(meta.get('nav_price'), 2), 'ETF一單位的參考淨值'),
             metric_tile(price_return_label, f'{ext["price_return_3y"]:+.1f}%' if ext.get('price_return_3y') is not None else 'N/A', price_return_hint),
-            metric_tile('3?????', f'{ext["total_return_3y"]:+.1f}%' if ext.get('total_return_3y') is not None else 'N/A', '? Yahoo Adj Close ??'),
+            metric_tile('3年含息估算', f'{ext["total_return_3y"]:+.1f}%' if ext.get('total_return_3y') is not None else 'N/A', '用 Yahoo Adj Close 估算'),
             metric_tile(tracking_label, f'{ext["tracking_error"]:.2f}%' if ext.get('tracking_error') is not None else 'N/A', tracking_hint),
-            metric_tile('?????', f'{meta["top10_weight"]:.1f}%' if meta.get('top10_weight') is not None else 'N/A', '???????'),
-            metric_tile('????', f'{meta["top_sector"]["label"]} {meta["top_sector"]["weight"]:.1f}%' if meta.get('top_sector') else 'N/A', '???????????'),
+            metric_tile('前十大占比', f'{meta["top10_weight"]:.1f}%' if meta.get('top10_weight') is not None else 'N/A', '越高代表越集中'),
+            metric_tile('最大產業', f'{meta["top_sector"]["label"]} {meta["top_sector"]["weight"]:.1f}%' if meta.get('top_sector') else 'N/A', '看是否過度集中單一產業'),
         ]
         if ticker in TW_ETFS or meta.get('official_etf_available'):
             fee_period = f'{meta.get("official_fee_year") or ""}/{meta.get("official_fee_month") or ""}'.strip('/')
-            fee_period_hint = f'{fee_period or "??????"} ?????'
+            fee_period_hint = f'{fee_period or "資料月份待補"} 合計費用率'
             if meta.get('official_fee_stale'):
-                fee_period_hint += '?????????'
+                fee_period_hint += '，資料偏舊僅供參考'
             official_items = [
-                metric_tile('?????', fmt_optional_pct(meta.get('official_fee_total_rate')), fee_period_hint),
-                metric_tile('??NAV??', meta.get('official_nav_date') or 'N/A', '????????'),
-                metric_tile('?12???', fmt_plain_num(meta.get('official_dividend_12m_amount'), 2), f'{int(meta.get("official_dividend_12m_count") or 0)} ?????'),
-                metric_tile('????', fmt_plain_num(meta.get('official_latest_dividend_amount'), 3), f'??? {meta.get("official_latest_ex_dividend_date") or "N/A"}'),
-                metric_tile('????', meta.get('official_next_ex_dividend_date') or 'N/A', f'???? {fmt_plain_num(meta.get("official_next_dividend_amount"), 3)}'),
-                metric_tile('????', dividend_composition_text(meta), '??????????????????'),
-                metric_tile('????', short_label(meta.get('official_etf_index_name') or meta.get('official_etf_benchmark_name'), 22), 'ETF????????'),
-                metric_tile('????', short_label(meta.get('official_etf_type'), 22), '?????????????'),
-                metric_tile('????', meta.get('official_etf_listing_date') or 'N/A', '?ETF??????'),
+                metric_tile('官方費用月', fmt_optional_pct(meta.get('official_fee_total_rate')), fee_period_hint),
+                metric_tile('官方NAV日期', meta.get('official_nav_date') or 'N/A', '每日淨值資料日期'),
+                metric_tile('近12月配息', fmt_plain_num(meta.get('official_dividend_12m_amount'), 2), f'{int(meta.get("official_dividend_12m_count") or 0)} 次除息合計'),
+                metric_tile('最近配息', fmt_plain_num(meta.get('official_latest_dividend_amount'), 3), f'除息日 {meta.get("official_latest_ex_dividend_date") or "N/A"}'),
+                metric_tile('下次除息', meta.get('official_next_ex_dividend_date') or 'N/A', f'預告配息 {fmt_plain_num(meta.get("official_next_dividend_amount"), 3)}'),
+                metric_tile('配息來源', dividend_composition_text(meta), '平準金或資本利得高時，不要只看殖利率'),
+                metric_tile('追蹤指數', short_label(meta.get('official_etf_index_name') or meta.get('official_etf_benchmark_name'), 22), 'ETF真正跟著跑的標的'),
+                metric_tile('基金類型', short_label(meta.get('official_etf_type'), 22), '看是台股、海外、債券或主題'),
+                metric_tile('上市日期', meta.get('official_etf_listing_date') or 'N/A', '新ETF歷史資料較短'),
             ]
             tile_items = tile_items[:1] + official_items + tile_items[1:]
         tiles = ''.join(tile_items)
@@ -3653,25 +3653,25 @@ def metadata_detail_html(ticker, a, ext=None):
                 f'<span>{h(item["symbol"] or item["name"])} {item["weight"]:.1f}%</span>'
                 for item in top_holdings[:5]
             )
-            holdings_html = f'<div class="holding-chips"><b>?????</b><div>{chips}</div></div>'
-        note = 'ETF ????????????????????????????????????????'
+            holdings_html = f'<div class="holding-chips"><b>前五大持股</b><div>{chips}</div></div>'
+        note = 'ETF 要分開看：重點是成本、折溢價、規模、總報酬與成分股集中度；價格線只是其中一部分。'
         if meta.get('official_etf_available'):
-            note += ' ?? ETF ???? ETF ?????????????????????'
+            note += ' 台股 ETF 已補公開 ETF 基本資料、可取得的每日淨值與基金費用資料。'
         if meta.get('official_dividend_12m_amount') is not None:
-            note += ' ?????? TWSE ETF e????????????????????????????'
+            note += ' 配息欄位使用 TWSE ETF e添富公開配息清單；組成占比屬公告預估，不能當成未來保證。'
         if (safe_num(meta.get('official_dividend_equalization_pct')) or 0) > 20 or (safe_num(meta.get('official_dividend_capital_gain_pct')) or 0) > 20:
-            note += ' ?????????????????????????????????'
+            note += ' 這檔近期配息含較多收益平準金或資本利得，小白不要只因殖利率高就買。'
         if meta.get('premium_discount') is None:
-            note += ' ??????????????????????????'
+            note += ' 目前折溢價資料不足，買進前要再查發行商或證交所資料。'
         if meta.get('official_etf_errors'):
-            note += ' ???????????' + '?'.join(meta.get('official_etf_errors')[:3]) + '?'
+            note += ' 仍有部分官方欄位待補：' + '、'.join(meta.get('official_etf_errors')[:3]) + '。'
         if ext.get('tracking_error') is None:
-            note += ' ' + (ext.get('tracking_hint') or '???????????????????')
+            note += ' ' + (ext.get('tracking_hint') or '正式追蹤誤差仍需發行商或指數資料確認。')
         elif ext.get('tracking_mode') != 'tracking':
-            note += ' ????????????????????????'
+            note += ' 指數對照偏離不是正式追蹤誤差，只能當大方向參考。'
         return (
             f'<div class="detail-box">'
-            f'<div class="detail-title">ETF ????</div>'
+            f'<div class="detail-title">ETF 專用資料</div>'
             f'<div class="detail-grid">{tiles}</div>'
             f'{holdings_html}'
             f'<div class="detail-note">{h(note)}</div>'
@@ -3679,64 +3679,64 @@ def metadata_detail_html(ticker, a, ext=None):
         )
 
     revenue_value = meta.get('finmind_ttm_revenue_yoy')
-    revenue_hint = 'FinMind?12????YoY'
+    revenue_hint = 'FinMind近12個月營收YoY'
     if revenue_value is None:
         revenue_value = meta.get('revenue_growth')
-        revenue_hint = 'Yahoo???????'
+        revenue_hint = 'Yahoo或可用營收成長'
     eps_growth = meta.get('finmind_eps_yoy')
-    eps_growth_hint = 'FinMind???EPS YoY'
+    eps_growth_hint = 'FinMind最新季EPS YoY'
     if eps_growth is None:
         eps_growth = meta.get('earnings_growth')
-        eps_growth_hint = 'Yahoo???????'
+        eps_growth_hint = 'Yahoo或可用獲利成長'
     gross_margin = meta.get('finmind_gross_margin')
-    gross_hint = 'FinMind??????'
+    gross_hint = 'FinMind最新季毛利率'
     if gross_margin is None:
         gross_margin = meta.get('gross_margin')
-        gross_hint = 'Yahoo??????'
+        gross_hint = 'Yahoo或可用毛利率'
 
     tiles = ''.join([
-        metric_tile('PE???', fmt_plain_num(meta.get('trailing_pe'), 1), '????????????'),
-        metric_tile('Forward PE', fmt_plain_num(meta.get('forward_pe'), 1), '????????'),
-        metric_tile('PB?????', fmt_plain_num(meta.get('pb'), 1), '??????'),
-        metric_tile('???YoY', fmt_ratio_pct(meta.get('finmind_month_revenue_yoy')), f'{meta.get("finmind_revenue_month_label") or "???"} ?????'),
-        metric_tile('?12???YoY', fmt_ratio_pct(revenue_value), revenue_hint),
-        metric_tile('???EPS', fmt_plain_num(meta.get('finmind_eps_ttm'), 2), 'FinMind???EPS??'),
-        metric_tile('EPS/????', fmt_ratio_pct(eps_growth), eps_growth_hint),
-        metric_tile('ROE', fmt_ratio_pct(meta.get('roe')), '???????'),
-        metric_tile('???', fmt_ratio_pct(gross_margin), gross_hint),
-        metric_tile('???', f'{meta["dividend_yield"]:.1f}%' if meta.get('dividend_yield') is not None else 'N/A', '???????????'),
+        metric_tile('PE本益比', fmt_plain_num(meta.get('trailing_pe'), 1), '價格相對獲利，不能單獨看'),
+        metric_tile('Forward PE', fmt_plain_num(meta.get('forward_pe'), 1), '市場預估未來獲利'),
+        metric_tile('PB股價淨值比', fmt_plain_num(meta.get('pb'), 1), '金融股更常用'),
+        metric_tile('月營收YoY', fmt_ratio_pct(meta.get('finmind_month_revenue_yoy')), f'{meta.get("finmind_revenue_month_label") or "最新月"} 的營收年增'),
+        metric_tile('近12月營收YoY', fmt_ratio_pct(revenue_value), revenue_hint),
+        metric_tile('近四季EPS', fmt_plain_num(meta.get('finmind_eps_ttm'), 2), 'FinMind近四季EPS合計'),
+        metric_tile('EPS/獲利成長', fmt_ratio_pct(eps_growth), eps_growth_hint),
+        metric_tile('ROE', fmt_ratio_pct(meta.get('roe')), '股東權益報酬率'),
+        metric_tile('毛利率', fmt_ratio_pct(gross_margin), gross_hint),
+        metric_tile('殖利率', f'{meta["dividend_yield"]:.1f}%' if meta.get('dividend_yield') is not None else 'N/A', '配息參考，不是主要買點'),
     ])
     chip_html = ''
     if meta.get('finmind_chip_date'):
         chip_html = (
-            f'<div class="holding-chips"><b>???????{h(meta.get("finmind_chip_date"))}?</b>'
+            f'<div class="holding-chips"><b>三大法人籌碼（{h(meta.get("finmind_chip_date"))}）</b>'
             f'<div>'
-            f'<span>?? {h(fmt_net_lots(meta.get("finmind_foreign_net_buy")))}</span>'
-            f'<span>?? {h(fmt_net_lots(meta.get("finmind_investment_trust_net_buy")))}</span>'
-            f'<span>?? {h(fmt_net_lots(meta.get("finmind_dealer_net_buy")))}</span>'
-            f'<span>?? {h(fmt_net_lots(meta.get("finmind_institutional_net_buy")))}</span>'
+            f'<span>外資 {h(fmt_net_lots(meta.get("finmind_foreign_net_buy")))}</span>'
+            f'<span>投信 {h(fmt_net_lots(meta.get("finmind_investment_trust_net_buy")))}</span>'
+            f'<span>自營 {h(fmt_net_lots(meta.get("finmind_dealer_net_buy")))}</span>'
+            f'<span>合計 {h(fmt_net_lots(meta.get("finmind_institutional_net_buy")))}</span>'
             f'</div></div>'
         )
     warnings_list = []
     if revenue_value is not None and revenue_value < 0:
-        warnings_list.append('????????? PE ??????')
+        warnings_list.append('營收成長轉弱，過去 PE 可能會失效。')
     if eps_growth is not None and eps_growth < 0:
-        warnings_list.append('EPS/????????????????')
+        warnings_list.append('EPS/獲利成長轉弱，不能只看過去便宜。')
     recent_yoys = meta.get('finmind_recent_revenue_yoys') or []
     if len(recent_yoys) >= 3 and all(v < 0 for v in recent_yoys):
-        warnings_list.append('????????????????????')
+        warnings_list.append('近三個月營收年增都下滑，估值模型要降權。')
     if meta.get('trailing_pe') is not None and meta['trailing_pe'] > 45 and (revenue_value or 0) < 0.15:
-        warnings_list.append('PE ????????????????????')
-    note = '???????????????????????????????'
+        warnings_list.append('PE 偏高但成長沒有同步跟上，要降低追價衝動。')
+    note = '個股要看三層：經營有沒有變好、獲利品質好不好、財務壓力大不大。'
     if meta.get('finmind_available'):
-        note += ' ?????? FinMind ? PE/PBR?????EPS ????????'
+        note += ' 台股個股已補 FinMind 的 PE/PBR、月營收、EPS 與三大法人資料。'
     if meta.get('finmind_errors'):
-        note += ' ?????????????????????????'
+        note += ' 仍有部分免費資料暫時抓不到，缺欄位不會被當成正常。'
     if warnings_list:
-        note += ' ?????' + ''.join(warnings_list)
+        note += ' 失效警告：' + ''.join(warnings_list)
     return (
         f'<div class="detail-box">'
-        f'<div class="detail-title">???????</div>'
+        f'<div class="detail-title">個股基本面詳情</div>'
         f'<div class="detail-grid">{tiles}</div>'
         f'{chip_html}'
         f'<div class="detail-note">{h(note)}</div>'
@@ -3747,7 +3747,7 @@ def metadata_detail_html(ticker, a, ext=None):
 def stock_card(ticker, name, price, chg, hist_close, a, ext, rec):
     up  = chg >= 0
     pc  = '#1D9E75' if up else '#D85A30'
-    arr = '?' if up else '?'
+    arr = '▲' if up else '▼'
     sgn = '+' if chg >= 0 else ''
     sc  = a['score']
     sig = a['sig']
@@ -3755,29 +3755,29 @@ def stock_card(ticker, name, price, chg, hist_close, a, ext, rec):
     badge_tc, badge_bg = BADGE[sig]
     sp   = sparkline(hist_close)
     disp = ticker.replace('.TW', '')
-    qt = f' ? {ext.get("quote_time_text")}' if ext.get('quote_time_text') else ''
-    price_caption = f'{ext.get("price_label", "????")} {ext.get("latest_date", "")}{qt} ? {ext.get("market_status", "")}'
+    qt = f' · {ext.get("quote_time_text")}' if ext.get('quote_time_text') else ''
+    price_caption = f'{ext.get("price_label", "最新收盤")} {ext.get("latest_date", "")}{qt} · {ext.get("market_status", "")}'
 
     kd_v = f"K{a['k']} / D{a['d']}" if a['k'] is not None else 'N/A'
     kd_c = '#1D9E75' if (a['k'] and a['d'] and a['k'] > a['d']) else '#D85A30'
-    kd_s = a.get('kd_signal') or (('KD??' if (a['k'] and a['d'] and a['k'] > a['d']) else 'KD??') if a['k'] else '')
+    kd_s = a.get('kd_signal') or (('KD偏多' if (a['k'] and a['d'] and a['k'] > a['d']) else 'KD偏空') if a['k'] else '')
 
     rsi_v = str(a['rsi']) if a['rsi'] is not None else 'N/A'
     rsi_c = ('#D85A30' if (a['rsi'] and a['rsi'] > 70)
              else '#1D9E75' if (a['rsi'] and a['rsi'] < 30) else '#6c757d')
-    rsi_s = ('??' if (a['rsi'] and a['rsi'] > 70)
-             else '??' if (a['rsi'] and a['rsi'] < 30) else '??')
+    rsi_s = ('超買' if (a['rsi'] and a['rsi'] > 70)
+             else '超賣' if (a['rsi'] and a['rsi'] < 30) else '正常')
 
     dv = a['dev20']
     if dv is not None:
         dv_v = f'+{dv:.1f}%' if dv >= 0 else f'{dv:.1f}%'
         dv_c = '#D85A30' if dv > 5 else '#1D9E75' if dv < -5 else '#6c757d'
-        dv_s = '??' if dv > 5 else '??' if dv < -5 else '??'
+        dv_s = '過熱' if dv > 5 else '偏低' if dv < -5 else '合理'
     else:
         dv_v, dv_c, dv_s = 'N/A', '#6c757d', ''
 
     if a['macd_bull'] is not None:
-        macd_v = '????' if a['macd_bull'] else '????'
+        macd_v = '多頭排列' if a['macd_bull'] else '空頭排列'
         macd_c = '#1D9E75' if a['macd_bull'] else '#D85A30'
     else:
         macd_v, macd_c = 'N/A', '#6c757d'
@@ -3786,22 +3786,22 @@ def stock_card(ticker, name, price, chg, hist_close, a, ext, rec):
     if a['bpct'] is not None:
         bp = a['bpct']
         bd = '#1D9E75' if bp < 30 else '#D85A30' if bp > 75 else '#185FA5'
-        boll_html = (f'<div class="bw"><div class="bl-lbl">?????? '
+        boll_html = (f'<div class="bw"><div class="bl-lbl">布林通道位置 '
                      f'<span style="color:{bd};font-weight:600">{bp}%</span></div>'
                      f'<div class="bb"><div class="bd" style="left:{bp}%;background:{bd}"></div></div>'
-                     f'<div class="bt"><span style="color:#1D9E75">??</span>'
-                     f'<span>??</span><span style="color:#D85A30">??</span></div></div>')
+                     f'<div class="bt"><span style="color:#1D9E75">下軌</span>'
+                     f'<span>中軌</span><span style="color:#D85A30">上軌</span></div></div>')
 
     w_pct = ext['w_pct']
     wd = '#1D9E75' if w_pct < 30 else '#D85A30' if w_pct > 75 else '#BA7517'
-    basis_suffix = '??????' if ext.get('price_basis_adjusted') else ''
+    basis_suffix = '（還原價格）' if ext.get('price_basis_adjusted') else ''
     week52_html = (
         f'<div class="bw" style="margin-bottom:10px">'
-        f'<div class="bl-lbl">52?????{basis_suffix} <span style="color:{wd};font-weight:600">{w_pct:.0f}%</span>'
-        f'<span style="font-size:10px;color:var(--t2)"> ?0%=52????100%=52????</span></div>'
+        f'<div class="bl-lbl">52週價格位置{basis_suffix} <span style="color:{wd};font-weight:600">{w_pct:.0f}%</span>'
+        f'<span style="font-size:10px;color:var(--t2)"> （0%=52週最低，100%=52週最高）</span></div>'
         f'<div class="bb"><div class="bd" style="left:{w_pct:.0f}%;background:{wd}"></div></div>'
-        f'<div class="bt"><span style="color:#1D9E75">?? {ext["w_low"]:,.2f}</span>'
-        f'<span style="color:#D85A30">?? {ext["w_high"]:,.2f}</span></div></div>'
+        f'<div class="bt"><span style="color:#1D9E75">低點 {ext["w_low"]:,.2f}</span>'
+        f'<span style="color:#D85A30">高點 {ext["w_high"]:,.2f}</span></div></div>'
     )
 
     def pref_item(label, value, hint='', color='var(--t)'):
@@ -3815,54 +3815,54 @@ def stock_card(ticker, name, price, chg, hist_close, a, ext, rec):
     price_ref_html = ''
     if ext.get('reference_close'):
         pr  = '<div class="pref-row">'
-        pr += pref_item(ext.get('reference_label', '?????'), ext['reference_close'], ext.get('reference_date') or ext.get('freshness_note', ''))
+        pr += pref_item(ext.get('reference_label', '資料日昨收'), ext['reference_close'], ext.get('reference_date') or ext.get('freshness_note', ''))
         if ext.get('session_open') is not None:
-            pr += pref_item('?????', ext['session_open'], ext.get('latest_date', ''))
+            pr += pref_item('資料日開盤', ext['session_open'], ext.get('latest_date', ''))
         else:
-            pr += pref_item('?????', '????', ext.get('open_note', '???????'))
-        pr += pref_item(ext.get('price_label', '????/?'), ext.get('latest_close') or price, ext.get('quote_time_text') or ext.get('latest_date', ''))
+            pr += pref_item('資料日開盤', '尚無資料', ext.get('open_note', '尚未取得開盤價'))
+        pr += pref_item(ext.get('price_label', '最新收盤/價'), ext.get('latest_close') or price, ext.get('quote_time_text') or ext.get('latest_date', ''))
         if ext.get('session_high') is not None:
-            pr += pref_item('?????', ext['session_high'], ext.get('latest_date', ''))
+            pr += pref_item('資料日最高', ext['session_high'], ext.get('latest_date', ''))
         if ext.get('session_low') is not None:
-            pr += pref_item('?????', ext['session_low'], ext.get('latest_date', ''))
+            pr += pref_item('資料日最低', ext['session_low'], ext.get('latest_date', ''))
         if ext['limit_up']:
-            pr += pref_item('?????(+10%)', ext['limit_up'], '??????? tick size ??', '#1D9E75')
-            pr += pref_item('?????(-10%)', ext['limit_down'], '??????? tick size ??', '#D85A30')
-        pr += pref_item('????/??', ext.get('quote_note') or 'Yahoo Finance', ext.get('current_market_status') or '')
+            pr += pref_item('資料日漲停(+10%)', ext['limit_up'], '依資料日昨收與 tick size 估算', '#1D9E75')
+            pr += pref_item('資料日跌停(-10%)', ext['limit_down'], '依資料日昨收與 tick size 估算', '#D85A30')
+        pr += pref_item('資料來源/狀態', ext.get('quote_note') or 'Yahoo Finance', ext.get('current_market_status') or '')
         pr += '</div>'
         price_ref_html = pr
 
-    ma_col = '#1D9E75' if ext['ma_align'] == '????' else '#D85A30' if ext['ma_align'] == '????' else '#BA7517'
+    ma_col = '#1D9E75' if ext['ma_align'] == '多頭排列' else '#D85A30' if ext['ma_align'] == '空頭排列' else '#BA7517'
     vr     = a['vol_ratio']
-    vr_str = f'{vr:.1f}?' if vr else 'N/A'
+    vr_str = f'{vr:.1f}倍' if vr else 'N/A'
     vr_col = '#1D9E75' if (vr and vr >= 1.2) else '#D85A30' if (vr and vr < 0.5) else '#6c757d'
-    vr_lbl = '??' if (vr and vr >= 1.2) else '??' if (vr and vr < 0.8) else '??'
+    vr_lbl = '放量' if (vr and vr >= 1.2) else '縮量' if (vr and vr < 0.8) else '正常'
     ytd_str = (f'+{ext["ytd"]:.1f}%' if ext['ytd'] and ext['ytd'] >= 0 else
                f'{ext["ytd"]:.1f}%'  if ext['ytd'] else 'N/A')
     ytd_col = '#1D9E75' if (ext['ytd'] and ext['ytd'] > 0) else '#D85A30' if (ext['ytd'] and ext['ytd'] < 0) else '#6c757d'
     vol_str = f'{ext["volatility"]:.0f}%' if ext['volatility'] else 'N/A'
-    vol_lbl = ('???' if (ext['volatility'] and ext['volatility'] < 15) else
-               '???' if (ext['volatility'] and ext['volatility'] > 35) else '??')
+    vol_lbl = ('低波動' if (ext['volatility'] and ext['volatility'] < 15) else
+               '高波動' if (ext['volatility'] and ext['volatility'] > 35) else '中等')
     dd = ext.get('max_drawdown')
     dd_str = f'{dd:.0f}%' if dd is not None else 'N/A'
     dd_col = '#D85A30' if (dd is not None and dd <= -35) else '#BA7517' if (dd is not None and dd <= -20) else '#1D9E75'
-    dd_lbl = ('????' if (dd is not None and dd <= -35) else
-              '??????' if (dd is not None and dd <= -20) else '????')
+    dd_lbl = ('跌幅很深' if (dd is not None and dd <= -35) else
+              '需有心理準備' if (dd is not None and dd <= -20) else '相對溫和')
     beta = ext.get('beta')
     beta_str = f'{beta:.2f}' if beta is not None else 'N/A'
     beta_col = '#D85A30' if (beta is not None and beta > 1.3) else '#1D9E75' if (beta is not None and beta < 0.8) else '#6c757d'
-    beta_lbl = ('?????' if (beta is not None and beta > 1.3) else
-                '????' if (beta is not None and beta < 0.8) else '????')
+    beta_lbl = ('比大盤更晃' if (beta is not None and beta > 1.3) else
+                '比大盤穩' if (beta is not None and beta < 0.8) else '接近大盤')
 
     ext_html = (
         f'<div class="ig" style="margin-bottom:10px">'
-        f'<div class="ic2"><div class="il">????</div><div class="iv" style="color:{ma_col}">{ext["ma_align"]}</div></div>'
-        f'<div class="ic2"><div class="il">????</div><div class="iv" style="color:{vr_col}">{vr_str}</div>'
+        f'<div class="ic2"><div class="il">均線排列</div><div class="iv" style="color:{ma_col}">{ext["ma_align"]}</div></div>'
+        f'<div class="ic2"><div class="il">成交量比</div><div class="iv" style="color:{vr_col}">{vr_str}</div>'
         f'<div class="is" style="color:{vr_col}">{vr_lbl}</div></div>'
-        f'<div class="ic2"><div class="il">????</div><div class="iv" style="color:{ytd_col}">{ytd_str}</div></div>'
-        f'<div class="ic2"><div class="il">???(??)</div><div class="iv">{vol_str}</div>'
+        f'<div class="ic2"><div class="il">今年報酬</div><div class="iv" style="color:{ytd_col}">{ytd_str}</div></div>'
+        f'<div class="ic2"><div class="il">波動率(年化)</div><div class="iv">{vol_str}</div>'
         f'<div class="is">{vol_lbl}</div></div>'
-        f'<div class="ic2"><div class="il">????</div><div class="iv" style="color:{dd_col}">{dd_str}</div>'
+        f'<div class="ic2"><div class="il">最大回撤</div><div class="iv" style="color:{dd_col}">{dd_str}</div>'
         f'<div class="is" style="color:{dd_col}">{dd_lbl}</div></div>'
         f'<div class="ic2"><div class="il">Beta</div><div class="iv" style="color:{beta_col}">{beta_str}</div>'
         f'<div class="is" style="color:{beta_col}">{beta_lbl}</div></div>'
@@ -3889,22 +3889,22 @@ def stock_card(ticker, name, price, chg, hist_close, a, ext, rec):
     quick_summary = price_zone.get('summary') if price_zone else rec['dca'][2]
     quick_html = (
         f'<div class="quick-take">'
-        f'<div><span>????</span><b>{h(quick_status)}</b><small>{h(quick_summary)}</small></div>'
-        f'<div><span>?????</span><b>{h(quick_action)}</b><small>??????????????????</small></div>'
+        f'<div><span>現在狀態</span><b>{h(quick_status)}</b><small>{h(quick_summary)}</small></div>'
+        f'<div><span>今天怎麼做</span><b>{h(quick_action)}</b><small>先看價格區間，再看資料可信度與風險。</small></div>'
         f'</div>'
     )
     more_html = (
-        f'<details class="card-more"><summary>?????????</summary>'
+        f'<details class="card-more"><summary>看數據、來源與計算</summary>'
         f'{price_ref_html}'
         f'{week52_html}'
         f'{detail_html}'
         f'{factor_html}'
         f'<div class="ig">'
-        f'<div class="ic2"><div class="il">KD ?</div><div class="iv" style="color:{kd_c}">{kd_v}</div>'
+        f'<div class="ic2"><div class="il">KD 值</div><div class="iv" style="color:{kd_c}">{kd_v}</div>'
         f'<div class="is" style="color:{kd_c}">{kd_s}</div></div>'
         f'<div class="ic2"><div class="il">RSI</div><div class="iv" style="color:{rsi_c}">{rsi_v}</div>'
         f'<div class="is" style="color:{rsi_c}">{rsi_s}</div></div>'
-        f'<div class="ic2"><div class="il">20????</div><div class="iv" style="color:{dv_c}">{dv_v}</div>'
+        f'<div class="ic2"><div class="il">20日乖離率</div><div class="iv" style="color:{dv_c}">{dv_v}</div>'
         f'<div class="is" style="color:{dv_c}">{dv_s}</div></div>'
         f'<div class="ic2"><div class="il">MACD</div><div class="iv" style="color:{macd_c}">{macd_v}</div></div>'
         f'</div>'
@@ -3917,18 +3917,18 @@ def stock_card(ticker, name, price, chg, hist_close, a, ext, rec):
     rec_html = (
         f'<div style="margin-bottom:8px">'
         f'<div style="background:{trade_bg};border:1px solid {trade_tc}44;border-radius:8px;padding:10px 12px;margin-bottom:8px">'
-        f'<div style="font-size:10px;color:{trade_tc};font-weight:600;margin-bottom:3px">??????</div>'
+        f'<div style="font-size:10px;color:{trade_tc};font-weight:600;margin-bottom:3px">短線操作建議</div>'
         f'<div style="font-size:14px;font-weight:700;color:{trade_tc};margin-bottom:5px">{trade_txt}</div>'
         f'<div style="font-size:11px;color:var(--t);line-height:1.65">{trade_reason}</div>'
         f'</div>'
         f'<div style="background:{dca_bg};border:1px solid {dca_tc}44;border-radius:8px;padding:10px 12px">'
-        f'<div style="font-size:10px;color:{dca_tc};font-weight:600;margin-bottom:3px">??????</div>'
+        f'<div style="font-size:10px;color:{dca_tc};font-weight:600;margin-bottom:3px">定期定額建議</div>'
         f'<div style="font-size:14px;font-weight:700;color:{dca_tc};margin-bottom:5px">{dca_txt}</div>'
         f'<div style="font-size:11px;color:var(--t);line-height:1.65">{dca_reason}</div>'
         f'</div></div>'
     )
     strategy_more_html = (
-        f'<details class="card-more strategy-more"><summary>??????????</summary>'
+        f'<details class="card-more strategy-more"><summary>看短線與定期定額建議</summary>'
         f'{rec_html}'
         f'{invest_html}'
         f'</details>'
@@ -3946,7 +3946,7 @@ def stock_card(ticker, name, price, chg, hist_close, a, ext, rec):
         f'{decision_html}'
         f'{quick_html}'
         f'{zone_html}'
-        f'<div class="sr"><span class="slbl">????</span>'
+        f'<div class="sr"><span class="slbl">健康分數</span>'
         f'<div class="sbw"><div class="sbf" style="width:{sc}%;background:{sc_col}"></div></div>'
         f'<span class="sn2" style="color:{sc_col}">{sc}</span></div>'
         f'<div style="margin-bottom:10px">'
@@ -3955,13 +3955,13 @@ def stock_card(ticker, name, price, chg, hist_close, a, ext, rec):
         f'{more_html}'
         f'{strategy_more_html}'
         f'<div style="font-size:10px;color:var(--t2);margin-top:6px;line-height:1.5">'
-        f'????????????????????????????????????</div>'
+        f'以上為規則化因子分析，僅供參考，不構成投資建議。投資有風險，請自行判斷。</div>'
         f'</div>'
     )
 
 
 # =============================================================
-# HTML ??
+# HTML 模板
 # =============================================================
 
 CSS = '''<style>
@@ -3997,8 +3997,8 @@ h1{font-size:19px;font-weight:700;color:var(--t);display:flex;align-items:center
 .radar-grid{margin:0;grid-template-columns:repeat(auto-fit,minmax(145px,1fr))}
 .radar-more summary{cursor:pointer;display:flex;justify-content:space-between;gap:10px;align-items:flex-start;list-style:none}
 .radar-more summary::-webkit-details-marker{display:none}
-.radar-more summary::after{content:"?";color:var(--t2);font-weight:800}
-.radar-more[open] summary::after{content:"?"}
+.radar-more summary::after{content:"＋";color:var(--t2);font-weight:800}
+.radar-more[open] summary::after{content:"－"}
 .radar-more .radar-grid{margin-top:8px}
 .target-section{margin-top:14px}
 .desktop-top-grid,.desktop-mid-grid{display:grid;gap:14px;margin:14px 0;align-items:start}
@@ -4042,8 +4042,8 @@ h1{font-size:19px;font-weight:700;color:var(--t);display:flex;align-items:center
 .core-alt{border-top:1px solid var(--bdr);margin-top:10px;padding-top:8px}
 .core-alt summary{cursor:pointer;font-size:11px;font-weight:800;list-style:none;color:var(--t)}
 .core-alt summary::-webkit-details-marker{display:none}
-.core-alt summary::after{content:"?";float:right;color:var(--t2)}
-.core-alt[open] summary::after{content:"?"}
+.core-alt summary::after{content:"＋";float:right;color:var(--t2)}
+.core-alt[open] summary::after{content:"－"}
 .core-alt-row{display:grid;grid-template-columns:1.2fr .8fr 1fr auto;gap:8px;align-items:center;background:var(--card2);border:1px solid var(--bdr);border-radius:8px;padding:8px;margin-top:7px}
 .core-alt-row b{font-size:12px;color:var(--t)}
 .core-alt-row span{font-size:11px;font-weight:800;color:var(--t)}
@@ -4143,8 +4143,8 @@ h1{font-size:19px;font-weight:700;color:var(--t);display:flex;align-items:center
 .card-more,.zone-more,.intro-more{border-top:1px solid var(--bdr);margin-top:9px;padding-top:8px}
 .card-more summary,.zone-more summary,.intro-more summary{cursor:pointer;font-size:11px;color:var(--t);font-weight:800;list-style:none}
 .card-more summary::-webkit-details-marker,.zone-more summary::-webkit-details-marker,.intro-more summary::-webkit-details-marker{display:none}
-.card-more summary::after,.zone-more summary::after,.intro-more summary::after{content:"?";float:right;color:var(--t2)}
-.card-more[open] summary::after,.zone-more[open] summary::after,.intro-more[open] summary::after{content:"?"}
+.card-more summary::after,.zone-more summary::after,.intro-more summary::after{content:"＋";float:right;color:var(--t2)}
+.card-more[open] summary::after,.zone-more[open] summary::after,.intro-more[open] summary::after{content:"－"}
 .detail-box{background:var(--card2);border:1px solid var(--bdr);border-radius:8px;padding:10px 12px;margin:10px 0}
 .detail-title{font-size:12px;font-weight:700;color:var(--t);margin-bottom:8px}
 .detail-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:6px}
@@ -4284,7 +4284,7 @@ h1{font-size:19px;font-weight:700;color:var(--t);display:flex;align-items:center
 .cd{border:none;border-top:1px solid var(--bdr);margin:8px 0}
 .rl{list-style:none}
 .rl li{font-size:11px;color:#495057;padding:2px 0 2px 12px;position:relative}
-.rl li::before{content:"?";position:absolute;left:2px;color:var(--t2)}
+.rl li::before{content:"•";position:absolute;left:2px;color:var(--t2)}
 .nd{text-align:center;padding:40px;color:var(--t2);font-size:14px}
 footer{background:var(--card);border-top:1px solid var(--bdr);padding:20px 0;margin-top:10px}
 footer p{font-size:12px;color:#adb5bd;margin-bottom:3px;text-align:center}
@@ -4366,12 +4366,12 @@ document.addEventListener('DOMContentLoaded',function(){showTab('tw-stocks')});
 
 def mobile_jump_nav_html():
     links = [
-        ('#market-summary', '??'),
-        ('#market-radar', '??'),
-        ('#visual-board', '??'),
-        ('#core-etfs', '??'),
-        ('#dca-sim', '??'),
-        ('#today-focus', '??'),
+        ('#market-summary', '重點'),
+        ('#market-radar', '雷達'),
+        ('#visual-board', '儀表'),
+        ('#core-etfs', '核心'),
+        ('#dca-sim', '定期'),
+        ('#today-focus', '掃描'),
     ]
     return '<nav class="mobile-jump">' + ''.join(
         f'<a href="{href}">{label}</a>' for href, label in links
@@ -4380,9 +4380,9 @@ def mobile_jump_nav_html():
 
 def mode_switch_html():
     return (
-        '<div class="mode-switch" aria-label="??????">'
-        '<button class="mode-btn on" data-mode="focus-mode" onclick="showMode(\'focus-mode\')" type="button">???</button>'
-        '<button class="mode-btn" data-mode="data-mode" onclick="showMode(\'data-mode\')" type="button">????</button>'
+        '<div class="mode-switch" aria-label="切換檢視模式">'
+        '<button class="mode-btn on" data-mode="focus-mode" onclick="showMode(\'focus-mode\')" type="button">看重點</button>'
+        '<button class="mode-btn" data-mode="data-mode" onclick="showMode(\'data-mode\')" type="button">完整數據</button>'
         '</div>'
     )
 
@@ -4392,11 +4392,11 @@ def build_html(idx_html, tw_s, tw_e, us_s, us_e, bonds, update_time, market_ctx=
         f'<!DOCTYPE html>\n<html lang="zh-Hant">\n<head>\n'
         f'<meta charset="UTF-8">\n'
         f'<meta name="viewport" content="width=device-width,initial-scale=1.0">\n'
-        f'<title>?????? | {update_time}</title>\n'
+        f'<title>智慧投資分析 | {update_time}</title>\n'
         f'{CSS}\n</head>\n<body>\n'
         f'<header class="hdr"><div class="wrap"><div class="hi">'
-        f'<h1><span class="dot">?</span> ??????</h1>'
-        f'<span class="ub">???{update_time} ????</span>'
+        f'<h1><span class="dot">◆</span> 智慧投資分析</h1>'
+        f'<span class="ub">更新：{update_time} 台灣時間</span>'
         f'</div></div></header>\n'
         f'<main class="wrap">\n'
         f'{mode_switch_html()}\n'
@@ -4419,15 +4419,15 @@ def build_html(idx_html, tw_s, tw_e, us_s, us_e, bonds, update_time, market_ctx=
         f'{target_overview_html()}\n'
         f'{daily_order_overview_html(market_ctx)}\n'
         f'<section class="target-section" id="target-list">\n'
-        f'<div class="section-head"><div><div class="st">????</div>'
-        f'<p>?????????????????????????????????????????????</p></div>'
-        f'<span>??????</span></div>\n'
+        f'<div class="section-head"><div><div class="st">標的分析</div>'
+        f'<p>一覽看完後，再到這裡看完整卡。每張卡先放結論、原因、反方與行動；技術細節和資料來源可展開。</p></div>'
+        f'<span>完整細節保留</span></div>\n'
         f'<nav class="tnav">\n'
-        f'<button class="tb" data-tab="tw-stocks" onclick="showTab(\'tw-stocks\')">????</button>\n'
-        f'<button class="tb" data-tab="tw-etfs"   onclick="showTab(\'tw-etfs\')">?? ETF</button>\n'
-        f'<button class="tb" data-tab="us-stocks" onclick="showTab(\'us-stocks\')">????</button>\n'
-        f'<button class="tb" data-tab="us-etfs"   onclick="showTab(\'us-etfs\')">?? ETF</button>\n'
-        f'<button class="tb" data-tab="bonds"     onclick="showTab(\'bonds\')">??/??</button>\n'
+        f'<button class="tb" data-tab="tw-stocks" onclick="showTab(\'tw-stocks\')">台股個股</button>\n'
+        f'<button class="tb" data-tab="tw-etfs"   onclick="showTab(\'tw-etfs\')">台股 ETF</button>\n'
+        f'<button class="tb" data-tab="us-stocks" onclick="showTab(\'us-stocks\')">美股個股</button>\n'
+        f'<button class="tb" data-tab="us-etfs"   onclick="showTab(\'us-etfs\')">美股 ETF</button>\n'
+        f'<button class="tb" data-tab="bonds"     onclick="showTab(\'bonds\')">債券/商品</button>\n'
         f'</nav>\n'
         f'<div id="tw-stocks" class="tc"><div class="cgrid">{tw_s}</div></div>\n'
         f'<div id="tw-etfs"   class="tc"><div class="cgrid">{tw_e}</div></div>\n'
@@ -4440,8 +4440,8 @@ def build_html(idx_html, tw_s, tw_e, us_s, us_e, bonds, update_time, market_ctx=
         f'</section>\n'
         f'</main>\n'
         f'<footer><div class="wrap">\n'
-        f'<p>?????TWSE ?????? / TWSE ETF e?????? / FinMind ?????? / ???????????? / Yahoo Finance ?????? | ???????????????? AI API?</p>\n'
-        f'<p>?????????????????????????????</p>\n'
+        f'<p>資料來源：TWSE 盤後公開資料 / TWSE ETF e添富配息清單 / FinMind 免費公開資料 / 政府資料開放平臺基金資料 / Yahoo Finance 免費公開資料 | 分析方式：規則化因子評分（無任何 AI API）</p>\n'
+        f'<p>以上分析僅供參考，不構成投資建議。投資有風險，請自行判斷。</p>\n'
         f'</div></footer>\n'
         f'{JS_CODE}\n</body>\n</html>'
     )
@@ -4449,16 +4449,16 @@ def build_html(idx_html, tw_s, tw_e, us_s, us_e, bonds, update_time, market_ctx=
 
 def report_is_healthy(html):
     card_count = html.count('class="sc target-card"')
-    failure_count = html.count('????????') + html.count('????')
+    failure_count = html.count('資料暫時無法取得') + html.count('處理失敗')
     if card_count < 30:
-        return False, f'??????{card_count}'
+        return False, f'卡片數過少：{card_count}'
     if failure_count > 5:
-        return False, f'????????{failure_count}'
-    return True, f'?? {card_count}???? {failure_count}'
+        return False, f'資料失敗卡過多：{failure_count}'
+    return True, f'卡片 {card_count}，失敗卡 {failure_count}'
 
 
 # =============================================================
-# ????
+# 資料擷取
 # =============================================================
 
 def safe_download(tickers, period='1y'):
@@ -4471,7 +4471,7 @@ def safe_download(tickers, period='1y'):
             period=period, progress=False, auto_adjust=False
         )
         if raw.empty:
-            raise ValueError('???')
+            raise ValueError('空資料')
         if len(tickers) == 1:
             close = raw['Close'].dropna() if 'Close' in raw.columns else pd.Series(dtype=float)
             if len(close) >= 20:
@@ -4487,7 +4487,7 @@ def safe_download(tickers, period='1y'):
                 except Exception:
                     pass
     except Exception as e:
-        print(f'    ?????{e}???????...')
+        print(f'    批次失敗（{e}），改逐一擷取...')
 
     missing = [tk for tk in tickers if tk not in results]
     for tk in missing:
@@ -4496,9 +4496,9 @@ def safe_download(tickers, period='1y'):
             close = df['Close'].dropna() if (not df.empty and 'Close' in df.columns) else pd.Series(dtype=float)
             if not df.empty and len(close) >= 20:
                 results[tk] = df
-                print(f'    {tk} ?')
+                print(f'    {tk} ✓')
         except Exception as ex:
-            print(f'    {tk} ? {ex}')
+            print(f'    {tk} ✗ {ex}')
         time.sleep(0.4)
     return results
 
@@ -4510,7 +4510,7 @@ def process_group(tickers_dict, period='3y'):
         if ticker not in data:
             cards.append(
                 f'<div class="sc"><div class="nd">'
-                f'{ticker.replace(".TW","")} {name}<br>????????'
+                f'{ticker.replace(".TW","")} {name}<br>資料暫時無法取得'
                 f'</div></div>'
             )
             continue
@@ -4521,7 +4521,7 @@ def process_group(tickers_dict, period='3y'):
             meta   = fetch_public_metadata(ticker, ref_last_for_meta)
             ohlc   = ohlc_context(df, ticker, meta)
             if not ohlc or ohlc.get('latest_close') is None:
-                raise ValueError('OHLC????')
+                raise ValueError('OHLC資料不足')
             df_calc = df.copy()
             session_date = pd.Timestamp(ohlc['latest_date']) if ohlc.get('latest_date') and ohlc.get('latest_date') != 'N/A' else None
             session_exists = session_date is not None and any(index_to_date(idx) == session_date.date() for idx in df_calc.index)
@@ -4558,10 +4558,10 @@ def process_group(tickers_dict, period='3y'):
             rec    = get_recommendations(a, ext)
             cards.append(stock_card(ticker, name, last_c, chg, close_basis, a, ext, rec))
         except Exception as ex:
-            print(f'    {ticker} ?????{ex}')
+            print(f'    {ticker} 處理失敗：{ex}')
             cards.append(
                 f'<div class="sc"><div class="nd">'
-                f'{ticker.replace(".TW","")} {name}<br>????'
+                f'{ticker.replace(".TW","")} {name}<br>處理失敗'
                 f'</div></div>'
             )
     return '\n'.join(cards)
@@ -4612,11 +4612,11 @@ def calc_market_context(raw, quotes=None):
     vix_series = idx('^VIX')
     if not tw.get('ok'):
         return dict(
-            regime='????', temperature='??', advice='??????????????',
-            headline='????????????????????',
-            trend_state='????', emotion_state='??', risk_state='?', chase_state='??',
-            asia_state='????', asia_note='????????',
-            reasons=['?????????'], counters=['??????????'], actions=['???????????????'],
+            regime='資料不足', temperature='中性', advice='資料不足時先照計畫小額分批。',
+            headline='資料不足，今天先不要因單一訊號改變策略。',
+            trend_state='資料不足', emotion_state='中性', risk_state='中', chase_state='保守',
+            asia_state='資料不足', asia_note='亞洲指數資料不足',
+            reasons=['台股大盤資料不足。'], counters=['等資料更新後再判斷。'], actions=['定期定額可照計畫，單筆先小額。'],
             score=50, position=50, vix=None,
         )
 
@@ -4629,56 +4629,56 @@ def calc_market_context(raw, quotes=None):
 
     if tw['last'] > tw['ma20']:
         score += 10
-        reasons.append('???????????????????')
+        reasons.append('台股仍站上月線，短線趨勢沒有明顯破壞。')
     else:
         score -= 12
-        reasons.append('?????????????')
+        reasons.append('台股跌破月線，短線要保守。')
     if tw['last'] > tw['ma60']:
         score += 16
-        reasons.append('????????????????')
+        reasons.append('台股站上季線，中期趨勢仍有支撐。')
     else:
         score -= 18
-        reasons.append('??????????????')
+        reasons.append('台股跌破季線，中期風險升高。')
     if tw.get('ma240') and tw['last'] > tw['ma240']:
         score += 8
     elif tw.get('ma240'):
         score -= 12
-        reasons.append('???????????????')
+        reasons.append('台股跌破年線，單筆加碼要降級。')
 
     us_support = 0
-    for item, label in [(spx, '??500'), (ixic, '????'), (sox, '?????')]:
+    for item, label in [(spx, '標普500'), (ixic, '那斯達克'), (sox, '費城半導體')]:
         if item.get('ok') and item['last'] > item['ma20']:
             us_support += 1
     if us_support >= 2:
         score += 8
-        reasons.append('??????????????????????????')
+        reasons.append('美股主要指數多數站上月線，外部風險暫時沒有全面轉弱。')
     elif us_support == 0:
         score -= 10
-        reasons.append('??????????????????????')
+        reasons.append('美股主要指數同步轉弱，台股科技鏈要提高警覺。')
 
     if vix_last < 18:
         score += 7
-        emotion_state = '???'
+        emotion_state = '偏樂觀'
     elif vix_last > 30:
         score -= 18
-        emotion_state = '??'
-        reasons.append('VIX ?? 30????????????')
+        emotion_state = '恐慌'
+        reasons.append('VIX 高於 30，市場進入系統性風險區。')
     elif vix_last > 23:
         score -= 8
-        emotion_state = '??'
+        emotion_state = '緊張'
     else:
-        emotion_state = '??'
+        emotion_state = '中性'
 
     semis_hot = sox.get('ok') and (sox.get('r20') or 0) > max((spx.get('r20') or 0) + 2, 4)
     if semis_hot:
-        reasons.append('???????????AI/??????????')
+        reasons.append('費半短期表現強於大盤，AI/半導體仍是主要題材。')
 
     asia_markets = [
-        (n225, '??'),
-        (hsi, '??'),
-        (hstech, '????'),
-        (kospi, '?????'),
-        (kosdaq, '?????'),
+        (n225, '日本'),
+        (hsi, '香港'),
+        (hstech, '香港科技'),
+        (kospi, '韓國大型股'),
+        (kosdaq, '韓國成長股'),
     ]
     asia_ok = [(item, label) for item, label in asia_markets if item.get('ok')]
     asia_above_ma20 = [(item, label) for item, label in asia_ok if item['last'] > item['ma20']]
@@ -4696,84 +4696,84 @@ def calc_market_context(raw, quotes=None):
         asia_ratio = len(asia_above_ma20) / len(asia_ok)
         avg_asia_r20 = sum(asia_r20) / len(asia_r20) if asia_r20 else None
         if asia_ratio >= 0.7:
-            asia_state = '????'
-            asia_note = '??????????'
+            asia_state = '同步偏強'
+            asia_note = '多數亞洲市場站上月線'
             score += 5
-            reasons.append('???????????????????????')
+            reasons.append('亞洲主要市場多數站上月線，區域資金情緒偏正向。')
         elif asia_ratio <= 0.3:
-            asia_state = '????'
-            asia_note = '??????????'
+            asia_state = '同步偏弱'
+            asia_note = '多數亞洲市場跌破月線'
             score -= 7
-            reasons.append('????????????????????????')
+            reasons.append('亞洲主要市場多數跌破月線，外資風險偏好要保守看。')
         else:
-            asia_state = '????'
-            asia_note = '???????'
+            asia_state = '區域分歧'
+            asia_note = '亞洲市場不同步'
             if korea_strong and hk_weak:
-                reasons.append('?????????????????????????????')
+                reasons.append('韓國科技鏈仍有支撐，但香港偏弱，代表亞洲市場不是全面樂觀。')
             elif korea_strong:
-                reasons.append('?????????????????????')
+                reasons.append('韓國市場偏強，半導體與科技供應鏈仍有支撐。')
             elif hk_weak:
-                reasons.append('??????????????????????')
+                reasons.append('香港市場偏弱，代表中國相關風險情緒仍需觀察。')
         if avg_asia_r20 is not None:
-            asia_note += f'?20??? {avg_asia_r20:+.1f}%'
+            asia_note += f'，20日均值 {avg_asia_r20:+.1f}%'
     else:
-        asia_state = '????'
-        asia_note = '??/??????'
+        asia_state = '資料不足'
+        asia_note = '香港/韓國資料不足'
 
     if score >= 72:
-        regime = '????'
-        trend_state = '??'
+        regime = '多頭延續'
+        trend_state = '偏多'
     elif score <= 35:
-        regime = '????'
-        trend_state = '??'
+        regime = '防守模式'
+        trend_state = '防守'
     else:
-        regime = '????'
-        trend_state = '??'
+        regime = '震盪整理'
+        trend_state = '震盪'
 
     if vix_last > 30 or (tw['last'] < tw['ma60'] and us_support == 0):
-        risk_state = '?'
+        risk_state = '高'
     elif tw['pos'] > 88 and vix_last < 20:
-        risk_state = '??'
+        risk_state = '中高'
     else:
-        risk_state = '?' if vix_last >= 20 else '?'
+        risk_state = '中' if vix_last >= 20 else '低'
 
     if tw['pos'] > 90 and vix_last < 20:
-        temperature = '?'
-        chase_state = '????'
-        advice = '????????????????????????????'
+        temperature = '熱'
+        chase_state = '追價偏高'
+        advice = '定期定額可持續，但單筆資金要分批，不要因市場樂觀就重押。'
     elif tw['pos'] < 35 and vix_last > 23:
-        temperature = '?'
-        chase_state = '????'
-        advice = '??????????????????????????'
+        temperature = '冷'
+        chase_state = '恐慌回檔'
+        advice = '市場偏恐慌，核心長期資金可分批，個股與題材股先保守。'
     else:
-        temperature = '??'
-        chase_state = '???'
-        advice = '????????????????????????'
+        temperature = '中性'
+        chase_state = '可分批'
+        advice = '按月扣款即可，單筆資金等價格回到可分批區再動作。'
 
-    if regime == '????' and temperature == '?':
-        headline = '????????????'
-    elif regime == '????':
-        headline = '???????????????????'
-    elif regime == '????':
-        headline = '?????????????????????'
+    if regime == '多頭延續' and temperature == '熱':
+        headline = '市場偏多但追價風險升高。'
+    elif regime == '多頭延續':
+        headline = '市場仍偏多，適合紀律分批，不適合亂追。'
+    elif regime == '防守模式':
+        headline = '市場進入防守，先保留現金與降低題材股衝動。'
     else:
-        headline = '???????????????????'
+        headline = '市場震盪整理，重點是分批與等待好價格。'
 
-    counters.append('??????????????????? VIX ???????????')
-    if asia_state == '????':
-        counters.append('??????????????????????????????')
-    elif asia_state == '????':
-        counters.append('???????????????????????????')
+    counters.append('若台股跌破季線、美股主要指數同步轉弱或 VIX 升高，偏多判斷要降級。')
+    if asia_state == '區域分歧':
+        counters.append('若韓國與香港同步轉弱，代表亞洲資金風險偏好下降，追價要降級。')
+    elif asia_state == '同步偏弱':
+        counters.append('若亞洲市場沒有回到月線上方，台股單獨強勢也要避免重押。')
     if semis_hot:
-        counters.append('????????????????????????????????')
+        counters.append('半導體強勢若伴隨估值過熱與放量轉弱，不能把題材熱度當成買進保證。')
     else:
-        counters.append('??????????????????????????????????')
+        counters.append('若費半與那斯達克轉強，科技股高位可能仍是健康延續，不宜只因高就排除。')
 
     actions.append(advice)
-    if risk_state in ['?', '??']:
-        actions.append('???????????????? ETF ????????')
+    if risk_state in ['高', '中高']:
+        actions.append('衛星題材與個股先降投入比例，核心 ETF 才保留定期定額。')
     else:
-        actions.append('??????????????????????????')
+        actions.append('想買單筆時，優先找健康回檔或可分批區，不用猜最低點。')
 
     return dict(
         regime=regime,
@@ -4801,7 +4801,7 @@ def calc_market_context(raw, quotes=None):
 def fetch_indices():
     tickers = list(INDICES.keys())
     cards = {}
-    market_ctx = dict(regime='????', temperature='??', advice='??????????????')
+    market_ctx = dict(regime='資料不足', temperature='中性', advice='資料不足時先照計畫小額分批。')
     try:
         raw = yf.download(tickers, period='3y', progress=False, auto_adjust=False)
         index_quotes = {tk: fetch_metadata(tk) for tk in tickers}
@@ -4824,27 +4824,27 @@ def fetch_indices():
                         chg = (price - prev) / prev * 100
                         qtime = format_quote_time(meta)
                         source = meta.get('quote_source') or 'Quote'
-                        note = f'{qtime} {source} ? ?????????????'.strip()
+                        note = f'{qtime} {source} · 無足夠日線，不納入市場判斷'.strip()
                         cards[tk] = idx_card(tk, name, price, chg, inverse, note)
                     else:
-                        cards[tk] = idx_missing_card(name, 'Yahoo ???????????????')
+                        cards[tk] = idx_missing_card(name, 'Yahoo 暫無可用日線，先不納入市場判斷')
                     continue
                 price = meta.get('quote_price') or float(s.iloc[-1])
                 prev  = meta.get('quote_previous_close') or float(s.iloc[-2])
                 chg   = (price - prev) / prev * 100
                 qtime = format_quote_time(meta)
-                source = meta.get('quote_source') or '????'
+                source = meta.get('quote_source') or '日線資料'
                 note = f'{qtime} {source}'.strip()
                 cards[tk] = idx_card(tk, name, price, chg, inverse, note)
             except Exception:
-                cards[tk] = idx_missing_card(name, '???????????????')
+                cards[tk] = idx_missing_card(name, '資料擷取失敗，先不納入市場判斷')
     except Exception as e:
-        print(f'???????{e}')
+        print(f'指數擷取失敗：{e}')
     return indices_radar_html(cards), market_ctx
 
 
 def prepare_dca_sim_data():
-    # ??????????????????? process_group ???? 3 ????
+    # 讓首頁模擬器有較長歷史；失敗時仍可使用 process_group 已保存的 3 年資料。
     for tk in ['0050.TW', '006208.TW', '0056.TW', '00878.TW']:
         try:
             current = DCA_SERIES.get(tk, {}).get('points', [])
@@ -4861,52 +4861,52 @@ def prepare_dca_sim_data():
             store_dca_series(tk, DCA_SIM_TICKERS.get(tk, tk), close_basis, total_basis, price_basis_note)
             time.sleep(0.3)
         except Exception as ex:
-            print(f'    {tk} ???????{ex}')
+            print(f'    {tk} 模擬資料略過：{ex}')
 
 
 # =============================================================
-# ???
+# 主程式
 # =============================================================
 
 def main():
     print('=' * 45)
-    print('  ?????? v2 ? ??????')
+    print('  智慧投資分析 v2 — 開始產生報告')
     print('=' * 45)
     update_time = datetime.now(ZoneInfo('Asia/Taipei')).strftime('%Y-%m-%d %H:%M')
 
-    print('\n[1/6] ??????...')
+    print('\n[1/6] 擷取大盤指數...')
     idx_html, market_ctx = fetch_indices()
 
-    print('\n[2/6] ??????...')
+    print('\n[2/6] 分析台股個股...')
     tw_s = process_group(TW_STOCKS)
 
-    print('\n[3/6] ???? ETF...')
+    print('\n[3/6] 分析台股 ETF...')
     tw_e = process_group(TW_ETFS)
 
-    print('\n[4/6] ??????...')
+    print('\n[4/6] 分析美股個股...')
     us_s = process_group(US_STOCKS)
 
-    print('\n[5/6] ???? ETF...')
+    print('\n[5/6] 分析美股 ETF...')
     us_e = process_group(US_ETFS)
 
-    print('\n[6/6] ????/??...')
+    print('\n[6/6] 分析債券/商品...')
     bonds = process_group(BONDS)
 
-    print('\n[??] ??????????...')
+    print('\n[補充] 準備定期定額模擬資料...')
     prepare_dca_sim_data()
 
-    print('\n?? index.html...')
+    print('\n產生 index.html...')
     html = build_html(idx_html, tw_s, tw_e, us_s, us_e, bonds, update_time, market_ctx)
     healthy, health_note = report_is_healthy(html)
     if not healthy:
         if Path('index.html').exists():
-            print(f'??????????{health_note}?????? index.html?????')
+            print(f'報告健康檢查未通過（{health_note}），保留既有 index.html，不覆蓋。')
             return
-        raise RuntimeError(f'??????????{health_note}')
+        raise RuntimeError(f'報告健康檢查未通過：{health_note}')
     with open('index.html', 'w', encoding='utf-8') as f:
         f.write(html)
 
-    print(f'\n????{update_time}?{health_note}?')
+    print(f'\n完成！（{update_time}，{health_note}）')
     print('=' * 45)
 
 
