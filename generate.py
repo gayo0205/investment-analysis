@@ -752,7 +752,7 @@ def get_profile(ticker):
 
 
 def fetch_metadata(ticker, last_price=None):
-    """抓公開基本資料。失敗就回空 dict，避免公開頁硬湊假資料。"""
+    """抓取免費基本資料。失敗就回空 dict，避免硬湊假資料。"""
     if ticker in META_CACHE:
         return META_CACHE[ticker]
 
@@ -1268,7 +1268,7 @@ def target_tab_id(ticker):
 def target_link(ticker, label='看完整卡', cls='mini-link'):
     return (
         f'<a class="{cls}" href="#{target_dom_id(ticker)}" '
-        f'onclick="showTab(\'{target_tab_id(ticker)}\')">{h(label)}</a>'
+        f'onclick="showMode(\'data-mode\');showTab(\'{target_tab_id(ticker)}\')">{h(label)}</a>'
     )
 
 
@@ -1352,7 +1352,7 @@ def core_etf_spotlight_html():
         f'<section class="sc core-etfs" id="core-etfs">'
         f'<div class="tool-head"><div><div class="st">核心 ETF</div>'
         f'<p>先把每月最可能照做的標的放上來。0050 / 006208 這類核心 ETF 不是要猜最低點，而是看現在適不適合照常扣、少量加碼或先別重押。</p></div>'
-        f'<div class="temp-pill">核心</div></div>'
+        f'<span class="section-meta">每月扣款優先看</span></div>'
         f'<div class="core-grid">{core_html}</div>'
         f'<details class="core-alt"><summary>看高股息與現金流 ETF</summary>{cash_html}</details>'
         f'</section>'
@@ -1366,7 +1366,7 @@ def today_focus_html():
         ('可分批觀察', ['可分批區', '健康回檔', '加碼觀察區'], '不是叫你重押，是值得打開看完整理由。'),
         ('強勢但不追', ['健康創高', '強勢高位', '偏高等待區'], '趨勢好不等於今天亂追，重點是等回檔或小額。'),
         ('過熱先等', ['過熱追高'], '價格已偏熱，先等回到區間，不要因為熱門就追。'),
-        ('轉弱避開', ['轉弱下跌'], '公開頁只能提醒風險，是否賣出要看個人持倉與配置。'),
+        ('轉弱避開', ['轉弱下跌'], '這裡只能提醒風險；是否賣出要看持倉成本、比例與現金需求。'),
     ]
     cards = []
     ordered = all_targets_order()
@@ -1386,7 +1386,7 @@ def today_focus_html():
         f'<section class="sc today-focus" id="today-focus">'
         f'<div class="tool-head"><div><div class="st">今日值得先看的標的</div>'
         f'<p>這裡不是買進排行榜，而是把 37 檔先分成幾種情境，讓你知道該先打開哪幾張完整卡。</p></div>'
-        f'<div class="temp-pill">掃描</div></div>'
+        f'<span class="section-meta">情境掃描</span></div>'
         f'{"".join(cards)}'
         f'</section>'
     )
@@ -1397,29 +1397,94 @@ def target_overview_html():
     if not ordered:
         return ''
     rows = []
+    cat_labels = {
+        'tw-etfs': '台股 ETF',
+        'tw-stocks': '台股個股',
+        'us-etfs': '美股 ETF',
+        'us-stocks': '美股個股',
+        'bonds': '債券/商品',
+    }
+    confidence_rank = {'高': 3, '中': 2, '偏低': 1}
     for tk in ordered:
         item = BUY_NOW_DATA[tk]
         status = zone_status(item)
         tone = action_tone(status)
+        cat = target_tab_id(tk)
         code = tk.replace('.TW', '')
         price = item.get('price')
         price_text = f'{float(price):,.2f}' if isinstance(price, (int, float)) else 'N/A'
+        score = safe_num(item.get('score')) or 0
+        risk = safe_num(item.get('risk_score')) or 0
+        w_pct = safe_num(item.get('w_pct')) or 50
+        conf = item.get('confidence', 'N/A')
+        watch_score = {'ok': 300, 'wait': 200, 'stop': 100}.get(tone, 0) + score + confidence_rank.get(conf, 0) * 3
+        action = item.get('action') or item.get('conclusion') or '看完整卡'
         rows.append(
-            f'<div class="overview-row overview-{tone}">'
+            f'<div class="overview-row overview-{tone}" data-cat="{h(cat)}" data-tone="{h(tone)}" '
+            f'data-score="{score:.2f}" data-risk="{risk:.2f}" data-wpct="{w_pct:.2f}" '
+            f'data-watch="{watch_score:.2f}" data-conf="{confidence_rank.get(conf, 0)}" data-order="{len(rows)}">'
             f'<div class="overview-name"><b>{h(code)} {h(item.get("name", ""))}</b>'
-            f'<small>{h(item.get("role", ""))} / {h(item.get("bucket", ""))}</small></div>'
+            f'<small>{h(cat_labels.get(cat, cat))} / {h(item.get("role", ""))} / {h(item.get("bucket", ""))}</small></div>'
             f'<div class="overview-score"><span>健康</span><b>{h(item.get("score", "N/A"))}</b></div>'
             f'<div class="overview-price"><span>現價</span><b>{price_text}</b></div>'
             f'<div class="overview-status"><span>{h(status)}</span><small>{h(zone_range_text(item))}</small></div>'
+            f'<div class="overview-action"><span>今日行動</span><small>{h(action)}</small></div>'
+            f'<div class="overview-confidence"><span>可信度</span><b>{h(conf)}</b></div>'
             f'{target_link(tk, "完整卡", "mini-link overview-link")}'
             f'</div>'
         )
+    script = '''
+function filterOverview(){
+  var list=document.getElementById('overviewList');
+  var empty=document.getElementById('overviewEmpty');
+  if(!list) return;
+  var cat=(document.getElementById('overviewCat')||{}).value||'all';
+  var tone=(document.getElementById('overviewTone')||{}).value||'all';
+  var sort=(document.getElementById('overviewSort')||{}).value||'watch';
+  var rows=Array.prototype.slice.call(list.querySelectorAll('.overview-row'));
+  rows.sort(function(a,b){
+    function n(el,key){return Number(el.dataset[key]||0);}
+    if(sort==='score') return n(b,'score')-n(a,'score');
+    if(sort==='risk') return n(a,'risk')-n(b,'risk');
+    if(sort==='wpct') return n(a,'wpct')-n(b,'wpct');
+    if(sort==='conf') return n(b,'conf')-n(a,'conf');
+    return n(b,'watch')-n(a,'watch') || n(a,'order')-n(b,'order');
+  });
+  var shown=0;
+  rows.forEach(function(row){
+    var ok=(cat==='all'||row.dataset.cat===cat)&&(tone==='all'||row.dataset.tone===tone);
+    row.style.display=ok?'grid':'none';
+    list.appendChild(row);
+    if(ok) shown++;
+  });
+  if(empty) empty.style.display=shown?'none':'block';
+}
+document.addEventListener('DOMContentLoaded',function(){
+  ['overviewCat','overviewTone','overviewSort'].forEach(function(id){
+    var el=document.getElementById(id);
+    if(el) el.addEventListener('change',filterOverview);
+  });
+  filterOverview();
+});
+'''
     return (
         f'<section class="sc target-overview" id="target-overview">'
         f'<div class="tool-head"><div><div class="st">全部標的一覽</div>'
         f'<p>先用一行看完每檔的結論、分數與可看區間；想研究再打開完整卡，不用一開始滑過 37 張大卡。</p></div>'
-        f'<div class="temp-pill">{len(rows)}</div></div>'
-        f'<div class="overview-list">{"".join(rows)}</div>'
+        f'<span class="section-meta">共 {len(rows)} 檔</span></div>'
+        f'<div class="overview-controls">'
+        f'<label><span>類別</span><select id="overviewCat"><option value="all">全部</option>'
+        f'<option value="tw-etfs">台股 ETF</option><option value="tw-stocks">台股個股</option>'
+        f'<option value="us-etfs">美股 ETF</option><option value="us-stocks">美股個股</option><option value="bonds">債券/商品</option></select></label>'
+        f'<label><span>狀態</span><select id="overviewTone"><option value="all">全部狀態</option>'
+        f'<option value="ok">可分批/回檔</option><option value="wait">強勢或等待</option><option value="stop">過熱或轉弱</option></select></label>'
+        f'<label><span>排序</span><select id="overviewSort"><option value="watch">值得先看</option>'
+        f'<option value="score">健康分高到低</option><option value="risk">風險低到高</option>'
+        f'<option value="wpct">52週位置低到高</option><option value="conf">資料可信度高到低</option></select></label>'
+        f'</div>'
+        f'<div class="overview-list" id="overviewList">{"".join(rows)}</div>'
+        f'<div class="nd" id="overviewEmpty" style="display:none">沒有符合篩選的標的。</div>'
+        f'<script>{script}</script>'
         f'</section>'
     )
 
@@ -2153,7 +2218,7 @@ def dca_simulator_html(market_ctx=None):
         f'<section class="sc dca-tool" id="dca-sim">'
         f'<div class="tool-head"><div><div class="st">定期定額模擬器</div>'
         f'<p>用歷史價格練習「如果我每月固定投入，過程會多痛、最後可能變多少」。這不是預測，只是幫新手先看懂風險。</p></div>'
-        f'<div class="temp-pill">{temp}</div></div>'
+        f'<span class="section-meta">歷史模擬</span></div>'
         f'<div class="dca-controls">'
         f'<label><span>標的</span><select id="dcaTicker">{options}</select></label>'
         f'<label><span>每月投入</span><input id="dcaAmount" type="number" min="1000" step="1000" value="{monthly}"></label>'
@@ -2260,7 +2325,7 @@ def buy_now_tool_html(market_ctx=None):
         f'<section class="sc buy-tool" id="buy-tool">'
         f'<div class="tool-head"><div><div class="st">今天想買試算</div>'
         f'<p>臨時想買時，不先問「會不會漲」，先問「現在能買幾成、剩下要留多少」。這裡用固定規則估算，不代表個人投資建議。</p></div>'
-        f'<div class="temp-pill">{temp}</div></div>'
+        f'<span class="section-meta">臨時買入工具</span></div>'
         f'<div class="dca-controls">'
         f'<label><span>標的</span><select id="buyTicker">{options}</select></label>'
         f'<label><span>今天預算</span><input id="buyBudget" type="number" min="1000" step="1000" value="10000"></label>'
@@ -2549,7 +2614,7 @@ document.addEventListener('DOMContentLoaded',function(){
         f'<section class="sc order-tool" id="daily-orders">'
         f'<div class="tool-head"><div><div class="st">今日掛單總覽</div>'
         f'<p>把每檔標的轉成今天能執行的掛單價、投入金額與風險線。掛單價是紀律價，不是預測價；沒成交就不追高。</p></div>'
-        f'<div class="temp-pill">{h(temp)}</div></div>'
+        f'<span class="section-meta">全標的試算</span></div>'
         f'<div class="order-filter">'
         f'<label><span>今日預算</span><input id="orderBudget" type="number" min="1000" step="1000" value="{default_budget}"></label>'
         f'<label><span>類別</span><select id="orderFilter">'
@@ -3872,6 +3937,11 @@ h1{font-size:19px;font-weight:700;color:var(--t);display:flex;align-items:center
 .ic-c{font-size:12px;font-weight:600}
 .ic-note{font-size:9px;color:var(--t2);line-height:1.25;margin-top:2px;min-height:12px}
 .mobile-jump{display:none}
+.mode-switch{position:sticky;top:55px;z-index:80;display:flex;gap:6px;background:var(--bg);padding:10px 0 6px;border-bottom:1px solid transparent;margin-bottom:4px}
+.mode-btn{border:1px solid var(--bdr);background:var(--card);color:var(--t2);border-radius:999px;padding:8px 14px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit}
+.mode-btn.on{background:var(--t);color:var(--bg);border-color:var(--t)}
+.mode-pane{display:none}
+.mode-pane.on{display:block}
 .market-radar{margin:14px 0}
 .radar-layout{display:grid;gap:10px;margin-top:10px}
 .radar-group{background:var(--card2);border:1px solid var(--bdr);border-radius:10px;padding:10px}
@@ -3920,13 +3990,16 @@ h1{font-size:19px;font-weight:700;color:var(--t);display:flex;align-items:center
 .focus-head{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;margin-bottom:8px}
 .focus-head b{font-size:13px;color:var(--t)}
 .focus-head span,.focus-group>small{font-size:10px;color:var(--t2);line-height:1.45}
+.overview-controls{display:grid;grid-template-columns:repeat(3,minmax(160px,1fr));gap:8px;margin-top:10px}
+.overview-controls label{display:grid;gap:4px;font-size:10px;color:var(--t2)}
+.overview-controls select{border:1px solid var(--bdr);background:var(--card2);color:var(--t);border-radius:8px;padding:8px;font-size:13px}
 .overview-list{display:grid;gap:6px;margin-top:10px}
-.overview-row{display:grid;grid-template-columns:minmax(210px,1.6fr) .45fr .65fr minmax(160px,1.1fr) auto;gap:8px;align-items:center;background:var(--card2);border:1px solid var(--bdr);border-radius:8px;padding:9px 10px}
+.overview-row{display:grid;grid-template-columns:minmax(190px,1.35fr) .42fr .55fr minmax(130px,.9fr) minmax(210px,1.25fr) .42fr auto;gap:8px;align-items:center;background:var(--card2);border:1px solid var(--bdr);border-radius:8px;padding:9px 10px}
 .overview-name b{display:block;font-size:13px;color:var(--t);line-height:1.35}
 .overview-name small{display:block;font-size:10px;color:var(--t2);line-height:1.35}
-.overview-score b,.overview-price b{display:block;font-size:13px;color:var(--t);font-variant-numeric:tabular-nums}
+.overview-score b,.overview-price b,.overview-confidence b{display:block;font-size:13px;color:var(--t);font-variant-numeric:tabular-nums}
 .overview-status span{display:inline-flex;border-radius:999px;padding:3px 7px;font-size:10px;font-weight:800;margin-bottom:2px}
-.overview-status small{display:block;font-size:10px;color:var(--t2);line-height:1.35;overflow-wrap:anywhere}
+.overview-status small,.overview-action small{display:block;font-size:10px;color:var(--t2);line-height:1.35;overflow-wrap:anywhere}
 .overview-link{justify-self:end}
 .section-head{display:flex;justify-content:space-between;gap:14px;align-items:flex-end;background:var(--card);border:1px solid var(--bdr);border-radius:12px;padding:14px 16px;margin:14px 0 10px}
 .section-head p{font-size:11px;color:var(--t2);line-height:1.6;margin-top:3px}
@@ -4046,6 +4119,7 @@ h1{font-size:19px;font-weight:700;color:var(--t);display:flex;align-items:center
 .tool-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
 .tool-head p{font-size:11px;color:var(--t2);line-height:1.6;margin-top:4px}
 .temp-pill{font-size:20px;font-weight:800;color:var(--t);background:var(--card2);border:1px solid var(--bdr);border-radius:8px;padding:8px 14px;min-width:58px;text-align:center}
+.section-meta{font-size:11px;color:var(--t2);background:var(--card2);border:1px solid var(--bdr);border-radius:999px;padding:6px 10px;white-space:nowrap;font-weight:700}
 .dca-controls{display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:8px;margin-top:12px}
 .dca-controls label{background:var(--card2);border:1px solid var(--bdr);border-radius:8px;padding:8px 10px;display:flex;flex-direction:column;gap:4px}
 .dca-controls span{font-size:10px;color:var(--t2)}
@@ -4166,7 +4240,11 @@ footer p{font-size:12px;color:#adb5bd;margin-bottom:3px;text-align:center}
   .desktop-top-grid,.desktop-mid-grid{grid-template-columns:1fr;margin:8px 0;gap:10px}
   .section-head{display:block;padding:12px 13px;margin:12px 0 8px}
   .section-head span{display:inline-block;margin-top:8px}
-  .mobile-jump{position:sticky;top:48px;z-index:90;display:flex;gap:6px;overflow-x:auto;padding:8px 0;background:var(--bg);border-bottom:1px solid var(--bdr);margin:0 -12px 8px;padding-left:12px;padding-right:12px}
+  .mode-switch{top:48px;margin:0 -12px 6px;padding:8px 12px;background:var(--bg);overflow-x:auto}
+  .mode-btn{white-space:nowrap;padding:7px 12px;font-size:12px}
+  .tool-head{gap:8px}
+  .section-meta{align-self:flex-start;font-size:10px;padding:5px 8px}
+  .mobile-jump{position:static;display:flex;gap:6px;overflow-x:auto;padding:8px 0;background:var(--bg);border-bottom:1px solid var(--bdr);margin:0 -12px 8px;padding-left:12px;padding-right:12px}
   .mobile-jump a{white-space:nowrap;text-decoration:none;color:var(--t);background:var(--card);border:1px solid var(--bdr);border-radius:999px;padding:7px 12px;font-size:12px;font-weight:700}
   .core-grid,.focus-grid{grid-template-columns:1fr}
   .mini-body{grid-template-columns:1fr 1fr}
@@ -4174,9 +4252,11 @@ footer p{font-size:12px;color:#adb5bd;margin-bottom:3px;text-align:center}
   .core-alt-row{grid-template-columns:1fr;gap:4px}
   .focus-head{display:block}
   .focus-head span{display:block;margin-top:3px}
+  .overview-controls{grid-template-columns:1fr}
   .overview-row{grid-template-columns:1fr auto;gap:6px}
   .overview-name{grid-column:1/-1}
   .overview-status{grid-column:1/-1}
+  .overview-action{grid-column:1/-1}
   .overview-link{justify-self:start}
   .market-radar{padding:13px}
   .radar-group{padding:9px}
@@ -4204,6 +4284,13 @@ footer p{font-size:12px;color:#adb5bd;margin-bottom:3px;text-align:center}
 </style>'''
 
 JS_CODE = '''<script>
+function showMode(id){
+  document.querySelectorAll('.mode-pane').forEach(function(s){s.classList.remove('on')});
+  document.querySelectorAll('.mode-btn').forEach(function(b){b.classList.remove('on')});
+  var el=document.getElementById(id); if(el) el.classList.add('on');
+  var btn=document.querySelector('[data-mode="'+id+'"]'); if(btn) btn.classList.add('on');
+  if(id==='data-mode' && typeof filterOverview==='function') filterOverview();
+}
 function showTab(id){
   document.querySelectorAll('.tc').forEach(function(s){s.classList.remove('on')});
   document.querySelectorAll('.tb').forEach(function(b){b.classList.remove('on')});
@@ -4220,11 +4307,20 @@ def mobile_jump_nav_html():
         ('#core-etfs', '核心'),
         ('#dca-sim', '定期'),
         ('#buy-tool', '想買'),
-        ('#target-overview', '一覽'),
+        ('#today-focus', '掃描'),
     ]
     return '<nav class="mobile-jump">' + ''.join(
         f'<a href="{href}">{label}</a>' for href, label in links
     ) + '</nav>'
+
+
+def mode_switch_html():
+    return (
+        '<div class="mode-switch" aria-label="切換檢視模式">'
+        '<button class="mode-btn on" data-mode="focus-mode" onclick="showMode(\'focus-mode\')" type="button">看重點</button>'
+        '<button class="mode-btn" data-mode="data-mode" onclick="showMode(\'data-mode\')" type="button">完整數據</button>'
+        '</div>'
+    )
 
 
 def build_html(idx_html, tw_s, tw_e, us_s, us_e, bonds, update_time, market_ctx=None):
@@ -4239,6 +4335,8 @@ def build_html(idx_html, tw_s, tw_e, us_s, us_e, bonds, update_time, market_ctx=
         f'<span class="ub">更新：{update_time} 台灣時間</span>'
         f'</div></div></header>\n'
         f'<main class="wrap">\n'
+        f'{mode_switch_html()}\n'
+        f'<section class="mode-pane on" id="focus-mode">\n'
         f'{mobile_jump_nav_html()}\n'
         f'<div class="desktop-top-grid">\n'
         f'{newbie_summary_html(market_ctx)}\n'
@@ -4248,11 +4346,13 @@ def build_html(idx_html, tw_s, tw_e, us_s, us_e, bonds, update_time, market_ctx=
         f'{dca_simulator_html(market_ctx)}\n'
         f'{buy_now_tool_html(market_ctx)}\n'
         f'</div>\n'
-        f'{daily_order_overview_html(market_ctx)}\n'
         f'{idx_html}\n'
         f'{theme_radar_html()}\n'
         f'{today_focus_html()}\n'
+        f'</section>\n'
+        f'<section class="mode-pane" id="data-mode">\n'
         f'{target_overview_html()}\n'
+        f'{daily_order_overview_html(market_ctx)}\n'
         f'<section class="target-section" id="target-list">\n'
         f'<div class="section-head"><div><div class="st">標的分析</div>'
         f'<p>一覽看完後，再到這裡看完整卡。每張卡先放結論、原因、反方與行動；技術細節和資料來源可展開。</p></div>'
@@ -4272,6 +4372,7 @@ def build_html(idx_html, tw_s, tw_e, us_s, us_e, bonds, update_time, market_ctx=
         f'</section>\n'
         f'{methodology_html()}\n'
         f'{public_readiness_html(update_time, market_ctx)}\n'
+        f'</section>\n'
         f'</main>\n'
         f'<footer><div class="wrap">\n'
         f'<p>資料來源：TWSE 盤後公開資料 / TWSE ETF e添富配息清單 / FinMind 免費公開資料 / 政府資料開放平臺基金資料 / Yahoo Finance 免費公開資料 | 分析方式：規則化因子評分（無任何 AI API）</p>\n'
