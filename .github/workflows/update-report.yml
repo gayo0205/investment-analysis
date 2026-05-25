@@ -3,8 +3,9 @@ name: Update public investment report
 on:
   workflow_dispatch:
   schedule:
-    # After US market close, Monday-Friday US sessions, 06:45 Taipei next day.
-    - cron: "45 22 * * 1-5"
+    # GitHub cron uses UTC: Sun-Fri 22:45 UTC = Mon-Sat 06:45 Taipei.
+    # Mon-Fri refresh before Taiwan open; Sat captures Friday US close.
+    - cron: "45 22 * * 0-5"
     # Taiwan market midday refresh, Monday-Friday, 11:30 Taipei time.
     - cron: "30 3 * * 1-5"
     # After Taiwan market close, Monday-Friday, 15:15 Taipei time.
