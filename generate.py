@@ -1414,6 +1414,7 @@ def target_overview_html():
         price = item.get('price')
         price_text = f'{float(price):,.2f}' if isinstance(price, (int, float)) else 'N/A'
         score = safe_num(item.get('score')) or 0
+        score_tone = 'good' if score >= 70 else 'mid' if score >= 50 else 'low'
         risk = safe_num(item.get('risk_score')) or 0
         w_pct = safe_num(item.get('w_pct')) or 50
         conf = item.get('confidence', 'N/A')
@@ -1425,7 +1426,7 @@ def target_overview_html():
             f'data-watch="{watch_score:.2f}" data-conf="{confidence_rank.get(conf, 0)}" data-order="{len(rows)}">'
             f'<div class="overview-name"><b>{h(code)} {h(item.get("name", ""))}</b>'
             f'<small>{h(cat_labels.get(cat, cat))} / {h(item.get("role", ""))} / {h(item.get("bucket", ""))}</small></div>'
-            f'<div class="overview-score"><span>健康</span><b>{h(item.get("score", "N/A"))}</b></div>'
+            f'<div class="overview-score score-{score_tone}"><span>健康</span><b>{h(item.get("score", "N/A"))}</b></div>'
             f'<div class="overview-price"><span>現價</span><b>{price_text}</b></div>'
             f'<div class="overview-status"><span>{h(status)}</span><small>{h(zone_range_text(item))}</small></div>'
             f'<div class="overview-action"><span>今日行動</span><small>{h(action)}</small></div>'
@@ -1506,6 +1507,7 @@ def visual_action_board_html(market_ctx=None):
         core_text = f'{core_candidates[0].replace(".TW", "")}：{zone_status(core)}'
         core_range = zone_range_text(core)
     temp = market_ctx.get('temperature', '中性')
+    temp_key = market_ctx.get('temperature_key') or {'熱': 'hot', '偏熱': 'warm', '中性': 'neutral', '偏冷': 'cool', '冷': 'cold'}.get(temp, 'neutral')
     advice = market_ctx.get('advice', '先照計畫小額分批，不因單日訊號改變策略。')
 
     def bar(label, key, text):
@@ -1523,9 +1525,9 @@ def visual_action_board_html(market_ctx=None):
         f'<p>把市場狀態、核心 ETF 與全標的掃描結果翻成一眼能看的行動地圖。這裡是總覽，細節仍在完整數據。</p></div>'
         f'<span class="section-meta">視覺化總覽</span></div>'
         f'<div class="visual-grid">'
-        f'<div class="visual-main"><span>市場溫度</span><b>{h(temp)}</b><small>{h(advice)}</small></div>'
-        f'<div class="visual-main"><span>核心 ETF</span><b>{h(core_text)}</b><small>可看區間：{h(core_range)}</small></div>'
-        f'<div class="visual-main"><span>單筆追價</span><b>{h(market_ctx.get("chase_state", "保守"))}</b><small>先看雷達，再看價格區間，不用追熱門。</small></div>'
+        f'<div class="visual-main temp-{h(temp_key)}"><span>市場溫度</span><b>{h(temp)}</b><small>{h(advice)}</small></div>'
+        f'<div class="visual-main visual-core"><span>核心 ETF</span><b>{h(core_text)}</b><small>可看區間：{h(core_range)}</small></div>'
+        f'<div class="visual-main visual-chase temp-{h(temp_key)}"><span>單筆追價</span><b>{h(market_ctx.get("chase_state", "保守"))}</b><small>先看雷達，再看價格區間，不用追熱門。</small></div>'
         f'</div>'
         f'<div class="visual-bars">'
         f'{bar("可分批/回檔", "ok", "值得打開完整卡，但仍要按區間分批。")}'
@@ -1899,6 +1901,13 @@ def calc_price_zones(ticker, price, a, ext):
             ('降風險', '基本面壞', '營收/EPS/毛利率轉弱，才是投資理由失效。'),
         ]
 
+    if turning_weak:
+        sell_status = '有持股才看減碼，沒持股先不接'
+        sell_text = f'今天已有轉弱訊號；有持股者先看是否跌破 {fmt_zone_price(failure_line)} 或基本面變壞，再分批降風險。'
+    elif overheated:
+        sell_status = '高位但未轉弱，先停買不急賣'
+        sell_text = f'價格偏熱時先停止追價；除非高於 {fmt_zone_price(trim_line)} 又出現轉弱或超過配置，否則不因漲多就賣。'
+
     if status == '健康創高':
         buy_steps = [
             ('第一批', '10%~20%', '只用小額參與，不把高位當低點重押。'),
@@ -2112,6 +2121,7 @@ def newbie_summary_html(market_ctx=None):
     market_ctx = market_ctx or dict(
         regime='資料不足', temperature='中性', advice='先照計畫小額分批，不因單日漲跌改變策略。',
         headline='資料不足，先照原計畫，不因單日訊號改變策略。',
+        temperature_key='neutral',
         trend_state='資料不足', emotion_state='中性', risk_state='中', chase_state='保守',
         asia_state='資料不足', asia_note='亞洲指數資料不足',
         reasons=['資料不足。'], counters=['等資料更新。'], actions=['定期定額可照計畫，單筆先小額。'],
@@ -2120,15 +2130,15 @@ def newbie_summary_html(market_ctx=None):
     counters = ''.join(f'<li>{h(x)}</li>' for x in market_ctx.get('counters', [])[:3])
     actions = ''.join(f'<li>{h(x)}</li>' for x in market_ctx.get('actions', [])[:3])
     status_cards = [
-        ('趨勢', market_ctx.get('trend_state', market_ctx.get('regime', '資料不足')), market_ctx.get('regime', '')),
-        ('情緒', market_ctx.get('emotion_state', '中性'), f'VIX {market_ctx.get("vix", "N/A")}'),
-        ('風險', market_ctx.get('risk_state', '中'), f'台股位階 {market_ctx.get("position", 50)}%'),
-        ('亞洲', market_ctx.get('asia_state', '資料不足'), market_ctx.get('asia_note', '')),
-        ('追價', market_ctx.get('chase_state', '保守'), market_ctx.get('advice', '')),
+        ('趨勢', market_ctx.get('trend_state', market_ctx.get('regime', '資料不足')), market_ctx.get('regime', ''), 'info'),
+        ('情緒', market_ctx.get('emotion_state', '中性'), f'VIX {market_ctx.get("vix", "N/A")}', 'risk' if market_ctx.get('emotion_state') in ['恐慌', '緊張'] else 'ok'),
+        ('風險', market_ctx.get('risk_state', '中'), f'台股位階 {market_ctx.get("position", 50)}%', 'risk' if market_ctx.get('risk_state') in ['高', '中高'] else 'ok'),
+        ('亞洲', market_ctx.get('asia_state', '資料不足'), market_ctx.get('asia_note', ''), 'warn' if market_ctx.get('asia_state') in ['區域分歧', '同步偏弱'] else 'info'),
+        ('追價', market_ctx.get('chase_state', '保守'), market_ctx.get('advice', ''), 'risk' if market_ctx.get('temperature') in ['熱', '冷'] else 'warn' if market_ctx.get('temperature') in ['偏熱', '偏冷'] else 'info'),
     ]
     status_html = ''.join(
-        f'<div><span>{h(label)}</span><b>{h(value)}</b><small>{h(note)}</small></div>'
-        for label, value, note in status_cards
+        f'<div class="status-card status-{tone}"><span>{h(label)}</span><b>{h(value)}</b><small>{h(note)}</small></div>'
+        for label, value, note, tone in status_cards
     )
     return (
         f'<section class="sc intro-card" id="market-summary">'
@@ -2945,7 +2955,11 @@ def score_stock_fundamental(meta, items):
         notes.append('EPS/獲利成長待補')
     else:
         used += 1
-        if earnings_growth >= 0.20:
+        if abs(earnings_growth) > 2.0:
+            score -= 2
+            notes.append('EPS/獲利成長極端，可能是虧轉盈或基期過低，已降權')
+            add_score_item(items, -2, 'EPS YoY極端，分數降權')
+        elif earnings_growth >= 0.20:
             score += 10
             add_score_item(items, 10, 'EPS/獲利成長強')
         elif earnings_growth >= 0.05:
@@ -3481,10 +3495,10 @@ def sparkline(prices, w=220, h=44):
 
 SCORE_COL = {'buy': '#1D9E75', 'hold': '#185FA5', 'wait': '#BA7517', 'sell': '#D85A30'}
 BADGE = {
-    'buy':  ('#0F6E56', 'rgba(29,158,117,0.12)'),
-    'hold': ('#185FA5', 'rgba(24,95,165,0.12)'),
-    'wait': ('#854F0B', 'rgba(186,117,23,0.12)'),
-    'sell': ('#993C1D', 'rgba(216,90,48,0.12)'),
+    'buy':  ('#0F6E56', 'rgba(29,158,117,0.22)'),
+    'hold': ('#185FA5', 'rgba(24,95,165,0.20)'),
+    'wait': ('#854F0B', 'rgba(186,117,23,0.22)'),
+    'sell': ('#993C1D', 'rgba(216,90,48,0.22)'),
 }
 
 
@@ -3720,7 +3734,9 @@ def metadata_detail_html(ticker, a, ext=None):
     warnings_list = []
     if revenue_value is not None and revenue_value < 0:
         warnings_list.append('營收成長轉弱，過去 PE 可能會失效。')
-    if eps_growth is not None and eps_growth < 0:
+    if eps_growth is not None and abs(eps_growth) > 2.0:
+        warnings_list.append('EPS 年增幅度極端，可能是低基期或虧轉盈/盈轉虧，不能直接解讀成景氣大好或大壞。')
+    elif eps_growth is not None and eps_growth < 0:
         warnings_list.append('EPS/獲利成長轉弱，不能只看過去便宜。')
     recent_yoys = meta.get('finmind_recent_revenue_yoys') or []
     if len(recent_yoys) >= 3 and all(v < 0 for v in recent_yoys):
@@ -3966,7 +3982,7 @@ def stock_card(ticker, name, price, chg, hist_close, a, ext, rec):
 
 CSS = '''<style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-:root{--t:#1a2035;--t2:#6c757d;--bg:#f5f7fa;--card:#fff;--card2:#f8f9fa;--bdr:rgba(0,0,0,0.07)}
+:root{--t:#172033;--t2:#657282;--bg:#eef2f6;--card:#fff;--card2:#f7f9fc;--surface:#edf3f8;--bdr:rgba(35,48,70,0.10);--ok:#16825f;--ok-bg:rgba(29,158,117,0.20);--warn:#9A5B0D;--warn-bg:rgba(186,117,23,0.22);--risk:#B44724;--risk-bg:rgba(216,90,48,0.22);--info:#1E5F92;--info-bg:rgba(24,95,165,0.18);--cold:#2F6C8F;--cold-bg:rgba(47,108,143,0.20)}
 body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--t);line-height:1.6}
 html{scroll-behavior:smooth}
 .wrap{max-width:1200px;margin:0 auto;padding:0 16px}
@@ -4007,7 +4023,12 @@ h1{font-size:19px;font-weight:700;color:var(--t);display:flex;align-items:center
 .desktop-top-grid .intro-card,.desktop-top-grid .market-radar,.desktop-mid-grid .dca-tool,.desktop-mid-grid .buy-tool{margin:0}
 .core-etfs,.today-focus,.target-overview,.visual-board{margin:14px 0}
 .visual-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:10px}
-.visual-main{background:var(--card2);border:1px solid var(--bdr);border-radius:10px;padding:12px}
+.visual-main{background:var(--card2);border:1px solid var(--bdr);border-radius:10px;padding:12px;box-shadow:0 1px 0 rgba(20,30,45,0.03)}
+.temp-hot{background:linear-gradient(135deg,var(--risk-bg),var(--card));border-color:rgba(216,90,48,0.34)}
+.temp-warm{background:linear-gradient(135deg,var(--warn-bg),var(--card));border-color:rgba(186,117,23,0.34)}
+.temp-neutral{background:linear-gradient(135deg,var(--info-bg),var(--card));border-color:rgba(24,95,165,0.28)}
+.temp-cool{background:linear-gradient(135deg,var(--cold-bg),var(--card));border-color:rgba(47,108,143,0.32)}
+.temp-cold{background:linear-gradient(135deg,rgba(80,103,125,0.24),var(--card));border-color:rgba(80,103,125,0.36)}
 .visual-main span{display:block;font-size:10px;color:var(--t2);font-weight:800;margin-bottom:4px}
 .visual-main b{display:block;font-size:18px;color:var(--t);line-height:1.35}
 .visual-main small{display:block;font-size:10px;color:var(--t2);line-height:1.5;margin-top:4px}
@@ -4028,9 +4049,9 @@ h1{font-size:19px;font-weight:700;color:var(--t);display:flex;align-items:center
 .mini-head b{display:block;font-size:13px;color:var(--t);line-height:1.35}
 .mini-head small{display:block;font-size:10px;color:var(--t2);margin-top:2px;line-height:1.35}
 .mini-head>span{font-size:10px;font-weight:800;border-radius:999px;padding:3px 7px;white-space:nowrap}
-.mini-ok .mini-head>span,.overview-ok .overview-status span{color:#0F6E56;background:rgba(29,158,117,0.12)}
-.mini-wait .mini-head>span,.overview-wait .overview-status span{color:#854F0B;background:rgba(186,117,23,0.12)}
-.mini-stop .mini-head>span,.overview-stop .overview-status span{color:#993C1D;background:rgba(216,90,48,0.12)}
+.mini-ok .mini-head>span,.overview-ok .overview-status span{color:var(--ok);background:var(--ok-bg)}
+.mini-wait .mini-head>span,.overview-wait .overview-status span{color:var(--warn);background:var(--warn-bg)}
+.mini-stop .mini-head>span,.overview-stop .overview-status span{color:var(--risk);background:var(--risk-bg)}
 .mini-body{display:grid;grid-template-columns:.8fr .75fr 1.45fr;gap:6px}
 .mini-body div{background:var(--card);border:1px solid var(--bdr);border-radius:7px;padding:7px;min-width:0}
 .mini-body span,.overview-row span{display:block;font-size:10px;color:var(--t2);line-height:1.3}
@@ -4052,14 +4073,18 @@ h1{font-size:19px;font-weight:700;color:var(--t);display:flex;align-items:center
 .focus-head{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;margin-bottom:8px}
 .focus-head b{font-size:13px;color:var(--t)}
 .focus-head span,.focus-group>small{font-size:10px;color:var(--t2);line-height:1.45}
-.overview-controls{display:grid;grid-template-columns:repeat(3,minmax(160px,1fr));gap:8px;margin-top:10px}
+.overview-controls{display:grid;grid-template-columns:repeat(3,minmax(160px,1fr));gap:8px;margin-top:10px;background:var(--surface);border:1px solid var(--bdr);border-radius:10px;padding:10px}
 .overview-controls label{display:grid;gap:4px;font-size:10px;color:var(--t2)}
-.overview-controls select{border:1px solid var(--bdr);background:var(--card2);color:var(--t);border-radius:8px;padding:8px;font-size:13px}
+.overview-controls select{border:1px solid var(--bdr);background:var(--card);color:var(--t);border-radius:8px;padding:8px;font-size:13px}
 .overview-list{display:grid;gap:6px;margin-top:10px}
 .overview-row{display:grid;grid-template-columns:minmax(190px,1.35fr) .42fr .55fr minmax(130px,.9fr) minmax(210px,1.25fr) .42fr auto;gap:8px;align-items:center;background:var(--card2);border:1px solid var(--bdr);border-radius:8px;padding:9px 10px}
 .overview-name b{display:block;font-size:13px;color:var(--t);line-height:1.35}
 .overview-name small{display:block;font-size:10px;color:var(--t2);line-height:1.35}
 .overview-score b,.overview-price b,.overview-confidence b{display:block;font-size:13px;color:var(--t);font-variant-numeric:tabular-nums}
+.overview-score b{display:inline-flex;min-width:34px;justify-content:center;border-radius:999px;padding:2px 7px;font-weight:900}
+.score-good b{color:var(--ok);background:var(--ok-bg)}
+.score-mid b{color:var(--warn);background:var(--warn-bg)}
+.score-low b{color:var(--risk);background:var(--risk-bg)}
 .overview-status span{display:inline-flex;border-radius:999px;padding:3px 7px;font-size:10px;font-weight:800;margin-bottom:2px}
 .overview-status small,.overview-action small{display:block;font-size:10px;color:var(--t2);line-height:1.35;overflow-wrap:anywhere}
 .overview-link{justify-self:end}
@@ -4075,7 +4100,7 @@ h1{font-size:19px;font-weight:700;color:var(--t);display:flex;align-items:center
 .tc.on{display:block}
 .sc{background:var(--card);border:1px solid var(--bdr);border-radius:12px;padding:16px}
 .sh{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px}
-.st{font-size:15px;font-weight:700;color:var(--t)}
+.st{font-size:17px;font-weight:850;color:var(--t);letter-spacing:0}
 .sn{font-size:11px;color:var(--t2);margin-top:2px}
 .sp{font-size:19px;font-weight:700;font-variant-numeric:tabular-nums}
 .sc2{font-size:12px;font-weight:600;margin-top:2px}
@@ -4159,10 +4184,14 @@ h1{font-size:19px;font-weight:700;color:var(--t);display:flex;align-items:center
 .holding-chips span{font-size:10px;color:var(--t);background:var(--card);border:1px solid var(--bdr);border-radius:999px;padding:3px 7px;line-height:1.35}
 .intro-card{margin:14px 0}
 .market-brief{display:block}
-.market-brief h2{font-size:22px;line-height:1.25;margin-top:6px;color:var(--t);letter-spacing:0}
+.market-brief h2{font-size:28px;line-height:1.18;margin-top:6px;color:var(--t);letter-spacing:0;font-weight:900}
 .market-brief p{font-size:12px;color:var(--t2);line-height:1.65;margin-top:8px}
 .status-strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:8px;margin-top:12px}
 .status-strip div,.market-reason-grid div{background:var(--card2);border:1px solid var(--bdr);border-radius:8px;padding:10px}
+.status-strip .status-ok{background:var(--ok-bg);border-color:rgba(29,158,117,0.30)}
+.status-strip .status-warn{background:var(--warn-bg);border-color:rgba(186,117,23,0.34)}
+.status-strip .status-risk{background:var(--risk-bg);border-color:rgba(216,90,48,0.34)}
+.status-strip .status-info{background:var(--info-bg);border-color:rgba(24,95,165,0.28)}
 .status-strip span{display:block;font-size:10px;color:var(--t2);margin-bottom:3px}
 .status-strip b{display:block;font-size:15px;color:var(--t)}
 .status-strip small{display:block;font-size:10px;color:var(--t2);line-height:1.45;margin-top:3px}
@@ -4289,7 +4318,7 @@ h1{font-size:19px;font-weight:700;color:var(--t);display:flex;align-items:center
 footer{background:var(--card);border-top:1px solid var(--bdr);padding:20px 0;margin-top:10px}
 footer p{font-size:12px;color:#adb5bd;margin-bottom:3px;text-align:center}
 @media(prefers-color-scheme:dark){
-  :root{--t:#e6edf3;--t2:#7d8590;--bg:#0d1117;--card:#161b22;--card2:#21262d;--bdr:rgba(255,255,255,0.07)}
+  :root{--t:#e6edf3;--t2:#9aa7b3;--bg:#0d1117;--card:#161b22;--card2:#21262d;--surface:#1b222c;--bdr:rgba(255,255,255,0.09);--ok:#56D6A5;--ok-bg:rgba(29,158,117,0.24);--warn:#E3A64C;--warn-bg:rgba(186,117,23,0.24);--risk:#FF8A65;--risk-bg:rgba(216,90,48,0.25);--info:#76B7E8;--info-bg:rgba(24,95,165,0.25);--cold:#8CC7E8;--cold-bg:rgba(47,108,143,0.24)}
   .rl li{color:#b0bec5}
   .tb.on{border-bottom-color:var(--t)}
   .tnav{border-bottom-color:rgba(255,255,255,0.1)}
@@ -4577,6 +4606,18 @@ def raw_close_series(raw, ticker):
     return raw['Close'].dropna()
 
 
+def prioritize_market_reasons(reasons):
+    risk_words = ['跌破', '風險', '保守', '偏弱', 'VIX', '恐慌', '降級', '不同步']
+    positive_words = ['站上', '偏強', '支撐', '強於']
+    def priority(text):
+        if any(word in text for word in risk_words):
+            return 0
+        if any(word in text for word in positive_words):
+            return 1
+        return 2
+    return sorted(reasons, key=priority)
+
+
 def calc_market_context(raw, quotes=None):
     quotes = quotes or {}
     def idx(ticker):
@@ -4614,6 +4655,7 @@ def calc_market_context(raw, quotes=None):
         return dict(
             regime='資料不足', temperature='中性', advice='資料不足時先照計畫小額分批。',
             headline='資料不足，今天先不要因單一訊號改變策略。',
+            temperature_key='neutral',
             trend_state='資料不足', emotion_state='中性', risk_state='中', chase_state='保守',
             asia_state='資料不足', asia_note='亞洲指數資料不足',
             reasons=['台股大盤資料不足。'], counters=['等資料更新後再判斷。'], actions=['定期定額可照計畫，單筆先小額。'],
@@ -4737,25 +4779,51 @@ def calc_market_context(raw, quotes=None):
     else:
         risk_state = '中' if vix_last >= 20 else '低'
 
-    if tw['pos'] > 90 and vix_last < 20:
+    market_score = clamp_score(score)
+    uptrend = tw['last'] > tw['ma20'] and tw['last'] > tw['ma60']
+    downtrend = tw['last'] < tw['ma20'] and tw['last'] < tw['ma60']
+    very_high = tw['pos'] >= 93
+    high = tw['pos'] >= 82
+    low = tw['pos'] <= 42
+    very_low = tw['pos'] <= 28
+    risk_off = vix_last >= 30 or (downtrend and us_support == 0)
+
+    if risk_off and (downtrend or tw['pos'] <= 50):
+        temperature = '冷'
+        temperature_key = 'cold'
+        chase_state = '恐慌防守'
+        advice = '市場風險升高，先保留現金；核心長期資金可慢慢分批，個股與題材股暫時保守。'
+    elif very_low or ((low or market_score <= 38 or vix_last >= 23) and not uptrend):
+        temperature = '偏冷'
+        temperature_key = 'cool'
+        chase_state = '回檔觀察'
+        advice = '市場轉保守，核心 ETF 可小額分批觀察，個股先降低比例，等趨勢回穩。'
+    elif very_high and vix_last < 20 and uptrend:
         temperature = '熱'
+        temperature_key = 'hot'
         chase_state = '追價偏高'
         advice = '定期定額可持續，但單筆資金要分批，不要因市場樂觀就重押。'
-    elif tw['pos'] < 35 and vix_last > 23:
-        temperature = '冷'
-        chase_state = '恐慌回檔'
-        advice = '市場偏恐慌，核心長期資金可分批，個股與題材股先保守。'
+    elif high or market_score >= 68 or (uptrend and vix_last < 18):
+        temperature = '偏熱'
+        temperature_key = 'warm'
+        chase_state = '強勢但別追'
+        advice = '趨勢仍偏多，但價格不便宜；定期定額照走，臨時單筆只適合小額分批。'
     else:
         temperature = '中性'
+        temperature_key = 'neutral'
         chase_state = '可分批'
         advice = '按月扣款即可，單筆資金等價格回到可分批區再動作。'
 
     if regime == '多頭延續' and temperature == '熱':
         headline = '市場偏多但追價風險升高。'
+    elif regime == '多頭延續' and temperature == '偏熱':
+        headline = '市場偏多但價格不便宜，適合分批不適合重押。'
     elif regime == '多頭延續':
         headline = '市場仍偏多，適合紀律分批，不適合亂追。'
     elif regime == '防守模式':
         headline = '市場進入防守，先保留現金與降低題材股衝動。'
+    elif temperature in ['偏冷', '冷']:
+        headline = '市場轉保守，先看風險再看便宜。'
     else:
         headline = '市場震盪整理，重點是分批與等待好價格。'
 
@@ -4778,6 +4846,7 @@ def calc_market_context(raw, quotes=None):
     return dict(
         regime=regime,
         temperature=temperature,
+        temperature_key=temperature_key,
         advice=advice,
         headline=headline,
         trend_state=trend_state,
@@ -4786,10 +4855,10 @@ def calc_market_context(raw, quotes=None):
         chase_state=chase_state,
         asia_state=asia_state,
         asia_note=asia_note,
-        reasons=reasons[:4],
+        reasons=prioritize_market_reasons(reasons)[:4],
         counters=counters[:3],
         actions=actions[:3],
-        score=clamp_score(score),
+        score=market_score,
         position=round(tw['pos'], 1),
         vix=round(vix_last, 2),
         sox_20d=round(sox.get('r20'), 1) if sox.get('r20') is not None else None,
@@ -4801,7 +4870,7 @@ def calc_market_context(raw, quotes=None):
 def fetch_indices():
     tickers = list(INDICES.keys())
     cards = {}
-    market_ctx = dict(regime='資料不足', temperature='中性', advice='資料不足時先照計畫小額分批。')
+    market_ctx = dict(regime='資料不足', temperature='中性', temperature_key='neutral', advice='資料不足時先照計畫小額分批。')
     try:
         raw = yf.download(tickers, period='3y', progress=False, auto_adjust=False)
         index_quotes = {tk: fetch_metadata(tk) for tk in tickers}
