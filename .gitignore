@@ -5,6 +5,7 @@ __pycache__/
 .env
 .env.*
 *.log
+*.local.ps1
 
 # Local notes and release checklists are kept off the public site.
 CHANGELOG.md
