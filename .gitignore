@@ -11,4 +11,7 @@ __pycache__/
 CHANGELOG.md
 PROJECT_STATE.md
 PUBLIC_RELEASE_AUDIT.md
-分析報告_*.md
+PROJECT_LOG.md
+_local_archive/
+*_local*.md
+*_report*.md

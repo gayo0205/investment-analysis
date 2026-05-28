@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """
 智慧投資分析自動報告產生器 v2
 - 資料來源：Yahoo Finance（完全免費）
@@ -3910,7 +3910,8 @@ def stock_card(ticker, name, price, chg, hist_close, a, ext, rec):
         f'</div>'
     )
     more_html = (
-        f'<details class="card-more"><summary>看數據、來源與計算</summary>'
+        f'<details class="card-more"><summary>看走勢、數據、來源與計算</summary>'
+        f'<div class="spark">{sp}</div>'
         f'{price_ref_html}'
         f'{week52_html}'
         f'{detail_html}'
@@ -3961,15 +3962,14 @@ def stock_card(ticker, name, price, chg, hist_close, a, ext, rec):
         f'</div></div>'
         f'{decision_html}'
         f'{quick_html}'
-        f'{zone_html}'
         f'<div class="sr"><span class="slbl">健康分數</span>'
         f'<div class="sbw"><div class="sbf" style="width:{sc}%;background:{sc_col}"></div></div>'
         f'<span class="sn2" style="color:{sc_col}">{sc}</span></div>'
         f'<div style="margin-bottom:10px">'
         f'<span class="sbadge" style="background:{badge_bg};color:{badge_tc}">{a["stxt"]}</span></div>'
-        f'<div class="spark">{sp}</div>'
-        f'{more_html}'
+        f'{zone_html}'
         f'{strategy_more_html}'
+        f'{more_html}'
         f'<div style="font-size:10px;color:var(--t2);margin-top:6px;line-height:1.5">'
         f'以上為規則化因子分析，僅供參考，不構成投資建議。投資有風險，請自行判斷。</div>'
         f'</div>'
@@ -4209,7 +4209,10 @@ h1{font-size:19px;font-weight:700;color:var(--t);display:flex;align-items:center
 .buy-tool{margin:14px 0}
 .tool-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
 .tool-head p{font-size:11px;color:var(--t2);line-height:1.6;margin-top:4px}
-.section-meta{font-size:11px;color:var(--t2);background:var(--card2);border:1px solid var(--bdr);border-radius:999px;padding:6px 10px;white-space:nowrap;font-weight:700}
+.section-meta{display:none}
+.core-etfs{border-color:rgba(29,158,117,0.28);background:linear-gradient(180deg,rgba(29,158,117,0.08),var(--card))}
+.target-overview{border-color:rgba(24,95,165,0.22)}
+.today-focus{border-color:rgba(186,117,23,0.24)}
 .dca-controls{display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:8px;margin-top:12px}
 .dca-controls label{background:var(--card2);border:1px solid var(--bdr);border-radius:8px;padding:8px 10px;display:flex;flex-direction:column;gap:4px}
 .dca-controls span{font-size:10px;color:var(--t2)}
@@ -4333,7 +4336,7 @@ footer p{font-size:12px;color:#adb5bd;margin-bottom:3px;text-align:center}
   .mode-switch{top:48px;margin:0 -12px 6px;padding:8px 12px;background:var(--bg);overflow-x:auto}
   .mode-btn{white-space:nowrap;padding:7px 12px;font-size:12px}
   .tool-head{gap:8px}
-  .section-meta{align-self:flex-start;font-size:10px;padding:5px 8px}
+  .section-meta{display:none}
   .mobile-jump{position:static;display:flex;gap:6px;overflow-x:auto;padding:8px 0;background:var(--bg);border-bottom:1px solid var(--bdr);margin:0 -12px 8px;padding-left:12px;padding-right:12px}
   .mobile-jump a{white-space:nowrap;text-decoration:none;color:var(--t);background:var(--card);border:1px solid var(--bdr);border-radius:999px;padding:7px 12px;font-size:12px;font-weight:700}
   .visual-grid,.visual-bars{grid-template-columns:1fr}
@@ -4398,9 +4401,10 @@ def mobile_jump_nav_html():
         ('#market-summary', '重點'),
         ('#market-radar', '雷達'),
         ('#visual-board', '儀表'),
-        ('#core-etfs', '核心'),
-        ('#dca-sim', '定期'),
-        ('#today-focus', '掃描'),
+        ('#core-etfs', '核心ETF'),
+        ('#today-focus', '先看'),
+        ('#target-overview', '一覽'),
+        ('#tools', '工具'),
     ]
     return '<nav class="mobile-jump">' + ''.join(
         f'<a href="{href}">{label}</a>' for href, label in links
@@ -4437,15 +4441,15 @@ def build_html(idx_html, tw_s, tw_e, us_s, us_e, bonds, update_time, market_ctx=
         f'</div>\n'
         f'{visual_action_board_html(market_ctx)}\n'
         f'{core_etf_spotlight_html()}\n'
-        f'<div class="desktop-mid-grid">\n'
+        f'{today_focus_html()}\n'
+        f'{target_overview_html()}\n'
+        f'<div class="desktop-mid-grid" id="tools">\n'
         f'{dca_simulator_html(market_ctx)}\n'
         f'{buy_now_tool_html(market_ctx)}\n'
         f'</div>\n'
         f'{theme_radar_html()}\n'
-        f'{today_focus_html()}\n'
         f'</section>\n'
         f'<section class="mode-pane" id="data-mode">\n'
-        f'{target_overview_html()}\n'
         f'{daily_order_overview_html(market_ctx)}\n'
         f'<section class="target-section" id="target-list">\n'
         f'<div class="section-head"><div><div class="st">標的分析</div>'
