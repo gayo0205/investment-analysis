@@ -1268,7 +1268,7 @@ def target_tab_id(ticker):
 def target_link(ticker, label='看完整卡', cls='mini-link'):
     return (
         f'<a class="{cls}" href="#{target_dom_id(ticker)}" '
-        f'onclick="showMode(\'data-mode\');showTab(\'{target_tab_id(ticker)}\')">{h(label)}</a>'
+        f'onclick="rememberFocusSpot();showMode(\'data-mode\');showTab(\'{target_tab_id(ticker)}\')">{h(label)}</a>'
     )
 
 
@@ -3954,7 +3954,7 @@ def stock_card(ticker, name, price, chg, hist_close, a, ext, rec):
     return (
         f'<div class="sc target-card" id="{target_dom_id(ticker)}">'
         f'<div class="sh">'
-        f'<div><div class="st">{disp}</div><div class="sn">{name}</div></div>'
+        f'<div><div class="st">{disp}</div><div class="sn">{name}</div><button class="back-to-overview" onclick="returnToFocusSpot()" type="button">回到剛剛位置</button></div>'
         f'<div style="text-align:right">'
         f'<div class="sp" style="color:var(--t)">{price:,.2f}</div>'
         f'<div class="sc2" style="color:{pc}">{arr} {sgn}{chg:.2f}%</div>'
@@ -4105,6 +4105,7 @@ h1{font-size:19px;font-weight:700;color:var(--t);display:flex;align-items:center
 .sp{font-size:19px;font-weight:700;font-variant-numeric:tabular-nums}
 .sc2{font-size:12px;font-weight:600;margin-top:2px}
 .price-caption{font-size:9px;color:var(--t2);line-height:1.35;margin-top:2px;max-width:120px}
+.back-to-overview{display:none;margin-top:6px;border:1px solid rgba(29,158,117,0.22);background:rgba(29,158,117,0.10);color:#0F6E56;border-radius:999px;padding:5px 9px;font-size:11px;font-weight:800;font-family:inherit;cursor:pointer}
 .spark{margin-bottom:10px}
 .pref-row{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap}
 .pref-item{background:var(--card2);border-radius:8px;padding:5px 10px;display:flex;flex-direction:column;gap:2px}
@@ -4365,6 +4366,7 @@ footer p{font-size:12px;color:#adb5bd;margin-bottom:3px;text-align:center}
   .sh{gap:8px}
   .sp{font-size:18px}
   .price-caption{max-width:150px}
+  .back-to-overview{display:inline-flex;align-items:center;gap:4px}
   .tool-head{flex-direction:column}
   .market-brief{grid-template-columns:1fr}
   .market-brief h2{font-size:20px}
@@ -4379,12 +4381,33 @@ footer p{font-size:12px;color:#adb5bd;margin-bottom:3px;text-align:center}
 </style>'''
 
 JS_CODE = '''<script>
+window.LAST_FOCUS_SCROLL = 0;
+function rememberFocusSpot(){
+  var focus=document.getElementById('focus-mode');
+  if(focus && focus.classList.contains('on')) window.LAST_FOCUS_SCROLL=window.scrollY||0;
+}
+function restoreFocusSpot(){
+  var y=Number(window.LAST_FOCUS_SCROLL||0);
+  if(y>0){
+    window.scrollTo({top:y,behavior:'smooth'});
+    return;
+  }
+  var fallback=document.getElementById('target-overview') || document.getElementById('market-summary');
+  if(fallback) fallback.scrollIntoView({behavior:'smooth',block:'start'});
+}
+function returnToFocusSpot(){
+  showMode('focus-mode');
+  setTimeout(restoreFocusSpot,30);
+}
 function showMode(id){
+  var active=document.querySelector('.mode-pane.on');
+  if(id==='data-mode' && active && active.id==='focus-mode') rememberFocusSpot();
   document.querySelectorAll('.mode-pane').forEach(function(s){s.classList.remove('on')});
   document.querySelectorAll('.mode-btn').forEach(function(b){b.classList.remove('on')});
   var el=document.getElementById(id); if(el) el.classList.add('on');
   var btn=document.querySelector('[data-mode="'+id+'"]'); if(btn) btn.classList.add('on');
   if(id==='data-mode' && typeof filterOverview==='function') filterOverview();
+  if(id==='focus-mode') setTimeout(restoreFocusSpot,30);
 }
 function showTab(id){
   document.querySelectorAll('.tc').forEach(function(s){s.classList.remove('on')});
