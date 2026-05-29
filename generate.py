@@ -1159,7 +1159,11 @@ def stock_basic_phrase(meta):
     if meta.get('revenue_growth') is not None:
         parts.append(f'營收成長 {meta["revenue_growth"] * 100:.1f}%')
     if meta.get('earnings_growth') is not None:
-        parts.append(f'EPS/獲利成長 {meta["earnings_growth"] * 100:.1f}%')
+        eg = meta["earnings_growth"]
+        if abs(eg) > 2.0:
+            parts.append('EPS基期異常，已降權')
+        else:
+            parts.append(f'EPS/獲利成長 {eg * 100:.1f}%')
     if meta.get('roe') is not None:
         parts.append(f'ROE {meta["roe"] * 100:.1f}%')
     if not parts:
@@ -1374,7 +1378,7 @@ def compact_target_tile(ticker, item, mode='normal'):
         f'<span>{h(status)}</span></div>'
         f'<div class="mini-body">'
         f'<div><span>現價</span><b>{price_text}</b></div>'
-        f'<div><span>健康分</span><b>{h(score)}</b></div>'
+        f'<div><span>體質分</span><b>{h(score)}</b></div>'
         f'<div><span>可看區間</span><b>{h(range_text)}</b></div>'
         f'</div>'
         f'<p>{h(action)}</p>'
@@ -1410,30 +1414,54 @@ def core_etf_spotlight_html():
 def today_focus_html():
     if not BUY_NOW_DATA:
         return ''
+    ordered = all_targets_order()
+    confidence_rank = {'高': 3, '中': 2, '偏低': 1}
+
+    def priority(tk):
+        item = BUY_NOW_DATA[tk]
+        role_rank = {
+            '長期核心': 80, '海外分散': 58, '現金流': 54,
+            '衛星主題': 48, '防守配置': 44, '個股觀察': 30,
+        }.get(item.get('role'), 30)
+        tone_rank = {'ok': 38, 'wait': 26, 'stop': 18}.get(action_tone(zone_status(item)), 18)
+        score = safe_num(item.get('score')) or 0
+        conf = confidence_rank.get(item.get('confidence'), 0)
+        return role_rank + tone_rank + score * 0.25 + conf * 4
+
+    def pick(pool, limit, used):
+        picked = []
+        for tk in sorted(pool, key=priority, reverse=True):
+            if tk in BUY_NOW_DATA and tk not in used:
+                picked.append(tk)
+                used.add(tk)
+            if len(picked) >= limit:
+                break
+        return picked
+
+    used = set()
+    core_pool = [tk for tk in ['0050.TW', '006208.TW', '006204.TW', '00662.TW'] if tk in BUY_NOW_DATA]
+    ok_pool = [tk for tk in ordered if action_tone(zone_status(BUY_NOW_DATA[tk])) == 'ok']
+    risk_pool = [tk for tk in ordered if action_tone(zone_status(BUY_NOW_DATA[tk])) == 'stop']
     groups = [
-        ('可分批觀察', ['可分批區', '健康回檔', '加碼觀察區'], '不是叫你重押，是值得打開看完整理由。'),
-        ('強勢但不追', ['健康創高', '強勢高位', '偏高等待區'], '趨勢好不等於今天亂追，重點是等回檔或小額。'),
-        ('過熱先等', ['過熱追高'], '價格已偏熱，先等回到區間，不要因為熱門就追。'),
-        ('轉弱避開', ['轉弱下跌'], '這裡只能提醒風險；是否賣出要看持倉成本、比例與現金需求。'),
+        ('核心先確認', pick(core_pool, 2, used), '先看你最可能長期執行的標的：照扣可以，額外單筆要看價格區間。'),
+        ('可分批機會', pick(ok_pool, 2, used), '這些比較接近紀律買點，但仍要分批，不是重押訊號。'),
+        ('高位風險提醒', pick(risk_pool, 2, used), '市場熱時最容易手癢，這裡提醒哪些標的先別追。'),
     ]
     cards = []
-    ordered = all_targets_order()
-    for title, statuses, note in groups:
-        picks = [tk for tk in ordered if zone_status(BUY_NOW_DATA[tk]) in statuses]
+    for title, picks, note in groups:
         if not picks:
             continue
-        tiles = ''.join(compact_target_tile(tk, BUY_NOW_DATA[tk], 'focus') for tk in picks[:3])
-        more = f'<small>另有 {len(picks) - 3} 檔可在下方一覽查看</small>' if len(picks) > 3 else ''
+        tiles = ''.join(compact_target_tile(tk, BUY_NOW_DATA[tk], 'focus') for tk in picks)
         cards.append(
             f'<div class="focus-group"><div class="focus-head"><b>{h(title)}</b><span>{h(note)}</span></div>'
-            f'<div class="focus-grid">{tiles}</div>{more}</div>'
+            f'<div class="focus-grid">{tiles}</div></div>'
         )
     if not cards:
         return ''
     return (
         f'<section class="sc today-focus" id="today-focus">'
         f'<div class="tool-head"><div><div class="st">今日值得先看的標的</div>'
-        f'<p>這裡不是買進排行榜，而是把全部標的先分成幾種情境，讓你知道該先打開哪幾張完整卡。</p></div>'
+        f'<p>這裡不是全部分類，也不是買進排行榜；只挑少數今天最需要先確認的卡。其他標的請用下方搜尋與篩選。</p></div>'
         f'<span class="section-meta">情境掃描</span></div>'
         f'{"".join(cards)}'
         f'</section>'
@@ -1444,6 +1472,7 @@ def target_overview_html():
     ordered = all_targets_order()
     if not ordered:
         return ''
+    target_count = len(ordered)
     rows = []
     cat_labels = {
         'tw-etfs': '台股 ETF',
@@ -1479,7 +1508,7 @@ def target_overview_html():
             f'data-query="{h(query_text)}" data-order="{len(rows)}">'
             f'<div class="overview-name"><b>{h(code)} {h(item.get("name", ""))}</b>'
             f'<small>{h(cat_labels.get(cat, cat))} / {h(item.get("role", ""))} / {h(item.get("bucket", ""))}</small></div>'
-            f'<div class="overview-score score-{score_tone}"><span>健康</span><b>{h(item.get("score", "N/A"))}</b></div>'
+            f'<div class="overview-score score-{score_tone}"><span>體質</span><b>{h(item.get("score", "N/A"))}</b></div>'
             f'<div class="overview-price"><span>現價</span><b>{price_text}</b></div>'
             f'<div class="overview-status"><span>{h(status)}</span><small>{h(zone_range_text(item))}</small></div>'
             f'<div class="overview-action"><span>今日行動</span><small>{h(action)}</small></div>'
@@ -1526,7 +1555,7 @@ document.addEventListener('DOMContentLoaded',function(){
     return (
         f'<section class="sc target-overview" id="target-overview">'
         f'<div class="tool-head"><div><div class="st">全部標的一覽</div>'
-        f'<p>先用一行看完每檔的結論、分數與可看區間；想研究再打開完整卡，不用一開始滑過 37 張大卡。</p></div>'
+        f'<p>先用一行看完 {target_count} 檔的結論、體質分與可看區間；體質分高不等於今天可追價，想研究再打開完整卡。</p></div>'
         f'<span class="section-meta">可篩選排序</span></div>'
         f'<div class="overview-controls">'
         f'<label class="overview-search"><span>搜尋代碼或名稱</span><input id="overviewSearch" type="search" placeholder="輸入 2330、台積電、NVDA、電力..." autocomplete="off"></label>'
@@ -1536,7 +1565,7 @@ document.addEventListener('DOMContentLoaded',function(){
         f'<label><span>狀態</span><select id="overviewTone"><option value="all">全部狀態</option>'
         f'<option value="ok">可分批/回檔</option><option value="wait">強勢或等待</option><option value="stop">過熱或轉弱</option></select></label>'
         f'<label><span>排序</span><select id="overviewSort"><option value="watch">值得先看</option>'
-        f'<option value="score">健康分高到低</option><option value="risk">風險低到高</option>'
+        f'<option value="score">體質分高到低</option><option value="risk">風險低到高</option>'
         f'<option value="wpct">52週位置低到高</option><option value="conf">資料可信度高到低</option></select></label>'
         f'</div>'
         f'<div class="overview-list" id="overviewList">{"".join(rows)}</div>'
@@ -1570,7 +1599,7 @@ def visual_action_board_html(market_ctx=None):
         pct = counts[key] / total * 100
         return (
             f'<div class="visual-bar visual-{key}">'
-            f'<div><b>{h(label)}</b><span>{counts[key]} 檔</span></div>'
+            f'<div><b>{h(label)}</b><span>{counts[key]} / {total} 檔</span></div>'
             f'<i><em style="width:{pct:.1f}%"></em></i>'
             f'<small>{h(text)}</small></div>'
         )
@@ -1578,7 +1607,7 @@ def visual_action_board_html(market_ctx=None):
     return (
         f'<section class="sc visual-board" id="visual-board">'
         f'<div class="tool-head"><div><div class="st">今日行動儀表</div>'
-        f'<p>把市場狀態、核心 ETF 與全標的掃描結果翻成一眼能看的行動地圖。這裡是總覽，細節仍在完整數據。</p></div>'
+        f'<p>把市場狀態、核心 ETF 與全標的掃描結果翻成一眼能看的行動地圖。下方三條是全部 {total} 檔的互斥分類，不是今日推薦清單。</p></div>'
         f'<span class="section-meta">視覺化總覽</span></div>'
         f'<div class="visual-grid">'
         f'<div class="visual-main temp-{h(temp_key)}"><span>市場溫度</span><b>{h(temp)}</b><small>{h(advice)}</small></div>'
@@ -1923,6 +1952,8 @@ def calc_price_zones(ticker, price, a, ext):
         action = '核心ETF可照常扣款；額外加碼等回到區間內。'
     if risk_score < 40:
         summary += ' 風險分數偏低時，所有買進區間都要再保守。'
+    if status in ['健康創高', '強勢高位', '過熱追高', '偏高等待區']:
+        trend_note += ' 強勢行情中區間可能偏保守；它是紀律買點，不是預測價格一定會回來。'
 
     range_text = f'{fmt_zone_price(buy_low)} ~ {fmt_zone_price(buy_high)}'
     guard_text = f'大於 {fmt_zone_price(chase_limit)} 不追；小於 {fmt_zone_price(stop_line)} 先停'
@@ -2185,6 +2216,17 @@ def newbie_summary_html(market_ctx=None):
     reasons = ''.join(f'<li>{h(x)}</li>' for x in market_ctx.get('reasons', [])[:4])
     counters = ''.join(f'<li>{h(x)}</li>' for x in market_ctx.get('counters', [])[:3])
     actions = ''.join(f'<li>{h(x)}</li>' for x in market_ctx.get('actions', [])[:3])
+    core_statuses = [
+        zone_status(BUY_NOW_DATA[tk])
+        for tk in ['0050.TW', '006208.TW', '006204.TW', '00662.TW']
+        if tk in BUY_NOW_DATA
+    ]
+    hot_core = any(s in ['過熱追高', '健康創高', '強勢高位', '偏高等待區'] for s in core_statuses)
+    if market_ctx.get('regime') == '多頭延續' and hot_core:
+        plain_take = '白話結論：市場方向偏多，但核心 ETF 多數不便宜；定期定額照扣，臨時單筆不要重押。'
+    else:
+        plain_take = f'白話結論：{market_ctx.get("advice", "先照計畫小額分批，不因單日訊號改變策略。")}'
+    time_note = '時間提醒：不同市場交易時段不同；台股多為最近台股交易日收盤/延遲資料，美股可能是盤中資料，請看每張卡的台灣時間與原市場時間。'
     status_cards = [
         ('趨勢', market_ctx.get('trend_state', market_ctx.get('regime', '資料不足')), market_ctx.get('regime', ''), 'info'),
         ('情緒', market_ctx.get('emotion_state', '中性'), f'VIX {market_ctx.get("vix", "N/A")}', 'risk' if market_ctx.get('emotion_state') in ['恐慌', '緊張'] else 'ok'),
@@ -2203,6 +2245,7 @@ def newbie_summary_html(market_ctx=None):
         f'<h2>{h(market_ctx.get("headline", ""))}</h2>'
         f'<p>{h(market_ctx.get("advice", ""))}</p></div>'
         f'</div>'
+        f'<div class="plain-take"><b>{h(plain_take)}</b><span>{h(time_note)}</span></div>'
         f'<div class="status-strip">{status_html}</div>'
         f'<div class="market-reason-grid">'
         f'<div><b>為什麼</b><ul>{reasons}</ul></div>'
@@ -2264,7 +2307,7 @@ def methodology_html():
         f'<div class="st">計算方式說明</div>'
         f'<div class="method-lead">這個網站不是預測明天漲跌，而是把公開資料整理成「現在適不適合分批、要不要追高、風險在哪裡」。</div>'
         f'<div class="method-grid">'
-        f'<div><b>小白版怎麼看</b><p>先看今日市場重點，再看每張卡片的現在狀態與價格地圖。高分不代表保證賺錢，低分也不代表一定會跌。</p></div>'
+        f'<div><b>小白版怎麼看</b><p>先看今日市場重點，再看每張卡片的現在狀態與價格地圖。體質分高代表標的狀態較好，但不代表今天價格可以追。</p></div>'
         f'<div><b>ETF 分數</b><p>趨勢 25% + 動能 15% + 成交量 10% + 價格位置 10% + 風險 20% + ETF資料 20%。ETF 要看成本、折溢價、規模、配息與總報酬。</p></div>'
         f'<div><b>個股分數</b><p>趨勢 25% + 動能 15% + 成交量 10% + 價格位置 10% + 風險 20% + 基本面 20%。PE 只是入口，還要看營收、EPS、ROE與毛利率。</p></div>'
         f'<div><b>價格基準</b><p>價格卡以 Yahoo quote 的資料時間為主：報價時間先顯示台灣時間，括號補原市場時間；價格顯示該交易日的最新價/收盤、開盤、昨收、高低價。</p></div>'
@@ -3495,7 +3538,7 @@ def get_recommendations(a, ext):
                  '指標偏中性，尚無明確買訊。建議等待KD黃金交叉、RSI回到健康區間後再考慮進場。')
     else:
         trade = ('目前不建議買進', 'sell',
-                 f'多項技術指標偏空（健康分數{score}）。建議等待落底訊號，趨勢確認轉多後再考慮進場。')
+                 f'多項技術指標偏空（體質分數{score}）。建議等待落底訊號，趨勢確認轉多後再考慮進場。')
 
     if risk_score < 45:
         dca = ('小額觀察，不加碼', 'wait',
@@ -3760,6 +3803,11 @@ def metadata_detail_html(ticker, a, ext=None):
     if eps_growth is None:
         eps_growth = meta.get('earnings_growth')
         eps_growth_hint = 'Yahoo或可用獲利成長'
+    if eps_growth is not None and abs(eps_growth) > 2.0:
+        eps_growth_text = 'EPS基期異常'
+        eps_growth_hint = '虧轉盈/低基期造成極端值，已降權'
+    else:
+        eps_growth_text = fmt_ratio_pct(eps_growth)
     gross_margin = meta.get('finmind_gross_margin')
     gross_hint = 'FinMind最新季毛利率'
     if gross_margin is None:
@@ -3773,7 +3821,7 @@ def metadata_detail_html(ticker, a, ext=None):
         metric_tile('月營收YoY', fmt_ratio_pct(meta.get('finmind_month_revenue_yoy')), f'{meta.get("finmind_revenue_month_label") or "最新月"} 的營收年增'),
         metric_tile('近12月營收YoY', fmt_ratio_pct(revenue_value), revenue_hint),
         metric_tile('近四季EPS', fmt_plain_num(meta.get('finmind_eps_ttm'), 2), 'FinMind近四季EPS合計'),
-        metric_tile('EPS/獲利成長', fmt_ratio_pct(eps_growth), eps_growth_hint),
+        metric_tile('EPS/獲利成長', eps_growth_text, eps_growth_hint),
         metric_tile('ROE', fmt_ratio_pct(meta.get('roe')), '股東權益報酬率'),
         metric_tile('毛利率', fmt_ratio_pct(gross_margin), gross_hint),
         metric_tile('殖利率', f'{meta["dividend_yield"]:.1f}%' if meta.get('dividend_yield') is not None else 'N/A', '配息參考，不是主要買點'),
@@ -4020,7 +4068,7 @@ def stock_card(ticker, name, price, chg, hist_close, a, ext, rec):
         f'</div></div>'
         f'{decision_html}'
         f'{quick_html}'
-        f'<div class="sr"><span class="slbl">健康分數</span>'
+        f'<div class="sr"><span class="slbl">體質分數</span>'
         f'<div class="sbw"><div class="sbf" style="width:{sc}%;background:{sc_col}"></div></div>'
         f'<span class="sn2" style="color:{sc_col}">{sc}</span></div>'
         f'<div style="margin-bottom:10px">'
@@ -4245,6 +4293,9 @@ h1{font-size:19px;font-weight:700;color:var(--t);display:flex;align-items:center
 .market-brief{display:block}
 .market-brief h2{font-size:28px;line-height:1.18;margin-top:6px;color:var(--t);letter-spacing:0;font-weight:900}
 .market-brief p{font-size:12px;color:var(--t2);line-height:1.65;margin-top:8px}
+.plain-take{margin-top:10px;background:var(--info-bg);border:1px solid rgba(24,95,165,0.28);border-radius:9px;padding:10px 12px}
+.plain-take b{display:block;font-size:13px;line-height:1.5;color:var(--t)}
+.plain-take span{display:block;font-size:10px;line-height:1.55;color:var(--t2);margin-top:4px}
 .status-strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:8px;margin-top:12px}
 .status-strip div,.market-reason-grid div{background:var(--card2);border:1px solid var(--bdr);border-radius:8px;padding:10px}
 .status-strip .status-ok{background:var(--ok-bg);border-color:rgba(29,158,117,0.30)}
