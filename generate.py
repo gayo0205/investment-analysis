@@ -1385,7 +1385,7 @@ def compact_target_tile(ticker, item, mode='normal'):
 
 
 def core_etf_spotlight_html():
-    core = [tk for tk in ['0050.TW', '006208.TW', '006204.TW'] if tk in BUY_NOW_DATA]
+    core = [tk for tk in ['0050.TW', '006208.TW', '006204.TW', '00662.TW'] if tk in BUY_NOW_DATA]
     cashflow = [tk for tk in ['0056.TW', '00878.TW', '00919.TW'] if tk in BUY_NOW_DATA]
     if not core and not cashflow:
         return ''
@@ -1399,7 +1399,7 @@ def core_etf_spotlight_html():
     return (
         f'<section class="sc core-etfs" id="core-etfs">'
         f'<div class="tool-head"><div><div class="st">核心 ETF</div>'
-        f'<p>先把每月最可能照做的標的放上來。0050 / 006208 這類核心 ETF 不是要猜最低點，而是看現在適不適合照常扣、少量加碼或先別重押。</p></div>'
+        f'<p>先把每月最可能照做的標的放上來。0050 / 006208 偏台股核心，00662 偏美股科技成長；都不是要猜最低點，而是看現在適不適合照常扣、少量加碼或先別重押。</p></div>'
         f'<span class="section-meta">每月扣款優先看</span></div>'
         f'<div class="core-grid">{core_html}</div>'
         f'<details class="core-alt"><summary>看高股息與現金流 ETF</summary>{cash_html}</details>'
@@ -1468,10 +1468,15 @@ def target_overview_html():
         conf = item.get('confidence', 'N/A')
         watch_score = {'ok': 300, 'wait': 200, 'stop': 100}.get(tone, 0) + score + confidence_rank.get(conf, 0) * 3
         action = item.get('action') or item.get('conclusion') or '看完整卡'
+        query_text = ' '.join([
+            code, tk, item.get('name', ''), item.get('role', ''), item.get('bucket', ''),
+            cat_labels.get(cat, cat), status, action, zone_range_text(item), item.get('confidence', '')
+        ]).lower()
         rows.append(
             f'<div class="overview-row overview-{tone}" data-cat="{h(cat)}" data-tone="{h(tone)}" '
             f'data-score="{score:.2f}" data-risk="{risk:.2f}" data-wpct="{w_pct:.2f}" '
-            f'data-watch="{watch_score:.2f}" data-conf="{confidence_rank.get(conf, 0)}" data-order="{len(rows)}">'
+            f'data-watch="{watch_score:.2f}" data-conf="{confidence_rank.get(conf, 0)}" '
+            f'data-query="{h(query_text)}" data-order="{len(rows)}">'
             f'<div class="overview-name"><b>{h(code)} {h(item.get("name", ""))}</b>'
             f'<small>{h(cat_labels.get(cat, cat))} / {h(item.get("role", ""))} / {h(item.get("bucket", ""))}</small></div>'
             f'<div class="overview-score score-{score_tone}"><span>健康</span><b>{h(item.get("score", "N/A"))}</b></div>'
@@ -1490,6 +1495,7 @@ function filterOverview(){
   var cat=(document.getElementById('overviewCat')||{}).value||'all';
   var tone=(document.getElementById('overviewTone')||{}).value||'all';
   var sort=(document.getElementById('overviewSort')||{}).value||'watch';
+  var q=((document.getElementById('overviewSearch')||{}).value||'').trim().toLowerCase();
   var rows=Array.prototype.slice.call(list.querySelectorAll('.overview-row'));
   rows.sort(function(a,b){
     function n(el,key){return Number(el.dataset[key]||0);}
@@ -1501,7 +1507,8 @@ function filterOverview(){
   });
   var shown=0;
   rows.forEach(function(row){
-    var ok=(cat==='all'||row.dataset.cat===cat)&&(tone==='all'||row.dataset.tone===tone);
+    var query=row.dataset.query||'';
+    var ok=(cat==='all'||row.dataset.cat===cat)&&(tone==='all'||row.dataset.tone===tone)&&(!q||query.indexOf(q)>=0);
     row.style.display=ok?'grid':'none';
     list.appendChild(row);
     if(ok) shown++;
@@ -1509,9 +1516,9 @@ function filterOverview(){
   if(empty) empty.style.display=shown?'none':'block';
 }
 document.addEventListener('DOMContentLoaded',function(){
-  ['overviewCat','overviewTone','overviewSort'].forEach(function(id){
+  ['overviewSearch','overviewCat','overviewTone','overviewSort'].forEach(function(id){
     var el=document.getElementById(id);
-    if(el) el.addEventListener('change',filterOverview);
+    if(el){ el.addEventListener('change',filterOverview); el.addEventListener('input',filterOverview); }
   });
   filterOverview();
 });
@@ -1522,6 +1529,7 @@ document.addEventListener('DOMContentLoaded',function(){
         f'<p>先用一行看完每檔的結論、分數與可看區間；想研究再打開完整卡，不用一開始滑過 37 張大卡。</p></div>'
         f'<span class="section-meta">可篩選排序</span></div>'
         f'<div class="overview-controls">'
+        f'<label class="overview-search"><span>搜尋代碼或名稱</span><input id="overviewSearch" type="search" placeholder="輸入 2330、台積電、NVDA、電力..." autocomplete="off"></label>'
         f'<label><span>類別</span><select id="overviewCat"><option value="all">全部</option>'
         f'<option value="tw-etfs">台股 ETF</option><option value="tw-stocks">台股個股</option>'
         f'<option value="us-etfs">美股 ETF</option><option value="us-stocks">美股個股</option><option value="bonds">債券/商品</option></select></label>'
@@ -4121,9 +4129,9 @@ h1{font-size:19px;font-weight:700;color:var(--t);display:flex;align-items:center
 .focus-head{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;margin-bottom:8px}
 .focus-head b{font-size:13px;color:var(--t)}
 .focus-head span,.focus-group>small{font-size:10px;color:var(--t2);line-height:1.45}
-.overview-controls{display:grid;grid-template-columns:repeat(3,minmax(160px,1fr));gap:8px;margin-top:10px;background:var(--surface);border:1px solid var(--bdr);border-radius:10px;padding:10px}
+.overview-controls{display:grid;grid-template-columns:minmax(220px,1.35fr) repeat(3,minmax(150px,1fr));gap:8px;margin-top:10px;background:var(--surface);border:1px solid var(--bdr);border-radius:10px;padding:10px}
 .overview-controls label{display:grid;gap:4px;font-size:10px;color:var(--t2)}
-.overview-controls select{border:1px solid var(--bdr);background:var(--card);color:var(--t);border-radius:8px;padding:8px;font-size:13px}
+.overview-controls input,.overview-controls select{border:1px solid var(--bdr);background:var(--card);color:var(--t);border-radius:8px;padding:8px;font-size:13px;font-family:inherit;outline:none}.overview-controls input:focus,.overview-controls select:focus{border-color:rgba(29,158,117,0.55);box-shadow:0 0 0 3px rgba(29,158,117,0.12)}
 .overview-list{display:grid;gap:6px;margin-top:10px}
 .overview-row{display:grid;grid-template-columns:minmax(190px,1.35fr) .42fr .55fr minmax(130px,.9fr) minmax(210px,1.25fr) .42fr auto;gap:8px;align-items:center;background:var(--card2);border:1px solid var(--bdr);border-radius:8px;padding:9px 10px}
 .overview-name b{display:block;font-size:13px;color:var(--t);line-height:1.35}
