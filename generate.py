@@ -2366,17 +2366,14 @@ function runDcaSim(){{
   var years=Math.max(1, Number(yearsEl.value||1));
   var points=(item.total_points&&item.total_points.length)?item.total_points:item.points;
   var basisText=(item.total_points&&item.total_points.length)?item.total_basis:(item.basis||'市場收盤價');
-  var lastDate=new Date(points[points.length-1][0]);
-  var cutoff=new Date(lastDate);
-  cutoff.setFullYear(cutoff.getFullYear()-years);
-  var monthly=[];
+  var allMonthly=[];
   var seen={{}};
   for(var i=0;i<points.length;i++){{
-    var d=new Date(points[i][0]);
-    if(d<cutoff) continue;
     var key=monthKey(points[i][0]);
-    if(!seen[key]){{monthly.push(points[i]);seen[key]=true;}}
+    if(!seen[key]){{allMonthly.push(points[i]);seen[key]=true;}}
   }}
+  var targetMonths=Math.max(1, Math.round(years*12));
+  var monthly=allMonthly.slice(-targetMonths);
   if(monthly.length<3){{out.innerHTML='<div class="nd">可用月份太少，請縮短年限。</div>';return;}}
   var units=0, invested=0, fees=0, peak=0, maxDrawdown=0, minRoi=0;
   var feePerBuy=ticker.value.endsWith('.TW') ? 1 : 0;
@@ -2400,7 +2397,7 @@ function runDcaSim(){{
   var roiFinal=invested>0 ? pnl/invested*100 : 0;
   var pnlColor=pnl>=0?'#1D9E75':'#D85A30';
   out.innerHTML=
-    '<div class="dca-stat"><span>累積投入</span><b>'+fmtMoney(invested)+' 元</b><small>'+monthly.length+' 個月，每月 '+fmtMoney(amount)+' 元</small></div>'+
+    '<div class="dca-stat"><span>累積投入</span><b>'+fmtMoney(invested)+' 元</b><small>'+monthly.length+' 次扣款，每月 '+fmtMoney(amount)+' 元；'+years+' 年以 '+targetMonths+' 次為基準</small></div>'+
     '<div class="dca-stat"><span>期末資產估算</span><b style="color:'+pnlColor+'">'+fmtMoney(finalValue)+' 元</b><small>損益 '+(pnl>=0?'+':'')+fmtMoney(pnl)+' 元（'+roiFinal.toFixed(1)+'%）</small></div>'+
     '<div class="dca-stat"><span>過程最大回撤</span><b style="color:#D85A30">'+maxDrawdown.toFixed(1)+'%</b><small>資產曾從高點往下跌的幅度</small></div>'+
     '<div class="dca-stat"><span>最差帳面損益</span><b style="color:#D85A30">'+minRoi.toFixed(1)+'%</b><small>歷史過程中最難熬的一刻</small></div>'+
@@ -2653,9 +2650,11 @@ function runDailyOrders(){
   var cards=document.getElementById('orderCards');
   var budgetEl=document.getElementById('orderBudget');
   var filterEl=document.getElementById('orderFilter');
+  var searchEl=document.getElementById('orderSearch');
   if(!out||!budgetEl||!window.BUY_NOW_DATA) return;
   var budget=Math.max(0, Number(budgetEl.value||0));
   var filter=filterEl?filterEl.value:'all';
+  var q=searchEl?String(searchEl.value||'').trim().toLowerCase():'';
   var keys=window.ORDER_KEYS||Object.keys(window.BUY_NOW_DATA);
   var html='';
   var cardHtml='';
@@ -2665,6 +2664,9 @@ function runDailyOrders(){
     var cat=orderCategory(item);
     if(filter!=='all'&&filter!==cat) return;
     var z=item.price_zone||{};
+    var code=tk.replace('.TW','');
+    var query=[tk, code, item.name||'', item.role||'', item.bucket||'', cat, z.status||'', item.conclusion||'', item.action||''].join(' ').toLowerCase();
+    if(q&&query.indexOf(q)<0) return;
     var target=calcOrderTarget(item);
     var ratio=calcOrderRatio(item);
     if(target.action==='先不買') ratio=0;
@@ -2684,7 +2686,6 @@ function runDailyOrders(){
     var maxBuy=roundOrderPrice(item, z.buy_high||target.price, 'buy');
     var sellWatch=roundOrderPrice(item, z.trim_line||z.reduce_watch||0, 'sell');
     var failLine=roundOrderPrice(item, z.failure_line||z.stop_line||0, 'sell');
-    var code=tk.replace('.TW','');
     var currency=item.is_tw?'TWD':'USD估';
     var feeText=item.is_tw?(fee>0?'含手續費約 '+fmtMoney(fee)+' 元':'無買進手續費估算'):'海外手續費/匯率另計';
     html+=
@@ -2714,7 +2715,7 @@ function runDailyOrders(){
   if(cards) cards.innerHTML=cardHtml||'<div class="nd">沒有符合篩選的標的。</div>';
 }
 document.addEventListener('DOMContentLoaded',function(){
-  ['orderBudget','orderFilter'].forEach(function(id){
+  ['orderSearch','orderBudget','orderFilter'].forEach(function(id){
     var el=document.getElementById(id);
     if(el) el.addEventListener('input',runDailyOrders);
     if(el) el.addEventListener('change',runDailyOrders);
@@ -2725,10 +2726,11 @@ document.addEventListener('DOMContentLoaded',function(){
     return (
         f'<section class="sc order-tool" id="daily-orders">'
         f'<div class="tool-head"><div><div class="st">今日掛單總覽</div>'
-        f'<p>把每檔標的轉成今天能執行的掛單價、投入金額與風險線。掛單價是紀律價，不是預測價；沒成交就不追高。</p></div>'
+        f'<p>把每檔標的轉成今天能執行的掛單價、投入金額與風險線。每一列是單一標的獨立試算，不是把預算分配給全部標的。</p></div>'
         f'<span class="section-meta">全標的試算</span></div>'
         f'<div class="order-filter">'
-        f'<label><span>今日預算</span><input id="orderBudget" type="number" min="1000" step="1000" value="{default_budget}"></label>'
+        f'<label><span>搜尋代碼或名稱</span><input id="orderSearch" type="search" placeholder="輸入 2330、台積電、00662、電力..." autocomplete="off"></label>'
+        f'<label><span>單一標的預算</span><input id="orderBudget" type="number" min="1000" step="1000" value="{default_budget}"></label>'
         f'<label><span>類別</span><select id="orderFilter">'
         f'<option value="all">全部</option><option value="tw-etf">台股 ETF</option><option value="tw-stock">台股個股</option>'
         f'<option value="us-etf">美股 ETF</option><option value="us-stock">美股個股</option></select></label>'
@@ -2738,7 +2740,7 @@ document.addEventListener('DOMContentLoaded',function(){
         f'<thead><tr><th>標的</th><th>今日動作</th><th>買入掛單價</th><th>建議投入</th><th>最高買價</th><th>賣出觀察價</th><th>失效線</th><th>理由</th></tr></thead>'
         f'<tbody id="orderRows"></tbody></table></div>'
         f'<div id="orderCards" class="order-cards"></div>'
-        f'<div class="tool-note">買入掛單價會依台股跳動單位取合法價位；台股用零股估算，海外標的未含匯率與複委託成本。賣出觀察價不是到價就賣，還要搭配轉弱、超過配置或ETF異常。</div>'
+        f'<div class="tool-note">建議投入是用「單一標的預算 × 該標的比例」獨立估算，不是全部標的加總配置。買入掛單價會依台股跳動單位取合法價位；台股用零股估算，海外標的未含匯率與複委託成本。賣出觀察價不是到價就賣，還要搭配轉弱、超過配置或ETF異常。</div>'
         f'</section>'
         f'<script>window.ORDER_KEYS={keys_json};</script><script>{script}</script>'
     )
@@ -4326,7 +4328,7 @@ h1{font-size:19px;font-weight:700;color:var(--t);display:flex;align-items:center
 .order-ok{color:#0F6E56;background:rgba(29,158,117,0.12)}
 .order-wait{color:#854F0B;background:rgba(186,117,23,0.12)}
 .order-stop{color:#993C1D;background:rgba(216,90,48,0.12)}
-.order-filter{display:grid;grid-template-columns:repeat(3,minmax(150px,1fr));gap:8px;margin-top:10px}
+.order-filter{display:grid;grid-template-columns:minmax(220px,1.3fr) repeat(3,minmax(150px,1fr));gap:8px;margin-top:10px}
 .order-filter label{display:grid;gap:4px;font-size:10px;color:var(--t2)}
 .order-filter input,.order-filter select{border:1px solid var(--bdr);background:var(--card2);color:var(--t);border-radius:8px;padding:8px;font-size:13px}
 .order-cards{display:none;gap:8px;margin-top:10px}
