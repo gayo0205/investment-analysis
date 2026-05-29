@@ -40,6 +40,19 @@ TW_STOCKS = {
     '2408.TW': '南亞科',
     '2882.TW': '國泰金',
     '2449.TW': '京元電子',
+    # AI 伺服器 / 資料中心供應鏈
+    '2382.TW': '廣達',
+    '3231.TW': '緯創',
+    '6669.TW': '緯穎',
+    '2356.TW': '英業達',
+    '3017.TW': '奇鋐',
+    # 電力、重電、電網與能源基建
+    '2308.TW': '台達電',
+    '1519.TW': '華城',
+    '1513.TW': '中興電',
+    '1504.TW': '東元',
+    '1605.TW': '華新',
+    '1609.TW': '大亞',
 }
 
 TW_ETFS = {
@@ -64,6 +77,13 @@ US_STOCKS = {
     'TSLA': 'Tesla',
     'MSFT': 'Microsoft',
     'AMD':  'AMD',
+    'SMCI': 'Super Micro Computer',
+    'DELL': 'Dell Technologies',
+    'VRT':  'Vertiv',
+    'ETN':  'Eaton',
+    'GEV':  'GE Vernova',
+    'CEG':  'Constellation Energy',
+    'VST':  'Vistra',
 }
 
 US_ETFS = {
@@ -72,6 +92,8 @@ US_ETFS = {
     'SOXX': '費城半導體 ETF',
     'IWM':  '羅素2000 ETF',
     'XLK':  '科技類股 ETF',
+    'XLU':  '公用事業 ETF',
+    'XLE':  '能源類股 ETF',
 }
 
 BONDS = {
@@ -132,6 +154,26 @@ PUBLIC_EXAMPLE_PLAN = {
 }
 
 
+STOCK_PROFILES = {
+    '2382.TW': dict(role='個股觀察', bucket='AI伺服器', base_ratio=0.0, note='AI伺服器ODM代表，景氣與大客戶訂單變化會放大波動。'),
+    '3231.TW': dict(role='個股觀察', bucket='AI伺服器', base_ratio=0.0, note='伺服器與資料中心供應鏈，需觀察營收、毛利率與庫存循環。'),
+    '6669.TW': dict(role='個股觀察', bucket='AI伺服器', base_ratio=0.0, note='AI伺服器高成長標的，波動與估值敏感度都高。'),
+    '2356.TW': dict(role='個股觀察', bucket='AI伺服器', base_ratio=0.0, note='伺服器ODM與PC循環並存，不能只看單一題材。'),
+    '3017.TW': dict(role='個股觀察', bucket='散熱/液冷', base_ratio=0.0, note='資料中心散熱與液冷題材，需留意訂單能見度與估值。'),
+    '2308.TW': dict(role='個股觀察', bucket='電源/電力', base_ratio=0.0, note='電源管理、資料中心電源與電動車電源相關，適合觀察長期需求。'),
+    '1519.TW': dict(role='個股觀察', bucket='重電/電網', base_ratio=0.0, note='重電與變壓器題材，需留意接單、交期與景氣循環。'),
+    '1513.TW': dict(role='個股觀察', bucket='重電/電網', base_ratio=0.0, note='電網設備與重電題材，波動可能受政策與訂單消息影響。'),
+    '1504.TW': dict(role='個股觀察', bucket='馬達/電氣設備', base_ratio=0.0, note='馬達與電氣設備代表，需同時看工業景氣與電力題材。'),
+    '1605.TW': dict(role='個股觀察', bucket='電纜/能源基建', base_ratio=0.0, note='電線電纜與能源基建相關，需注意原物料價格與訂單。'),
+    '1609.TW': dict(role='個股觀察', bucket='電纜/能源基建', base_ratio=0.0, note='電纜與綠電基建題材，需觀察獲利是否跟上題材熱度。'),
+    'SMCI': dict(role='個股觀察', bucket='AI伺服器', base_ratio=0.0, note='AI伺服器高波動代表，財報、毛利率與供應鏈消息影響很大。'),
+    'DELL': dict(role='個股觀察', bucket='AI伺服器', base_ratio=0.0, note='企業伺服器與AI伺服器需求觀察標的，但仍受PC與企業IT循環影響。'),
+    'VRT': dict(role='個股觀察', bucket='資料中心電力/散熱', base_ratio=0.0, note='資料中心電力與散熱基建代表，需注意估值與訂單增速。'),
+    'ETN': dict(role='個股觀察', bucket='電力設備', base_ratio=0.0, note='電力管理與基礎設施代表，可觀察資料中心用電與電網升級。'),
+    'GEV': dict(role='個股觀察', bucket='能源設備', base_ratio=0.0, note='發電、電網與能源設備代表，需留意政策、訂單與估值。'),
+    'CEG': dict(role='個股觀察', bucket='電力/核能', base_ratio=0.0, note='美國電力與核能題材，資料中心用電需求是觀察重點之一。'),
+    'VST': dict(role='個股觀察', bucket='電力/發電', base_ratio=0.0, note='發電與電力需求題材，高波動時不適合新手重押。'),
+}
 ETF_PROFILES = {
     '0050.TW':   dict(role='長期核心', bucket='台股核心', base_ratio=0.55, note='台灣大型權值股核心，適合長期定期定額；0050/006208 擇一即可。'),
     '006208.TW': dict(role='長期核心', bucket='台股核心', base_ratio=0.55, note='追蹤台灣50，常被拿來和0050比較；核心ETF通常擇一即可。'),
@@ -149,15 +191,19 @@ ETF_PROFILES = {
     '00679B.TW': dict(role='防守配置', bucket='美債長天期', base_ratio=0.15, note='長天期債券ETF，降息有利但升息時價格會受傷。'),
     '00720B.TW': dict(role='防守配置', bucket='投資級債', base_ratio=0.10, note='投資級公司債，需留意利率與信用利差。'),
     '00751B.TW': dict(role='防守配置', bucket='高評級債', base_ratio=0.10, note='高評級公司債，適合降低波動，但不是保本。'),
+    'XLU': dict(role='衛星主題', bucket='美股公用事業', base_ratio=0.08, note='美股公用事業ETF，可觀察電力需求與防禦型資產輪動。'),
+    'XLE': dict(role='衛星主題', bucket='美股能源', base_ratio=0.08, note='美股能源ETF，受油氣價格、通膨與景氣循環影響。'),
 }
 
 
 NEWS_THEMES = [
-    dict(theme='AI/半導體', words=['AI', '半導體', 'HPC', '伺服器', 'HBM', 'ASIC'], watch=['0052.TW', '00904.TW', '00881.TW', '2330.TW', '2317.TW', '2454.TW', '2449.TW']),
-    dict(theme='電力/重電/儲能', words=['電力', '重電', '儲能', '電網', '變壓器'], watch=['2308.TW']),
+    dict(theme='AI/半導體', words=['AI', '半導體', 'HPC', 'HBM', 'ASIC'], watch=['0052.TW', '00904.TW', '00881.TW', '2330.TW', '2317.TW', '2454.TW', '2449.TW']),
+    dict(theme='AI伺服器/資料中心', words=['AI伺服器', '資料中心', 'ODM', '液冷', '散熱'], watch=['2382.TW', '3231.TW', '6669.TW', '2356.TW', '3017.TW', 'SMCI', 'DELL', 'VRT']),
+    dict(theme='電力/重電/電網', words=['電力', '重電', '電網', '變壓器', '電纜'], watch=['2308.TW', '1519.TW', '1513.TW', '1504.TW', '1605.TW', '1609.TW', 'ETN', 'GEV']),
+    dict(theme='能源/公用事業', words=['能源', '核電', '天然氣', '公用事業', '電力需求'], watch=['CEG', 'VST', 'XLU', 'XLE']),
     dict(theme='疫情/醫療防疫', words=['疫情', '口罩', '疫苗', '檢測', '醫療'], watch=[]),
-    dict(theme='通膨/升息', words=['通膨', '升息', '殖利率', 'Fed'], watch=['2882.TW', '00679B.TW', '00720B.TW']),
-    dict(theme='降息/景氣放緩', words=['降息', '景氣放緩', '衰退'], watch=['00679B.TW', '00720B.TW', '00751B.TW']),
+    dict(theme='通膨/升息', words=['通膨', '升息', '殖利率', 'Fed'], watch=['2882.TW', '00679B.TW', '00720B.TW', 'XLE']),
+    dict(theme='降息/景氣放緩', words=['降息', '景氣放緩', '衰退'], watch=['00679B.TW', '00720B.TW', '00751B.TW', 'XLU']),
     dict(theme='航運/物流', words=['航運', '塞港', '運價', '物流'], watch=[]),
 ]
 
@@ -746,6 +792,8 @@ def round_to_tick(price, direction):
 def get_profile(ticker):
     if ticker in ETF_PROFILES:
         return ETF_PROFILES[ticker]
+    if ticker in STOCK_PROFILES:
+        return STOCK_PROFILES[ticker]
     if ticker in TW_ETFS or ticker in US_ETFS or ticker in BONDS:
         return dict(role='觀察ETF', bucket='ETF', base_ratio=0.05, note='尚未設定細分類，先當觀察標的。')
     return dict(role='個股觀察', bucket='股票', base_ratio=0.0, note='新手不建議直接用定期定額重壓個股，先從ETF建立核心部位。')
