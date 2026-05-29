@@ -1360,6 +1360,8 @@ def compact_target_tile(ticker, item, mode='normal'):
     price = item.get('price')
     price_text = f'{float(price):,.2f}' if isinstance(price, (int, float)) else 'N/A'
     score = item.get('score', 'N/A')
+    score_num = safe_num(score) or 0
+    score_tone = 'good' if score_num >= 70 else 'mid' if score_num >= 50 else 'low'
     range_text = zone_range_text(item)
     action = item.get('action') or item.get('conclusion') or '先看完整卡'
     extra = ''
@@ -1378,7 +1380,7 @@ def compact_target_tile(ticker, item, mode='normal'):
         f'<span>{h(status)}</span></div>'
         f'<div class="mini-body">'
         f'<div><span>現價</span><b>{price_text}</b></div>'
-        f'<div><span>體質分</span><b>{h(score)}</b></div>'
+        f'<div class="mini-score-cell score-{score_tone}"><span>體質分</span><b>{h(score)}</b><i><em style="width:{score_num:.0f}%"></em></i></div>'
         f'<div><span>可看區間</span><b>{h(range_text)}</b></div>'
         f'</div>'
         f'<p>{h(action)}</p>'
@@ -1468,11 +1470,12 @@ def today_focus_html():
     )
 
 
-def target_overview_html():
+def target_overview_html(market_ctx=None):
     ordered = all_targets_order()
     if not ordered:
         return ''
     target_count = len(ordered)
+    order_html = daily_order_overview_html(market_ctx, embedded=True)
     rows = []
     cat_labels = {
         'tw-etfs': '台股 ETF',
@@ -1508,10 +1511,9 @@ def target_overview_html():
             f'data-query="{h(query_text)}" data-order="{len(rows)}">'
             f'<div class="overview-name"><b>{h(code)} {h(item.get("name", ""))}</b>'
             f'<small>{h(cat_labels.get(cat, cat))} / {h(item.get("role", ""))} / {h(item.get("bucket", ""))}</small></div>'
-            f'<div class="overview-score score-{score_tone}"><span>體質</span><b>{h(item.get("score", "N/A"))}</b></div>'
+            f'<div class="overview-score score-{score_tone}"><span>體質</span><b>{h(item.get("score", "N/A"))}</b><i><em style="width:{score:.0f}%"></em></i></div>'
             f'<div class="overview-price"><span>現價</span><b>{price_text}</b></div>'
             f'<div class="overview-status"><span>{h(status)}</span><small>{h(zone_range_text(item))}</small></div>'
-            f'<div class="overview-action"><span>今日行動</span><small>{h(action)}</small></div>'
             f'<div class="overview-confidence"><span>可信度</span><b>{h(conf)}</b></div>'
             f'{target_link(tk, "完整卡", "mini-link overview-link")}'
             f'</div>'
@@ -1544,6 +1546,15 @@ function filterOverview(){
   });
   if(empty) empty.style.display=shown?'none':'block';
 }
+function showTargetHub(mode){
+  document.querySelectorAll('.target-hub-btn').forEach(function(btn){
+    btn.classList.toggle('on', btn.dataset.hub===mode);
+  });
+  document.querySelectorAll('.target-hub-pane').forEach(function(pane){
+    pane.classList.toggle('on', pane.dataset.hubPane===mode);
+  });
+  if(mode==='orders' && typeof runDailyOrders==='function') runDailyOrders();
+}
 document.addEventListener('DOMContentLoaded',function(){
   ['overviewSearch','overviewCat','overviewTone','overviewSort'].forEach(function(id){
     var el=document.getElementById(id);
@@ -1553,10 +1564,15 @@ document.addEventListener('DOMContentLoaded',function(){
 });
 '''
     return (
-        f'<section class="sc target-overview" id="target-overview">'
-        f'<div class="tool-head"><div><div class="st">全部標的一覽</div>'
-        f'<p>先用一行看完 {target_count} 檔的結論、體質分與可看區間；體質分高不等於今天可追價，想研究再打開完整卡。</p></div>'
-        f'<span class="section-meta">可篩選排序</span></div>'
+        f'<section class="sc target-overview target-hub" id="target-overview">'
+        f'<div class="tool-head"><div><div class="st">標的總覽</div>'
+        f'<p>先用「看體質」掃描 {target_count} 檔是否健康，再切到「看掛單」看今天可用價格、投入金額與風險線；兩者分工不同，不會互相取代。</p></div>'
+        f'<span class="section-meta">體質 / 掛單</span></div>'
+        f'<div class="target-hub-tabs">'
+        f'<button type="button" class="target-hub-btn on" data-hub="health" onclick="showTargetHub(\'health\')">看體質</button>'
+        f'<button type="button" class="target-hub-btn" data-hub="orders" onclick="showTargetHub(\'orders\')">看掛單</button>'
+        f'</div>'
+        f'<div class="target-hub-pane on" data-hub-pane="health">'
         f'<div class="overview-controls">'
         f'<label class="overview-search"><span>搜尋代碼或名稱</span><input id="overviewSearch" type="search" placeholder="輸入 2330、台積電、NVDA、電力..." autocomplete="off"></label>'
         f'<label><span>類別</span><select id="overviewCat"><option value="all">全部</option>'
@@ -1570,6 +1586,8 @@ document.addEventListener('DOMContentLoaded',function(){
         f'</div>'
         f'<div class="overview-list" id="overviewList">{"".join(rows)}</div>'
         f'<div class="nd" id="overviewEmpty" style="display:none">沒有符合篩選的標的。</div>'
+        f'</div>'
+        f'<div class="target-hub-pane" data-hub-pane="orders">{order_html}</div>'
         f'<script>{script}</script>'
         f'</section>'
     )
@@ -1915,7 +1933,7 @@ def calc_price_zones(ticker, price, a, ext):
         if trend_healthy and not overheated:
             status = '健康創高'
             summary = '價格在高位但趨勢仍健康；今天的高不一定是未來高點，但不適合一次重押。'
-            action = '想參與只能小額分批，保留資金等回測月線或可分批區。'
+            action = '可用強勢小額追蹤參與，保留資金等回測月線或可分批區。'
             tone = 'momentum'
         else:
             status = '過熱追高'
@@ -1940,7 +1958,7 @@ def calc_price_zones(ticker, price, a, ext):
     elif trend_healthy:
         status = '強勢高位'
         summary = '價格偏高但趨勢仍健康，不是不能買，而是不能重押追價。'
-        action = '可用小額分批參與；真正加碼等回測月線、ATR區間或可分批區。'
+        action = '可用強勢小額追蹤；真正加碼等回測月線、ATR區間或可分批區。'
         tone = 'momentum'
     else:
         status = '偏高等待區'
@@ -1957,6 +1975,9 @@ def calc_price_zones(ticker, price, a, ext):
 
     range_text = f'{fmt_zone_price(buy_low)} ~ {fmt_zone_price(buy_high)}'
     guard_text = f'大於 {fmt_zone_price(chase_limit)} 不追；小於 {fmt_zone_price(stop_line)} 先停'
+    momentum_allowed = status in ['健康創高', '強勢高位'] and trend_healthy and not turning_weak
+    momentum_pull = max(0.25 * atr, px * (0.003 if is_core else 0.006))
+    momentum_entry = zone_price(ticker, max(buy_high, px - momentum_pull)) if momentum_allowed else None
     reduce_watch = zone_price(ticker, chase_limit)
     trim_line = zone_price(ticker, max(chase_limit + 1.5 * atr, buy_high * 1.10))
     failure_line = stop_line
@@ -2054,6 +2075,8 @@ def calc_price_zones(ticker, price, a, ext):
         buy_high=buy_high,
         stop_line=stop_line,
         chase_limit=chase_limit,
+        momentum_entry=momentum_entry,
+        momentum_allowed=momentum_allowed,
         range_text=range_text,
         guard_text=guard_text,
         reduce_watch=reduce_watch,
@@ -2576,7 +2599,7 @@ document.addEventListener('DOMContentLoaded',function(){{
     )
 
 
-def daily_order_overview_html(market_ctx=None):
+def daily_order_overview_html(market_ctx=None, embedded=False):
     if not BUY_NOW_DATA:
         return ''
     market_ctx = market_ctx or dict(temperature='中性')
@@ -2588,6 +2611,8 @@ def daily_order_overview_html(market_ctx=None):
     ]
     keys_json = json.dumps(ordered, ensure_ascii=False, separators=(',', ':'))
     default_budget = PUBLIC_EXAMPLE_PLAN['monthly_budget'] * 2
+    section_tag = 'div' if embedded else 'section'
+    section_class = 'order-tool embedded-order' if embedded else 'sc order-tool'
     script = '''
 function orderTickSize(price){
   if(price<10) return 0.01;
@@ -2630,8 +2655,9 @@ function calcOrderRatio(item){
   if(window.MARKET_TEMP==='冷') ratio=Math.min(ratio+0.08, item.role==='長期核心'?0.50:0.30);
   if(item.role==='個股觀察') ratio=Math.min(ratio,0.10);
   if(z.status==='過熱追高') ratio=Math.min(ratio, item.role==='長期核心'?0.10:0.04);
-  if(z.status==='健康創高') ratio=Math.min(ratio, item.role==='長期核心'?0.18:0.08);
-  if(z.status==='強勢高位') ratio=Math.min(ratio, item.role==='長期核心'?0.22:0.10);
+  if(z.status==='健康創高') ratio=Math.min(ratio, item.role==='長期核心'?0.16:0.06);
+  if(z.status==='強勢高位') ratio=Math.min(ratio, item.role==='長期核心'?0.18:0.08);
+  if(z.momentum_allowed) ratio=Math.min(ratio, item.role==='長期核心'?0.18:(item.is_etf?0.10:0.06));
   if(z.status==='偏高等待區') ratio=Math.min(ratio, item.role==='長期核心'?0.18:0.07);
   if(z.status==='轉弱下跌') ratio=0;
   if(z.status==='可分批區') ratio=Math.max(ratio, item.role==='長期核心'?0.25:0.06);
@@ -2657,15 +2683,15 @@ function calcOrderTarget(item){
     cls='order-wait';
     note='掛在可分批區上緣附近，今天沒碰到就不追。';
   }else if(status==='健康創高'){
-    target=Math.min(high||price*0.995, price*0.992);
-    action='小額低掛';
-    cls='order-wait';
-    note='趨勢健康但位置高，只能小額參與，沒成交不抬價。';
+    target=Number(z.momentum_entry||0)||Math.max(high||0, price*0.992);
+    action='強勢小額追蹤';
+    cls='order-momentum';
+    note='趨勢仍健康，允許小額低掛參與；這不是加碼區，沒成交不抬價。';
   }else if(status==='強勢高位'){
-    target=Math.min(high||price*0.996, price*0.994);
-    action='小額分批';
-    cls='order-ok';
-    note='強勢不是不能買，但只能小額分批，真正加碼等回測。';
+    target=Number(z.momentum_entry||0)||Math.max(high||0, price*0.994);
+    action='強勢小額追蹤';
+    cls='order-momentum';
+    note='強勢不是不能買，但只能用小比例追蹤，真正加碼等回測。';
   }else if(status==='偏高等待區'){
     target=Math.min(high||price*0.99, price*0.99);
     action='低掛小單';
@@ -2693,10 +2719,12 @@ function runDailyOrders(){
   var cards=document.getElementById('orderCards');
   var budgetEl=document.getElementById('orderBudget');
   var filterEl=document.getElementById('orderFilter');
+  var scopeEl=document.getElementById('orderScope');
   var searchEl=document.getElementById('orderSearch');
   if(!out||!budgetEl||!window.BUY_NOW_DATA) return;
   var budget=Math.max(0, Number(budgetEl.value||0));
   var filter=filterEl?filterEl.value:'all';
+  var scope=scopeEl?scopeEl.value:'actionable';
   var q=searchEl?String(searchEl.value||'').trim().toLowerCase():'';
   var keys=window.ORDER_KEYS||Object.keys(window.BUY_NOW_DATA);
   var html='';
@@ -2711,6 +2739,12 @@ function runDailyOrders(){
     var query=[tk, code, item.name||'', item.role||'', item.bucket||'', cat, z.status||'', item.conclusion||'', item.action||''].join(' ').toLowerCase();
     if(q&&query.indexOf(q)<0) return;
     var target=calcOrderTarget(item);
+    var actionable=(target.cls==='order-ok'||target.cls==='order-momentum');
+    var waiting=(target.cls==='order-wait');
+    var riskLine=(target.cls==='order-stop'||target.action==='先不買'||target.action==='先等');
+    if(scope==='actionable'&&!actionable) return;
+    if(scope==='wait'&&!waiting) return;
+    if(scope==='risk'&&!riskLine) return;
     var ratio=calcOrderRatio(item);
     if(target.action==='先不買') ratio=0;
     var amount=Math.round((budget*ratio)/100)*100;
@@ -2758,7 +2792,7 @@ function runDailyOrders(){
   if(cards) cards.innerHTML=cardHtml||'<div class="nd">沒有符合篩選的標的。</div>';
 }
 document.addEventListener('DOMContentLoaded',function(){
-  ['orderSearch','orderBudget','orderFilter'].forEach(function(id){
+  ['orderSearch','orderBudget','orderFilter','orderScope'].forEach(function(id){
     var el=document.getElementById(id);
     if(el) el.addEventListener('input',runDailyOrders);
     if(el) el.addEventListener('change',runDailyOrders);
@@ -2767,24 +2801,25 @@ document.addEventListener('DOMContentLoaded',function(){
 });
 '''
     return (
-        f'<section class="sc order-tool" id="daily-orders">'
+        f'<{section_tag} class="{section_class}" id="daily-orders">'
         f'<div class="tool-head"><div><div class="st">今日掛單總覽</div>'
-        f'<p>把每檔標的轉成今天能執行的掛單價、投入金額與風險線。每一列是單一標的獨立試算，不是把預算分配給全部標的。</p></div>'
-        f'<span class="section-meta">全標的試算</span></div>'
+        f'<p>預設只顯示比較能執行的標的；等回檔與高風險標的可用篩選打開。每一列是單一標的獨立試算，不是把預算分配給全部標的。</p></div>'
+        f'<span class="section-meta">執行工具</span></div>'
         f'<div class="order-filter">'
         f'<label><span>搜尋代碼或名稱</span><input id="orderSearch" type="search" placeholder="輸入 2330、台積電、00662、電力..." autocomplete="off"></label>'
         f'<label><span>單一標的預算</span><input id="orderBudget" type="number" min="1000" step="1000" value="{default_budget}"></label>'
+        f'<label><span>顯示</span><select id="orderScope"><option value="actionable">可執行</option><option value="wait">等回檔</option><option value="risk">風險提醒</option><option value="all">全部</option></select></label>'
         f'<label><span>類別</span><select id="orderFilter">'
         f'<option value="all">全部</option><option value="tw-etf">台股 ETF</option><option value="tw-stock">台股個股</option>'
         f'<option value="us-etf">美股 ETF</option><option value="us-stock">美股個股</option></select></label>'
         f'<label><span>規則口徑</span><select disabled><option>價格區間 + 風險 + 資料可信度</option></select></label>'
         f'</div>'
         f'<div class="order-wrap"><table class="order-table">'
-        f'<thead><tr><th>標的</th><th>今日動作</th><th>買入掛單價</th><th>建議投入</th><th>最高買價</th><th>賣出觀察價</th><th>失效線</th><th>理由</th></tr></thead>'
+        f'<thead><tr><th>標的</th><th>今日動作</th><th>參與/掛單價</th><th>建議投入</th><th>最高買價</th><th>賣出觀察價</th><th>失效線</th><th>理由</th></tr></thead>'
         f'<tbody id="orderRows"></tbody></table></div>'
         f'<div id="orderCards" class="order-cards"></div>'
         f'<div class="tool-note">建議投入是用「單一標的預算 × 該標的比例」獨立估算，不是全部標的加總配置。買入掛單價會依台股跳動單位取合法價位；台股用零股估算，海外標的未含匯率與複委託成本。賣出觀察價不是到價就賣，還要搭配轉弱、超過配置或ETF異常。</div>'
-        f'</section>'
+        f'</{section_tag}>'
         f'<script>window.ORDER_KEYS={keys_json};</script><script>{script}</script>'
     )
 
@@ -2912,10 +2947,32 @@ def analyze(res, close_val):
             else:
                 reasons.append(kd_signal)
 
+    macd_bull_now = ok(macd) and ok(msig) and macd > msig
+    ma_strong_now = ok(close_val) and ok(ma20) and close_val > ma20 and (not ok(ma60) or close_val > ma60)
+    kd_weak_now = isinstance(kd_signal, str) and ('死亡' in kd_signal or '偏空' in kd_signal)
+    trend_strong_now = ma_strong_now and macd_bull_now and not kd_weak_now
+
     if ok(rsi):
-        if rsi < 30:   score += 14; reasons.append(f'RSI {rsi:.0f} 超賣區，有反彈機會')
-        elif rsi > 70: score -= 14; reasons.append(f'RSI {rsi:.0f} 超買區，追高有風險')
-        elif 40 <= rsi <= 60: score += 4; reasons.append(f'RSI {rsi:.0f} 健康區間')
+        if rsi < 30:
+            score += 14
+            reasons.append(f'RSI {rsi:.0f} 超賣區，有反彈機會')
+        elif rsi > 82:
+            if trend_strong_now:
+                score += 2
+                reasons.append(f'RSI {rsi:.0f} 鈍化但趨勢仍強，只適合小額追蹤')
+            else:
+                score -= 16
+                reasons.append(f'RSI {rsi:.0f} 極熱且趨勢未確認，先停追')
+        elif rsi > 70:
+            if trend_strong_now:
+                score += 4
+                reasons.append(f'RSI {rsi:.0f} 偏高但趨勢強，屬於強勢動能')
+            else:
+                score -= 10
+                reasons.append(f'RSI {rsi:.0f} 偏高且趨勢不足，追高有風險')
+        elif 40 <= rsi <= 60:
+            score += 4
+            reasons.append(f'RSI {rsi:.0f} 健康區間')
 
     if ok(macd) and ok(msig):
         if macd > msig: score += 8; reasons.append('MACD 多頭排列')
@@ -4128,6 +4185,12 @@ h1{font-size:19px;font-weight:700;color:var(--t);display:flex;align-items:center
 .desktop-mid-grid{grid-template-columns:minmax(360px,.9fr) minmax(0,1.1fr)}
 .desktop-top-grid .intro-card,.desktop-top-grid .market-radar,.desktop-mid-grid .dca-tool,.desktop-mid-grid .buy-tool{margin:0}
 .core-etfs,.today-focus,.target-overview,.visual-board{margin:14px 0}
+.target-hub-tabs{display:inline-flex;gap:6px;background:var(--surface);border:1px solid var(--bdr);border-radius:999px;padding:4px;margin-top:10px}
+.target-hub-btn{border:0;background:transparent;color:var(--t2);border-radius:999px;padding:7px 12px;font-size:12px;font-weight:850;font-family:inherit;cursor:pointer}
+.target-hub-btn.on{background:var(--t);color:var(--bg)}
+.target-hub-pane{display:none;margin-top:10px}
+.target-hub-pane.on{display:block}
+.target-hub .embedded-order{margin-top:0}
 .visual-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:10px}
 .visual-main{background:var(--card2);border:1px solid var(--bdr);border-radius:10px;padding:12px;box-shadow:0 1px 0 rgba(20,30,45,0.03)}
 .temp-hot{background:linear-gradient(135deg,var(--risk-bg),var(--card));border-color:rgba(216,90,48,0.34)}
@@ -4162,6 +4225,11 @@ h1{font-size:19px;font-weight:700;color:var(--t);display:flex;align-items:center
 .mini-body div{background:var(--card);border:1px solid var(--bdr);border-radius:7px;padding:7px;min-width:0}
 .mini-body span,.overview-row span{display:block;font-size:10px;color:var(--t2);line-height:1.3}
 .mini-body b{display:block;font-size:12px;color:var(--t);font-variant-numeric:tabular-nums;overflow-wrap:anywhere;line-height:1.35}
+.mini-score-cell i,.overview-score i{display:block;height:5px;background:rgba(0,0,0,0.08);border-radius:999px;overflow:hidden;margin-top:5px}
+.mini-score-cell em,.overview-score em{display:block;height:100%;border-radius:999px}
+.score-good em{background:var(--ok)}
+.score-mid em{background:var(--warn)}
+.score-low em{background:var(--risk)}
 .mini-target p{font-size:11px;color:var(--t2);line-height:1.55}
 .mini-link{display:inline-flex;align-self:flex-start;text-decoration:none;color:#0F6E56;background:rgba(29,158,117,0.1);border:1px solid rgba(29,158,117,0.22);border-radius:999px;padding:5px 10px;font-size:11px;font-weight:800}
 .mini-meta{display:flex;flex-wrap:wrap;gap:5px}
@@ -4183,7 +4251,7 @@ h1{font-size:19px;font-weight:700;color:var(--t);display:flex;align-items:center
 .overview-controls label{display:grid;gap:4px;font-size:10px;color:var(--t2)}
 .overview-controls input,.overview-controls select{border:1px solid var(--bdr);background:var(--card);color:var(--t);border-radius:8px;padding:8px;font-size:13px;font-family:inherit;outline:none}.overview-controls input:focus,.overview-controls select:focus{border-color:rgba(29,158,117,0.55);box-shadow:0 0 0 3px rgba(29,158,117,0.12)}
 .overview-list{display:grid;gap:6px;margin-top:10px}
-.overview-row{display:grid;grid-template-columns:minmax(190px,1.35fr) .42fr .55fr minmax(130px,.9fr) minmax(210px,1.25fr) .42fr auto;gap:8px;align-items:center;background:var(--card2);border:1px solid var(--bdr);border-radius:8px;padding:9px 10px}
+.overview-row{display:grid;grid-template-columns:minmax(190px,1.35fr) .48fr .55fr minmax(150px,1fr) .42fr auto;gap:8px;align-items:center;background:var(--card2);border:1px solid var(--bdr);border-radius:8px;padding:9px 10px}
 .overview-name b{display:block;font-size:13px;color:var(--t);line-height:1.35}
 .overview-name small{display:block;font-size:10px;color:var(--t2);line-height:1.35}
 .overview-score b,.overview-price b,.overview-confidence b{display:block;font-size:13px;color:var(--t);font-variant-numeric:tabular-nums}
@@ -4192,7 +4260,7 @@ h1{font-size:19px;font-weight:700;color:var(--t);display:flex;align-items:center
 .score-mid b{color:var(--warn);background:var(--warn-bg)}
 .score-low b{color:var(--risk);background:var(--risk-bg)}
 .overview-status span{display:inline-flex;border-radius:999px;padding:3px 7px;font-size:10px;font-weight:800;margin-bottom:2px}
-.overview-status small,.overview-action small{display:block;font-size:10px;color:var(--t2);line-height:1.35;overflow-wrap:anywhere}
+.overview-status small{display:block;font-size:10px;color:var(--t2);line-height:1.35;overflow-wrap:anywhere}
 .overview-link{justify-self:end}
 .section-head{display:flex;justify-content:space-between;gap:14px;align-items:flex-end;background:var(--card);border:1px solid var(--bdr);border-radius:12px;padding:14px 16px;margin:14px 0 10px}
 .section-head p{font-size:11px;color:var(--t2);line-height:1.6;margin-top:3px}
@@ -4377,9 +4445,10 @@ h1{font-size:19px;font-weight:700;color:var(--t);display:flex;align-items:center
 .order-table td small{display:block;font-size:10px;color:var(--t2);line-height:1.45}
 .order-action{display:inline-flex;padding:3px 8px;border-radius:999px;font-size:10px;font-weight:700;white-space:nowrap}
 .order-ok{color:#0F6E56;background:rgba(29,158,117,0.12)}
+.order-momentum{color:#185FA5;background:rgba(24,95,165,0.14)}
 .order-wait{color:#854F0B;background:rgba(186,117,23,0.12)}
 .order-stop{color:#993C1D;background:rgba(216,90,48,0.12)}
-.order-filter{display:grid;grid-template-columns:minmax(220px,1.3fr) repeat(3,minmax(150px,1fr));gap:8px;margin-top:10px}
+.order-filter{display:grid;grid-template-columns:minmax(220px,1.3fr) repeat(4,minmax(130px,1fr));gap:8px;margin-top:10px}
 .order-filter label{display:grid;gap:4px;font-size:10px;color:var(--t2)}
 .order-filter input,.order-filter select{border:1px solid var(--bdr);background:var(--card2);color:var(--t);border-radius:8px;padding:8px;font-size:13px}
 .order-cards{display:none;gap:8px;margin-top:10px}
@@ -4461,7 +4530,6 @@ footer p{font-size:12px;color:#adb5bd;margin-bottom:3px;text-align:center}
   .overview-row{grid-template-columns:1fr auto;gap:6px}
   .overview-name{grid-column:1/-1}
   .overview-status{grid-column:1/-1}
-  .overview-action{grid-column:1/-1}
   .overview-link{justify-self:start}
   .market-radar{padding:13px}
   .radar-group{padding:9px}
@@ -4574,7 +4642,7 @@ def build_html(idx_html, tw_s, tw_e, us_s, us_e, bonds, update_time, market_ctx=
         f'{visual_action_board_html(market_ctx)}\n'
         f'{core_etf_spotlight_html()}\n'
         f'{today_focus_html()}\n'
-        f'{target_overview_html()}\n'
+        f'{target_overview_html(market_ctx)}\n'
         f'<div class="desktop-mid-grid" id="tools">\n'
         f'{dca_simulator_html(market_ctx)}\n'
         f'{buy_now_tool_html(market_ctx)}\n'
@@ -4582,7 +4650,6 @@ def build_html(idx_html, tw_s, tw_e, us_s, us_e, bonds, update_time, market_ctx=
         f'{theme_radar_html()}\n'
         f'</section>\n'
         f'<section class="mode-pane" id="data-mode">\n'
-        f'{daily_order_overview_html(market_ctx)}\n'
         f'<section class="target-section" id="target-list">\n'
         f'<div class="section-head"><div><div class="st">標的分析</div>'
         f'<p>一覽看完後，再到這裡看完整卡。每張卡先放結論、原因、反方與行動；技術細節和資料來源可展開。</p></div>'
