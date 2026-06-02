@@ -6,6 +6,12 @@ __pycache__/
 .env.*
 *.log
 *.local.ps1
+*.local.json
+*.local.py
+*.local.html
+
+# Private version files stay on this computer only.
+private/
 
 # Local notes and release checklists are kept off the public site.
 CHANGELOG.md
