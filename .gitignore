@@ -9,15 +9,13 @@ __pycache__/
 *.local.json
 *.local.py
 *.local.html
-
-# Private version files stay on this computer only.
-private/
-
-# Local notes and release checklists are kept off the public site.
-CHANGELOG.md
-PROJECT_STATE.md
-PUBLIC_RELEASE_AUDIT.md
-PROJECT_LOG.md
+*.local.md
+.local/
+local/
+_local/
+*_LOG.md
+*_STATE.md
+*_AUDIT.md
 _local_archive/
 *_local*.md
 *_report*.md
