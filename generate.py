@@ -1320,7 +1320,7 @@ def target_tab_id(ticker):
 def target_link(ticker, label='看完整卡', cls='mini-link'):
     return (
         f'<a class="{cls}" href="#{target_dom_id(ticker)}" '
-        f'onclick="rememberFocusSpot();showMode(\'data-mode\');showTab(\'{target_tab_id(ticker)}\')">{h(label)}</a>'
+        f'onclick="openTargetDetail(\'{target_dom_id(ticker)}\',\'{target_tab_id(ticker)}\');return false">{h(label)}</a>'
     )
 
 
@@ -1342,6 +1342,22 @@ def action_tone(status):
     if status in ['過熱追高', '轉弱下跌']:
         return 'stop'
     return 'wait'
+
+
+def home_action_text(item):
+    status = zone_status(item)
+    role = item.get('role', '')
+    if status in ['可分批區', '健康回檔', '加碼觀察區']:
+        return '照計畫扣款，可小額分批' if role == '長期核心' else '可小額分批參與'
+    if status in ['健康創高', '強勢高位']:
+        return '維持扣款，額外單筆縮小'
+    if status == '偏高等待區':
+        return '照常扣款，額外單筆先等'
+    if status == '過熱追高':
+        return '暫停額外追價'
+    if status == '轉弱下跌':
+        return '先觀察，不攤平'
+    return '先看完整卡再決定'
 
 
 def all_targets_order():
@@ -1466,6 +1482,87 @@ def today_focus_html():
         f'<p>這裡不是全部分類，也不是買進排行榜；只挑少數今天最需要先確認的卡。其他標的請用下方搜尋與篩選。</p></div>'
         f'<span class="section-meta">情境掃描</span></div>'
         f'{"".join(cards)}'
+        f'</section>'
+    )
+
+
+def home_core_preview_html():
+    tickers = [tk for tk in ['0050.TW', '006208.TW', '00662.TW'] if tk in BUY_NOW_DATA]
+    if not tickers:
+        return ''
+    rows = []
+    for tk in tickers:
+        item = BUY_NOW_DATA[tk]
+        code = tk.replace('.TW', '')
+        price = safe_num(item.get('price'))
+        price_text = f'{price:,.2f}' if price is not None else 'N/A'
+        score = safe_num(item.get('score'))
+        score_text = f'{score:.0f}' if score is not None else 'N/A'
+        tone = action_tone(zone_status(item))
+        action = home_action_text(item)
+        rows.append(
+            f'<div class="home-table-row home-row-{tone}">'
+            f'<div><b>{h(code)} {h(item.get("name", ""))}</b><small>{h(item.get("role", ""))}</small></div>'
+            f'<div><span>現價</span><b>{price_text}</b></div>'
+            f'<div><span>體質</span><b>{score_text}</b></div>'
+            f'<div class="home-row-status"><span>{h(zone_status(item))}</span><small>{h(zone_range_text(item))}</small></div>'
+            f'<div class="home-row-action"><span>今日做法</span><b>{h(action)}</b></div>'
+            f'{target_link(tk, "查看", "home-row-link")}'
+            f'</div>'
+        )
+    return (
+        f'<section class="sc home-panel home-core-preview">'
+        f'<div class="home-panel-head"><div><div class="st">核心 ETF</div>'
+        f'<p>先看長期配置標的現在適合怎麼做。</p></div>'
+        f'<button type="button" onclick="showMode(\'core-mode\')">查看全部</button></div>'
+        f'<div class="home-table">'
+        f'<div class="home-table-head"><span>標的</span><span>現價</span><span>體質</span><span>價格狀態</span><span>今日做法</span><span></span></div>'
+        f'{"".join(rows)}</div>'
+        f'</section>'
+    )
+
+
+def home_research_preview_html():
+    core = {'0050.TW', '006208.TW', '006204.TW', '00662.TW'}
+    confidence_rank = {'高': 3, '中': 2, '偏低': 1}
+    stock_order = list(TW_STOCKS.keys()) + list(US_STOCKS.keys())
+    candidates = [tk for tk in stock_order if tk in BUY_NOW_DATA and tk not in core]
+    candidates.sort(
+        key=lambda tk: (
+            {'ok': 3, 'wait': 2, 'stop': 1}.get(action_tone(zone_status(BUY_NOW_DATA[tk])), 0),
+            confidence_rank.get(BUY_NOW_DATA[tk].get('confidence'), 0),
+            safe_num(BUY_NOW_DATA[tk].get('score')) or 0,
+        ),
+        reverse=True,
+    )
+    picks = candidates[:3]
+    if not picks:
+        return ''
+    rows = []
+    for rank, tk in enumerate(picks, 1):
+        item = BUY_NOW_DATA[tk]
+        code = tk.replace('.TW', '')
+        action = item.get('conclusion') or home_action_text(item)
+        risk = safe_num(item.get('risk_score'))
+        risk_text = f'風險 {risk:.0f}' if risk is not None else '風險待補'
+        rows.append(
+            f'<div class="research-row">'
+            f'<span class="research-rank">{rank}</span>'
+            f'<div><b>{h(code)} {h(item.get("name", ""))}</b></div>'
+            f'<div class="research-topic">{h(item.get("bucket", "個股研究"))}</div>'
+            f'<p>{h(action)}</p>'
+            f'<small>{h(risk_text)} / 可信度 {h(item.get("confidence", "N/A"))}</small>'
+            f'{target_link(tk, "查看", "home-row-link")}'
+            f'</div>'
+        )
+    return (
+        f'<section class="sc home-panel home-research-preview">'
+        f'<div class="home-panel-head"><div><div class="st">今天值得研究</div>'
+        f'<p>研究順位，不等於買進推薦。</p></div>'
+        f'<button type="button" onclick="showMode(\'research-mode\')">查看全部</button></div>'
+        f'<div class="research-list">'
+        f'<div class="research-list-head"><span></span><span>標的</span><span>題材</span><span>為什麼看</span><span>主要風險</span><span></span></div>'
+        f'{"".join(rows)}</div>'
         f'</section>'
     )
 
@@ -1624,8 +1721,8 @@ def visual_action_board_html(market_ctx=None):
 
     return (
         f'<section class="sc visual-board" id="visual-board">'
-        f'<div class="tool-head"><div><div class="st">今日行動儀表</div>'
-        f'<p>把市場狀態、核心 ETF 與全標的掃描結果翻成一眼能看的行動地圖。下方三條是全部 {total} 檔的互斥分類，不是今日推薦清單。</p></div>'
+        f'<div class="tool-head"><div><div class="st">今日行動摘要</div>'
+        f'<p>把全部 {total} 檔依目前價格與風險分成互斥狀態；這是市場掃描，不是推薦清單。</p></div>'
         f'<span class="section-meta">視覺化總覽</span></div>'
         f'<div class="visual-grid">'
         f'<div class="visual-main temp-{h(temp_key)}"><span>市場溫度</span><b>{h(temp)}</b><small>{h(advice)}</small></div>'
@@ -2250,38 +2347,35 @@ def newbie_summary_html(market_ctx=None):
     else:
         plain_take = f'白話結論：{market_ctx.get("advice", "先照計畫小額分批，不因單日訊號改變策略。")}'
     time_note = '時間提醒：不同市場交易時段不同；台股多為最近台股交易日收盤/延遲資料，美股可能是盤中資料，請看每張卡的台灣時間與原市場時間。'
+    temperature = market_ctx.get('temperature', '中性')
     status_cards = [
-        ('趨勢', market_ctx.get('trend_state', market_ctx.get('regime', '資料不足')), market_ctx.get('regime', ''), 'info'),
-        ('情緒', market_ctx.get('emotion_state', '中性'), f'VIX {market_ctx.get("vix", "N/A")}', 'risk' if market_ctx.get('emotion_state') in ['恐慌', '緊張'] else 'ok'),
-        ('風險', market_ctx.get('risk_state', '中'), f'台股位階 {market_ctx.get("position", 50)}%', 'risk' if market_ctx.get('risk_state') in ['高', '中高'] else 'ok'),
-        ('亞洲', market_ctx.get('asia_state', '資料不足'), market_ctx.get('asia_note', ''), 'warn' if market_ctx.get('asia_state') in ['區域分歧', '同步偏弱'] else 'info'),
-        ('追價', market_ctx.get('chase_state', '保守'), market_ctx.get('advice', ''), 'risk' if market_ctx.get('temperature') in ['熱', '冷'] else 'warn' if market_ctx.get('temperature') in ['偏熱', '偏冷'] else 'info'),
+        ('大盤趨勢', market_ctx.get('trend_state', market_ctx.get('regime', '資料不足')), market_ctx.get('regime', ''), 'ok'),
+        ('市場溫度', temperature, '評估價格位置與追價風險', 'warn' if temperature in ['熱', '偏熱'] else 'info'),
+        ('市場情緒', f'VIX {market_ctx.get("vix", "N/A")}', market_ctx.get('emotion_state', '中性'), 'info'),
+        ('台股位階', f'{market_ctx.get("position", 50)}%', '52 週價格位置', 'ok' if safe_num(market_ctx.get('position')) is not None else 'info'),
     ]
     status_html = ''.join(
         f'<div class="status-card status-{tone}"><span>{h(label)}</span><b>{h(value)}</b><small>{h(note)}</small></div>'
         for label, value, note, tone in status_cards
     )
     return (
-        f'<section class="sc intro-card" id="market-summary">'
+        f'<section class="sc intro-card decision-hero" id="market-summary">'
         f'<div class="market-brief">'
-        f'<div><div class="st">今日市場重點</div>'
+        f'<div><div class="hero-heading"><div class="st">今天市場適合怎麼做？</div>'
+        f'<span class="hero-temperature hero-temperature-{h(market_ctx.get("temperature_key", "neutral"))}">{h(temperature)}</span></div>'
         f'<h2>{h(market_ctx.get("headline", ""))}</h2>'
         f'<p>{h(market_ctx.get("advice", ""))}</p></div>'
         f'</div>'
-        f'<div class="plain-take"><b>{h(plain_take)}</b><span>{h(time_note)}</span></div>'
         f'<div class="status-strip">{status_html}</div>'
+        f'<details class="decision-evidence">'
+        f'<summary>查看依據與改變條件</summary>'
         f'<div class="market-reason-grid">'
         f'<div><b>為什麼</b><ul>{reasons}</ul></div>'
-        f'<div><b>反方條件</b><ul>{counters}</ul></div>'
+        f'<div><b>什麼情況要改變想法</b><ul>{counters}</ul></div>'
         f'<div><b>今天怎麼做</b><ul>{actions}</ul></div>'
         f'</div>'
-        f'<details class="intro-more"><summary>範例配置與題材觀察</summary>'
-        f'<div class="intro-grid">'
-        f'<div><span>範例每月預算</span><b>{money(monthly)} 元</b><small>可在試算工具自行調整，重點是先學會不要一次用完。</small></div>'
-        f'<div><span>核心ETF</span><b>{money(core)} 元</b><small>0050 或 006208 擇一作主力。</small></div>'
-        f'<div><span>衛星/高股息</span><b>{money(satellite)} 元</b><small>主題ETF或高股息ETF，小比例觀察。</small></div>'
-        f'<div><span>防守/現金</span><b>{money(defensive + cash)} 元</b><small>保留彈藥，避免高點一次投入。</small></div>'
-        f'</div>'
+        f'<div class="decision-time-note">{h(time_note)}</div>'
+        f'<div class="plain-take"><b>{h(plain_take)}</b></div>'
         f'<div class="intro-note">題材觀察方向：{themes}。這不是買進訊號，只是把可能值得研究的產業列出來。</div>'
         f'</details>'
         f'</section>'
@@ -3670,10 +3764,13 @@ def idx_card(ticker, name, price, chg, inverse=False, note=''):
     col  = '#1D9E75' if good else '#D85A30'
     arr  = '▲' if up else '▼'
     sign = '+' if chg >= 0 else ''
+    short_match = re.search(r'(\d{2}/\d{2}\s+\d{2}:\d{2})', str(note or ''))
+    short_note = short_match.group(1) if short_match else note
     return (f'<div class="ic"><div class="ic-l">{name}</div>'
             f'<div class="ic-v">{price:,.2f}</div>'
             f'<div class="ic-c" style="color:{col}">{arr} {sign}{chg:.2f}%</div>'
-            f'<div class="ic-note">{h(note)}</div></div>')
+            f'<div class="ic-note"><span class="ic-note-full">{h(note)}</span>'
+            f'<span class="ic-note-short">{h(short_note)}</span></div></div>')
 
 
 def idx_missing_card(name, note='資料不足，暫不納入市場判斷'):
@@ -3708,8 +3805,9 @@ def index_group_html(title, note, tickers, cards, collapsed=False):
 def indices_radar_html(cards):
     return (
         f'<section class="sc market-radar" id="market-radar">'
-        f'<div class="st">市場雷達</div>'
-        f'<div class="method-lead">這裡看大方向，不直接當成買賣訊號。核心看台股、美股科技、亞洲核心；波動與次要市場放在更多觀察。</div>'
+        f'<div class="market-radar-title"><div><div class="st">市場雷達</div>'
+        f'<p>比較主要市場方向，不直接當成買賣訊號。</p></div>'
+        f'<button type="button" onclick="showMode(\'market-mode\')">查看全部</button></div>'
         f'<div class="radar-layout">'
         f'{index_group_html("台股", "本地市場本體", ["^TWII"], cards)}'
         f'{index_group_html("美股科技 / 風險", "那斯達克、費半與 VIX 影響台股科技鏈", ["^GSPC", "^IXIC", "^SOX", "^VIX"], cards)}'
@@ -4072,28 +4170,6 @@ def stock_card(ticker, name, price, chg, hist_close, a, ext, rec):
         f'<div><span>今天怎麼做</span><b>{h(quick_action)}</b><small>先看價格區間，再看資料可信度與風險。</small></div>'
         f'</div>'
     )
-    more_html = (
-        f'<details class="card-more"><summary>看走勢、數據、來源與計算</summary>'
-        f'<div class="spark">{sp}</div>'
-        f'{price_ref_html}'
-        f'{week52_html}'
-        f'{detail_html}'
-        f'{factor_html}'
-        f'<div class="ig">'
-        f'<div class="ic2"><div class="il">KD 值</div><div class="iv" style="color:{kd_c}">{kd_v}</div>'
-        f'<div class="is" style="color:{kd_c}">{kd_s}</div></div>'
-        f'<div class="ic2"><div class="il">RSI</div><div class="iv" style="color:{rsi_c}">{rsi_v}</div>'
-        f'<div class="is" style="color:{rsi_c}">{rsi_s}</div></div>'
-        f'<div class="ic2"><div class="il">20日乖離率</div><div class="iv" style="color:{dv_c}">{dv_v}</div>'
-        f'<div class="is" style="color:{dv_c}">{dv_s}</div></div>'
-        f'<div class="ic2"><div class="il">MACD</div><div class="iv" style="color:{macd_c}">{macd_v}</div></div>'
-        f'</div>'
-        f'{boll_html}'
-        f'{ext_html}'
-        f'{reasons_html}'
-        f'</details>'
-    )
-
     rec_html = (
         f'<div style="margin-bottom:8px">'
         f'<div style="background:{trade_bg};border:1px solid {trade_tc}44;border-radius:8px;padding:10px 12px;margin-bottom:8px">'
@@ -4113,29 +4189,109 @@ def stock_card(ticker, name, price, chg, hist_close, a, ext, rec):
         f'{invest_html}'
         f'</details>'
     )
-
-    return (
-        f'<div class="sc target-card" id="{target_dom_id(ticker)}">'
-        f'<div class="sh">'
-        f'<div><div class="st">{disp}</div><div class="sn">{name}</div><button class="back-to-overview" onclick="returnToFocusSpot()" type="button">回到剛剛位置</button></div>'
-        f'<div style="text-align:right">'
-        f'<div class="sp" style="color:var(--t)">{price:,.2f}</div>'
-        f'<div class="sc2" style="color:{pc}">{arr} {sgn}{chg:.2f}%</div>'
-        f'<div class="price-caption">{h(price_caption)}</div>'
-        f'</div></div>'
-        f'{decision_html}'
-        f'{quick_html}'
-        f'<div class="sr"><span class="slbl">體質分數</span>'
-        f'<div class="sbw"><div class="sbf" style="width:{sc}%;background:{sc_col}"></div></div>'
-        f'<span class="sn2" style="color:{sc_col}">{sc}</span></div>'
-        f'<div style="margin-bottom:10px">'
-        f'<span class="sbadge" style="background:{badge_bg};color:{badge_tc}">{a["stxt"]}</span></div>'
+    quality = data_quality_note(ticker, a)
+    asset_type = 'ETF' if is_etf_like(ticker) else '個股'
+    profile = invest_plan.get('profile') or {}
+    role = profile.get('role') or ('ETF 觀察' if is_etf_like(ticker) else '個股研究')
+    target_id = target_dom_id(ticker)
+    tab_id = target_tab_id(ticker)
+    technical_html = (
+        f'<div class="detail-section-head"><div><span>進階技術</span><h3>走勢與短線訊號</h3></div>'
+        f'<p>技術指標只協助辨識節奏，不單獨決定長期價值。</p></div>'
+        f'<div class="trend-chart-card"><div class="spark">{sp}</div>{price_ref_html}</div>'
+        f'<div class="ig technical-metrics">'
+        f'<div class="ic2"><div class="il">KD 值</div><div class="iv" style="color:{kd_c}">{kd_v}</div>'
+        f'<div class="is" style="color:{kd_c}">{kd_s}</div></div>'
+        f'<div class="ic2"><div class="il">RSI</div><div class="iv" style="color:{rsi_c}">{rsi_v}</div>'
+        f'<div class="is" style="color:{rsi_c}">{rsi_s}</div></div>'
+        f'<div class="ic2"><div class="il">20日乖離率</div><div class="iv" style="color:{dv_c}">{dv_v}</div>'
+        f'<div class="is" style="color:{dv_c}">{dv_s}</div></div>'
+        f'<div class="ic2"><div class="il">MACD</div><div class="iv" style="color:{macd_c}">{macd_v}</div></div>'
+        f'</div>'
+        f'{boll_html}'
+        f'{reasons_html}'
+    )
+    risk_html = (
+        f'<div class="detail-section-head"><div><span>風險檢查</span><h3>可能承受多大的波動</h3></div>'
+        f'<p>高分不代表低風險；價格位置、回撤與 Beta 要分開看。</p></div>'
+        f'{week52_html}'
+        f'{ext_html}'
+        f'{factor_html}'
+    )
+    fundamental_title = 'ETF 結構與成本' if is_etf_like(ticker) else '公司經營與獲利'
+    fundamental_note = (
+        'ETF 不看單一公司營收，重點是費用、折溢價、配息來源、集中度與總報酬。'
+        if is_etf_like(ticker)
+        else '個股先確認營收與獲利是否支持股價，再判斷估值是否合理。'
+    )
+    fundamental_html = (
+        f'<div class="detail-section-head"><div><span>查證資料</span><h3>{h(fundamental_title)}</h3></div>'
+        f'<p>{h(fundamental_note)}</p></div>'
+        f'{detail_html}'
+    )
+    decision_panel_html = (
+        f'<div class="detail-section-head"><div><span>價格計畫</span><h3>今天怎麼做</h3></div>'
+        f'<p>先決定是否行動，再看要分幾批、什麼情況停止。</p></div>'
         f'{zone_html}'
         f'{strategy_more_html}'
-        f'{more_html}'
-        f'<div style="font-size:10px;color:var(--t2);margin-top:6px;line-height:1.5">'
-        f'以上為規則化因子分析，僅供參考，不構成投資建議。投資有風險，請自行判斷。</div>'
+    )
+    summary_tone = action_tone(quick_status)
+    summary_tone_class = {
+        'ok': 'target-summary-ok',
+        'wait': 'target-summary-wait',
+        'stop': 'target-summary-stop',
+    }.get(summary_tone, 'target-summary-wait')
+
+    return (
+        f'<article class="sc target-card {summary_tone_class}" id="{target_id}" data-tab="{tab_id}" data-label="{h(disp)} {h(name)}">'
+        f'<div class="target-card-summary">'
+        f'<div class="target-summary-name"><span>{h(asset_type)} · {h(role)}</span><b>{h(disp)} {h(name)}</b>'
+        f'<small>{h(price_caption)}</small></div>'
+        f'<div class="target-summary-price"><span>現價</span><b>{price:,.2f}</b><small style="color:{pc}">{arr} {sgn}{chg:.2f}%</small></div>'
+        f'<div class="target-summary-score"><span>體質</span><b style="color:{sc_col}">{sc}</b><small>{h(a["stxt"])}</small></div>'
+        f'<div class="target-summary-status"><span>價格狀態</span><b>{h(quick_status)}</b><small>{h(quick_action)}</small></div>'
+        f'<button class="target-open-btn" type="button" onclick="openTargetDetail(\'{target_id}\',\'{tab_id}\')">查看分析</button>'
         f'</div>'
+        f'<div class="target-detail-view">'
+        f'<header class="target-detail-header">'
+        f'<button class="target-back-btn" onclick="returnToFocusSpot()" type="button">返回剛剛位置</button>'
+        f'<div class="target-detail-heading"><div class="target-kicker"><span>{h(asset_type)}</span><span>{h(role)}</span>'
+        f'<span>可信度 {h(quality["confidence"])}</span></div>'
+        f'<h2>{h(disp)} <small>{h(name)}</small></h2><p>{h(price_caption)}</p></div>'
+        f'<div class="target-live-price"><span>目前價格</span><b>{price:,.2f}</b>'
+        f'<small style="color:{pc}">{arr} {sgn}{chg:.2f}%</small></div>'
+        f'</header>'
+        f'<div class="target-snapshot">'
+        f'<div><span>價格狀態</span><b>{h(quick_status)}</b><small>{h(quick_summary)}</small></div>'
+        f'<div><span>今日做法</span><b>{h(quick_action)}</b><small>依價格區間執行，不把單一訊號當預測。</small></div>'
+        f'<div><span>體質分數</span><b style="color:{sc_col}">{sc}</b><small>{h(a["stxt"])}</small></div>'
+        f'<div><span>資料可信度</span><b>{h(quality["confidence"])}</b><small>{h(quality["reason"])}</small></div>'
+        f'</div>'
+        f'<div class="target-detail-layout">'
+        f'<div class="target-detail-main">'
+        f'<nav class="target-detail-tabs" aria-label="{h(name)}分析分頁">'
+        f'<button class="on" data-target-section="decision" onclick="showTargetSection(\'{target_id}\',\'decision\')" type="button">決策</button>'
+        f'<button data-target-section="fundamental" onclick="showTargetSection(\'{target_id}\',\'fundamental\')" type="button">{h("ETF資料" if is_etf_like(ticker) else "基本面")}</button>'
+        f'<button data-target-section="risk" onclick="showTargetSection(\'{target_id}\',\'risk\')" type="button">風險</button>'
+        f'<button data-target-section="technical" onclick="showTargetSection(\'{target_id}\',\'technical\')" type="button">技術</button>'
+        f'</nav>'
+        f'<section class="target-detail-panel on" data-target-panel="decision">{decision_panel_html}</section>'
+        f'<section class="target-detail-panel" data-target-panel="fundamental">{fundamental_html}</section>'
+        f'<section class="target-detail-panel" data-target-panel="risk">{risk_html}</section>'
+        f'<section class="target-detail-panel" data-target-panel="technical">{technical_html}</section>'
+        f'</div>'
+        f'<aside class="target-decision-rail">'
+        f'{quick_html}'
+        f'{decision_html}'
+        f'<div class="target-score-card"><div><span>體質分數</span><b style="color:{sc_col}">{sc}</b></div>'
+        f'<div class="sr"><div class="sbw"><div class="sbf" style="width:{sc}%;background:{sc_col}"></div></div></div>'
+        f'<span class="sbadge" style="background:{badge_bg};color:{badge_tc}">{a["stxt"]}</span></div>'
+        f'<div class="target-source-note"><b>資料項目</b><p>{h(quality["notes"])}</p></div>'
+        f'</aside>'
+        f'</div>'
+        f'<div class="target-disclaimer">以上為規則化因子分析，僅供理解資料與建立紀律，不構成投資建議。</div>'
+        f'</div>'
+        f'</article>'
     )
 
 
@@ -4161,6 +4317,7 @@ h1{font-size:19px;font-weight:700;color:var(--t);display:flex;align-items:center
 .ic-v{font-size:18px;font-weight:700;color:var(--t);margin-bottom:3px;font-variant-numeric:tabular-nums}
 .ic-c{font-size:12px;font-weight:600}
 .ic-note{font-size:9px;color:var(--t2);line-height:1.25;margin-top:2px;min-height:12px}
+.ic-note-short{display:none}
 .mobile-jump{display:none}
 .mode-switch{position:sticky;top:55px;z-index:80;display:flex;gap:6px;background:var(--bg);padding:10px 0 6px;border-bottom:1px solid transparent;margin-bottom:4px}
 .mode-btn{border:1px solid var(--bdr);background:var(--card);color:var(--t2);border-radius:999px;padding:8px 14px;font-size:13px;font-weight:800;cursor:pointer;font-family:inherit}
@@ -4557,42 +4714,571 @@ footer p{font-size:12px;color:#adb5bd;margin-bottom:3px;text-align:center}
 }
 </style>'''
 
+APP_SHELL_CSS = '''<style>
+:root{
+  --t:#eef5f7;--t2:#91a0aa;--bg:#071019;--card:#0d1822;--card2:#13202a;
+  --surface:#101d27;--bdr:rgba(196,220,226,0.14);--ok:#5bd3b2;
+  --ok-bg:rgba(45,184,145,0.16);--warn:#f2b94b;--warn-bg:rgba(242,185,75,0.15);
+  --risk:#ff7b72;--risk-bg:rgba(255,123,114,0.16);--info:#72b7e8;
+  --info-bg:rgba(68,148,201,0.16);--cold:#8bc8df;--cold-bg:rgba(75,155,184,0.16)
+}
+body{background:var(--bg);color:var(--t);min-height:100vh}
+html,body{max-width:100%;overflow-x:hidden}
+.hdr{display:none}
+.wrap{max-width:none;padding:0}
+.app-shell{display:grid;grid-template-columns:208px minmax(0,1fr);min-height:100vh}
+.app-sidebar{position:sticky;top:0;height:100vh;border-right:1px solid var(--bdr);background:#0a141d;padding:20px 12px;display:flex;flex-direction:column;z-index:120}
+.app-brand{display:flex;align-items:center;gap:10px;padding:2px 8px 22px;font-size:17px;font-weight:900;color:var(--t)}
+.brand-bars{display:grid;grid-template-columns:repeat(4,4px);gap:3px;align-items:end;height:22px}
+.brand-bars i{display:block;width:4px;background:var(--ok);border-radius:2px}
+.brand-bars i:nth-child(1){height:8px}.brand-bars i:nth-child(2){height:13px}.brand-bars i:nth-child(3){height:18px}.brand-bars i:nth-child(4){height:22px}
+.app-nav{display:grid;gap:5px}
+.app-nav-btn{width:100%;border:0;background:transparent;color:#bcc7ce;border-radius:7px;padding:11px 12px;display:flex;align-items:center;gap:10px;text-align:left;font:inherit;font-size:14px;font-weight:750;cursor:pointer}
+.app-nav-btn:hover{background:rgba(255,255,255,0.05);color:var(--t)}
+.app-nav-btn.on{background:#172530;color:var(--ok);box-shadow:inset 3px 0 0 var(--ok)}
+.nav-mark{display:grid;place-items:center;width:25px;height:25px;color:inherit;font-size:12px;font-weight:900}
+.app-sidebar-note{margin-top:auto;padding:14px 10px 0;border-top:1px solid var(--bdr);font-size:10px;color:var(--t2);line-height:1.55}
+.app-main{min-width:0;padding:0 24px 42px}
+.app-topbar{position:sticky;top:0;z-index:100;background:rgba(7,16,25,0.96);border-bottom:1px solid var(--bdr);min-height:68px;display:flex;align-items:center;justify-content:space-between;gap:18px;padding:10px 4px}
+.app-topbar h1{font-size:24px;color:var(--t);min-width:0}
+.topbar-meta{display:flex;align-items:center;gap:12px;font-size:11px;color:var(--t2)}
+.reload-btn{border:1px solid var(--bdr);background:var(--card2);color:var(--t);border-radius:7px;padding:8px 11px;font:inherit;font-size:12px;font-weight:800;cursor:pointer}
+.data-status{color:var(--ok);font-weight:800;white-space:nowrap}
+.data-status::before{content:"";display:inline-block;width:8px;height:8px;background:var(--ok);border-radius:50%;margin-right:6px}
+.app-content{max-width:1420px;margin:0 auto}
+.app-page{padding-top:16px}
+.page-heading{display:flex;justify-content:space-between;gap:16px;align-items:flex-end;margin-bottom:12px}
+.page-heading h2{font-size:21px;line-height:1.25}
+.page-heading p{font-size:11px;color:var(--t2);line-height:1.55;margin-top:3px}
+.page-heading span{font-size:10px;color:var(--t2);border:1px solid var(--bdr);border-radius:999px;padding:5px 9px}
+.sc,.ic,.section-head{background:var(--card);border-color:var(--bdr);box-shadow:none}
+.section-head{background:var(--card)}
+.decision-hero{padding:22px;margin:0;min-width:0}
+.market-brief h2{font-size:31px;max-width:920px}
+.market-brief p{font-size:13px;max-width:900px}
+.plain-take{background:transparent;border:0;border-left:3px solid var(--ok);border-radius:0;padding:3px 0 3px 12px}
+.plain-take b{font-size:14px}
+.decision-evidence{border-top:1px solid var(--bdr);margin-top:14px;padding-top:11px}
+.decision-evidence>summary{cursor:pointer;list-style:none;color:var(--ok);font-size:12px;font-weight:850}
+.decision-evidence>summary::-webkit-details-marker{display:none}
+.decision-evidence>summary::after{content:"⌄";float:right;font-size:16px}
+.decision-evidence[open]>summary::after{content:"⌃"}
+.decision-time-note{font-size:10px;color:var(--t2);line-height:1.55;margin-top:8px}
+.status-strip{grid-template-columns:repeat(5,minmax(0,1fr))}
+.status-strip div,.market-reason-grid div,.visual-main,.visual-bar,.mini-target,.theme-card,.overview-row,.dca-stat,.strategy-grid div,.panic-box div,.check-grid div,.method-grid div,.order-card{background:var(--card2)}
+.home-dashboard-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;margin:14px 0}
+.home-panel{margin:0;min-width:0}
+.home-panel-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:10px}
+.home-panel-head p{font-size:10px;color:var(--t2);line-height:1.5;margin-top:3px}
+.home-panel-head button{border:0;background:transparent;color:var(--ok);font:inherit;font-size:11px;font-weight:850;cursor:pointer;white-space:nowrap}
+.home-table,.research-list{display:grid}
+.home-table-row{display:grid;grid-template-columns:minmax(150px,1.25fr) .45fr .38fr minmax(105px,.75fr) minmax(120px,1fr) auto;gap:9px;align-items:center;padding:10px 0;border-top:1px solid var(--bdr)}
+.home-table-row>div:first-child b,.research-row>div b{display:block;font-size:12px;color:var(--t)}
+.home-table-row small,.research-row small{display:block;font-size:9px;color:var(--t2);line-height:1.4}
+.home-table-row span{display:block;font-size:9px;color:var(--t2)}
+.home-table-row>div>b{font-size:12px}
+.home-row-status>span{display:inline-flex;color:var(--warn);font-size:10px;font-weight:850}
+.home-row-ok .home-row-status>span{color:var(--ok)}.home-row-stop .home-row-status>span{color:var(--risk)}
+.home-row-link{color:var(--ok);text-decoration:none;font-size:11px;font-weight:850}
+.research-row{display:grid;grid-template-columns:28px minmax(110px,.8fr) minmax(90px,.7fr) minmax(140px,1.3fr) minmax(90px,.65fr) auto;gap:9px;align-items:center;padding:10px 0;border-top:1px solid var(--bdr)}
+.research-rank{display:grid;place-items:center;width:22px;height:22px;border-radius:50%;background:var(--ok);color:#062119;font-size:11px;font-weight:900}
+.research-row p{font-size:10px;color:var(--t);line-height:1.45}
+.market-radar{margin:14px 0}
+.core-etfs{background:var(--card);border-color:var(--bdr)}
+.temp-hot,.temp-warm,.temp-neutral,.temp-cool,.temp-cold{background:var(--card2)}
+.desktop-mid-grid{grid-template-columns:1fr 1fr}
+.mode-switch,.mobile-jump{display:none!important}
+.mobile-bottom-nav,.mobile-more-sheet,.mobile-topbar{display:none}
+footer{margin-left:208px;background:#0a141d;border-color:var(--bdr)}
+@media(max-width:980px){
+  .app-shell{grid-template-columns:174px minmax(0,1fr)}
+  .app-main{padding-left:16px;padding-right:16px}
+  footer{margin-left:174px}
+  .status-strip{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .home-dashboard-grid{grid-template-columns:1fr}
+}
+@media(max-width:760px){
+  body{padding-bottom:66px}
+  .app-shell{display:block}
+  .app-sidebar{display:none}
+  .app-main{padding:0 11px 18px}
+  .app-topbar{min-height:58px;padding:8px 2px}
+  .app-topbar h1{font-size:18px}
+  .topbar-meta{gap:7px;margin-left:auto;flex:0 0 auto}
+  .topbar-time{display:none}
+  .data-status{display:none}
+  .reload-btn{width:36px;height:36px;padding:0;font-size:0}
+  .reload-btn::after{content:"↻";font-size:22px}
+  .data-status{font-size:10px}
+  .app-page{padding-top:10px}
+  .page-heading{display:none}
+  .decision-hero{padding:15px}
+  .market-brief h2{font-size:25px;overflow-wrap:anywhere;word-break:break-word}
+  .market-brief p{font-size:11px}
+  .plain-take b{font-size:12px}
+  .status-strip{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .status-strip div:last-child{grid-column:1/-1}
+  .market-reason-grid{grid-template-columns:1fr}
+  .home-dashboard-grid{gap:10px;margin:10px 0}
+  .home-table-row{grid-template-columns:1fr auto auto}
+  .home-table-row>div:first-child{grid-column:1/3}
+  .home-row-status{grid-column:1/3}
+  .research-row{grid-template-columns:26px 1fr auto}
+  .research-row p,.research-row>small{grid-column:2/4}
+  .desktop-mid-grid{grid-template-columns:1fr}
+  .mobile-bottom-nav{position:fixed;display:grid;grid-template-columns:repeat(5,1fr);left:0;right:0;bottom:0;z-index:300;background:rgba(10,20,29,0.98);border-top:1px solid var(--bdr);padding:6px max(8px,env(safe-area-inset-right)) calc(6px + env(safe-area-inset-bottom)) max(8px,env(safe-area-inset-left))}
+  .mobile-nav-btn{border:0;background:transparent;color:var(--t2);font:inherit;font-size:10px;font-weight:800;padding:4px 2px;display:grid;place-items:center;gap:1px;cursor:pointer}
+  .mobile-nav-btn b{font-size:15px;color:inherit}
+  .mobile-nav-btn.on{color:var(--ok)}
+  .mobile-more-sheet{position:fixed;display:none;inset:0;z-index:400;background:rgba(0,0,0,0.55);align-items:flex-end}
+  .mobile-more-sheet.open{display:flex}
+  .mobile-more-panel{width:100%;background:#111e28;border:1px solid var(--bdr);border-radius:12px 12px 0 0;padding:12px 12px calc(16px + env(safe-area-inset-bottom))}
+  .mobile-more-panel header{display:flex;justify-content:space-between;align-items:center;padding:3px 3px 10px}
+  .mobile-more-panel header b{font-size:15px}
+  .mobile-more-panel header button{border:0;background:transparent;color:var(--t2);font-size:22px;cursor:pointer}
+  .mobile-more-panel nav{display:grid;gap:7px}
+  .mobile-more-panel nav button{border:1px solid var(--bdr);background:var(--card2);color:var(--t);border-radius:8px;padding:12px;text-align:left;font:inherit;font-size:13px;font-weight:800}
+  footer{margin-left:0;padding-bottom:76px}
+}
+
+/* 2026-06 workspace redesign: decision-first, readable, and quieter. */
+:root{
+  --t:#f1f6f9;--t2:#9aaabb;--bg:#0b1016;--card:#151c25;--card2:#111822;
+  --surface:#1b2430;--bdr:rgba(136,153,170,.18);--ok:#35c99a;
+  --warn:#e0a23a;--risk:#ec6a5c;--info:#77aaff
+}
+body{font-family:"Noto Sans TC","Microsoft JhengHei",system-ui,sans-serif;line-height:1.55}
+.app-shell{grid-template-columns:190px minmax(0,1fr)}
+.app-sidebar{background:#0e151d;padding:24px 12px}
+.app-brand{display:block;padding:0 16px 28px;font-size:18px;letter-spacing:.01em}
+.app-nav{gap:4px}
+.app-nav-btn{padding:13px 16px;border-radius:6px;font-size:15px;font-weight:800;color:#c9d4dc}
+.app-nav-btn.on{background:#1b2530;color:var(--ok);box-shadow:inset 3px 0 0 var(--ok)}
+.app-sidebar-note{padding:16px 16px 0;font-size:11px;line-height:1.7}
+.app-sidebar-note b{display:block;color:#cbd6df;font-size:12px;margin-top:3px}
+.app-main{padding:0 28px 48px}
+.app-content{max-width:1240px}
+.app-topbar{min-height:72px;background:rgba(11,16,22,.97);padding:12px 2px}
+.app-topbar h1{font-size:25px}
+.topbar-meta{font-size:12px}
+.reload-btn{background:#111822;padding:9px 13px;font-size:12px}
+.sc{border-radius:8px;padding:18px}
+.st{font-size:20px;line-height:1.3}
+.decision-hero{padding:22px 24px;border-left:3px solid var(--ok)}
+.hero-heading{display:flex;justify-content:space-between;align-items:center;gap:14px}
+.hero-temperature{display:inline-flex;border:1px solid rgba(224,162,58,.35);background:rgba(224,162,58,.10);color:var(--warn);border-radius:999px;padding:5px 10px;font-size:12px;font-weight:900}
+.market-brief h2{font-size:34px;line-height:1.18;margin-top:16px;max-width:none}
+.market-brief p{font-size:15px;line-height:1.7;color:#cbd6df;margin-top:8px}
+.status-strip{grid-template-columns:repeat(4,minmax(0,1fr));gap:0;margin-top:20px;border-top:1px solid var(--bdr);padding-top:14px}
+.status-strip div,.status-strip .status-ok,.status-strip .status-warn,.status-strip .status-risk,.status-strip .status-info{background:transparent;border:0;border-left:1px solid var(--bdr);border-radius:0;padding:3px 18px}
+.status-strip div:first-child{border-left:0;padding-left:4px}
+.status-strip span{font-size:12px}
+.status-strip b{font-size:19px;margin-top:4px}
+.status-strip small{font-size:11px;line-height:1.45}
+.status-strip .status-ok b{color:var(--ok)}
+.status-strip .status-warn b{color:var(--warn)}
+.decision-evidence{margin-top:15px;padding-top:12px}
+.decision-evidence>summary{font-size:13px}
+.plain-take{margin-top:12px}
+.home-market-radar{padding:14px 16px;margin:14px 0}
+.market-radar-title{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;margin-bottom:10px}
+.market-radar-title p,.home-panel-head p{font-size:12px;color:var(--t2);line-height:1.55;margin-top:3px}
+.market-radar-title button,.home-panel-head button{border:0;background:transparent;color:var(--ok);font:inherit;font-size:12px;font-weight:900;cursor:pointer;white-space:nowrap}
+.home-market-radar .radar-layout{display:flex;gap:0;overflow-x:auto;border:1px solid var(--bdr);border-radius:7px;scrollbar-width:thin}
+.home-market-radar .radar-layout{scrollbar-width:none}
+.home-market-radar .radar-layout::-webkit-scrollbar{display:none}
+.home-market-radar .radar-group{display:contents}
+.home-market-radar .radar-head{display:none}
+.home-market-radar .radar-grid{display:contents}
+.home-market-radar .radar-more{display:none}
+.home-market-radar .ic{flex:1 0 135px;min-width:135px;background:#111822;border:0;border-right:1px solid var(--bdr);border-radius:0;padding:11px 12px}
+.home-market-radar .ic:last-child{border-right:0}
+.home-market-radar .ic-l{font-size:12px;color:#cbd6df}
+.home-market-radar .ic-v{font-size:16px}
+.home-market-radar .ic-c{font-size:12px}
+.home-market-radar .ic-note{font-size:11px;min-height:0}
+.home-market-radar .ic-note-full{display:none}
+.home-market-radar .ic-note-short{display:inline}
+.home-preview-tabs{display:none}
+.home-dashboard-grid{gap:14px;margin:14px 0}
+.home-panel{padding:16px 18px}
+.home-panel-head{margin-bottom:10px}
+.home-table-head,.research-list-head{display:grid;gap:10px;align-items:center;padding:8px 10px;background:#1b2430;color:var(--t2);font-size:11px}
+.home-table-head{grid-template-columns:minmax(150px,1.25fr) .45fr .38fr minmax(105px,.75fr) minmax(120px,1fr) auto}
+.research-list-head{grid-template-columns:28px minmax(110px,.8fr) minmax(90px,.7fr) minmax(140px,1.3fr) minmax(90px,.65fr) auto}
+.home-table-row{padding:12px 10px;gap:10px}
+.home-table-row>div:first-child b,.research-row>div b{font-size:13px}
+.home-table-row small,.research-row small{font-size:11px}
+.home-table-row span{font-size:11px}
+.home-table-row>div>b{font-size:13px}
+.home-row-status>span{font-size:12px}
+.home-row-action span{display:none}
+.home-row-action b{font-size:12px;color:#d7e1e8;line-height:1.45}
+.home-row-link{font-size:12px}
+.research-row{padding:12px 10px;gap:10px}
+.research-rank{width:24px;height:24px;border-radius:5px;background:#243241;color:#d9e4eb;font-size:12px}
+.research-row p{font-size:12px;line-height:1.55}
+.research-topic{font-size:12px;color:#cbd6df}
+.visual-board{margin-top:14px}
+.visual-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:0;border:1px solid var(--bdr);border-radius:7px;overflow:hidden}
+.visual-main{border:0;border-right:1px solid var(--bdr);border-radius:0;padding:14px}
+.visual-main:last-child{border-right:0}
+.visual-main span{font-size:11px}.visual-main b{font-size:17px}.visual-main small{font-size:11px}
+.visual-bars{gap:8px}
+.visual-bar{padding:12px}.visual-bar b{font-size:13px}.visual-bar small{font-size:11px}
+footer{margin-left:190px}
+
+@media(max-width:980px) and (min-width:761px){
+  .app-shell{grid-template-columns:170px minmax(0,1fr)}
+  footer{margin-left:170px}
+  .home-dashboard-grid{grid-template-columns:1fr}
+}
+@media(max-width:760px){
+  .app-main{padding:0 10px 18px}
+  .app-topbar{min-height:60px}
+  .app-topbar h1{font-size:20px}
+  .reload-btn{width:38px;height:38px;padding:0;font-size:0}
+  .reload-btn::after{content:"↻";font-size:22px}
+  .decision-hero{padding:17px 15px}
+  .hero-heading{align-items:flex-start}
+  .hero-heading .st{font-size:15px}
+  .hero-temperature{font-size:11px;padding:4px 8px}
+  .market-brief h2{font-size:27px;line-height:1.28;margin-top:13px}
+  .market-brief p{font-size:13px;line-height:1.65}
+  .status-strip{grid-template-columns:repeat(2,minmax(0,1fr));gap:0;padding-top:8px}
+  .status-strip div,.status-strip .status-ok,.status-strip .status-warn,.status-strip .status-risk,.status-strip .status-info{border-left:0;border-top:1px solid var(--bdr);padding:11px 8px}
+  .status-strip div:nth-child(odd){border-right:1px solid var(--bdr)}
+  .status-strip div:first-child,.status-strip div:nth-child(2){border-top:0}
+  .status-strip div:last-child{grid-column:auto}
+  .status-strip span{font-size:11px}.status-strip b{font-size:17px}.status-strip small{font-size:10px}
+  .home-market-radar{padding:14px 12px}
+  .market-radar-title p{font-size:11px}
+  .home-market-radar .radar-layout{margin:0 -1px}
+  .home-market-radar .ic{flex-basis:128px;min-width:128px;padding:10px}
+  .home-market-radar .ic-l{font-size:11px}.home-market-radar .ic-v{font-size:15px}.home-market-radar .ic-note{font-size:10px}
+  .home-preview-tabs{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--bdr);border-radius:7px;overflow:hidden;margin:12px 0 8px}
+  .home-preview-tabs button{border:0;background:#111822;color:var(--t2);padding:10px;font:inherit;font-size:13px;font-weight:850}
+  .home-preview-tabs button.on{background:#1b453a;color:#8be5c7;box-shadow:inset 0 -2px 0 var(--ok)}
+  .home-dashboard-grid{display:block;margin:0}
+  .home-panel{display:none;padding:14px 13px}
+  .home-panel.mobile-panel-on{display:block}
+  .home-panel-head p{font-size:11px}
+  .home-table-head,.research-list-head{display:none}
+  .home-table-row{grid-template-columns:minmax(0,1fr) auto;padding:13px 2px}
+  .home-table-row>div:first-child{grid-column:auto}
+  .home-table-row>div:nth-child(2){text-align:right}
+  .home-table-row>div:nth-child(3){display:none}
+  .home-row-status{grid-column:1/2}
+  .home-row-status small{display:none}
+  .home-row-link{grid-column:2;grid-row:2;text-align:right}
+  .home-row-action{grid-column:1/3}
+  .home-row-action span{display:block;font-size:10px;color:var(--t2)}
+  .home-row-action b{font-size:12px}
+  .research-row{grid-template-columns:28px minmax(0,1fr) auto;padding:13px 2px}
+  .research-topic{grid-column:2/4;color:var(--info);font-size:11px}
+  .research-row p{grid-column:2/4;font-size:12px}
+  .research-row>small{grid-column:2/4}
+  .visual-grid{grid-template-columns:1fr}
+  .visual-main{border-right:0;border-bottom:1px solid var(--bdr)}
+  .visual-main:last-child{border-bottom:0}
+  .mobile-bottom-nav{background:#0e151d;padding-top:9px;padding-bottom:calc(9px + env(safe-area-inset-bottom))}
+  .mobile-nav-btn{font-size:12px;padding:5px 2px}
+}
+
+/* Complete target workspace: browse compactly, inspect one target with a clear workflow. */
+#core-mode .core-etfs,
+#research-mode .today-focus,
+#research-mode .target-overview,
+#research-mode .theme-radar,
+#market-mode .market-radar,
+#tools-mode .dca-tool,
+#tools-mode .buy-tool,
+#data-mode .methodology,
+#data-mode .public-check{border-radius:8px}
+.page-heading{padding:4px 2px 13px;border-bottom:1px solid var(--bdr);align-items:center}
+.page-heading h2{font-size:24px}
+.page-heading p{font-size:12px;max-width:780px}
+.page-heading span{background:var(--card2);font-size:11px}
+#market-mode .market-radar{padding:18px;margin-top:0}
+#market-mode .radar-layout{grid-template-columns:repeat(2,minmax(0,1fr))}
+#market-mode .radar-group{background:#111822;border-radius:7px;padding:14px}
+#tools-mode .desktop-mid-grid{gap:14px}
+#tools-mode .dca-tool,#tools-mode .buy-tool{padding:18px}
+
+#data-mode .target-section{margin-top:0}
+#data-mode .cgrid{grid-template-columns:1fr;gap:8px;padding-bottom:28px}
+.target-card{padding:0;background:transparent;border:0;border-radius:0;box-shadow:none}
+.target-card-summary{display:grid;grid-template-columns:minmax(260px,1.55fr) minmax(100px,.45fr) minmax(90px,.38fr) minmax(180px,.95fr) auto;gap:16px;align-items:center;background:var(--card);border:1px solid var(--bdr);border-left:3px solid var(--warn);border-radius:8px;padding:14px 15px}
+.target-summary-ok .target-card-summary{border-left-color:var(--ok)}
+.target-summary-stop .target-card-summary{border-left-color:var(--risk)}
+.target-card-summary>div{min-width:0}
+.target-card-summary span{display:block;font-size:10px;color:var(--t2);margin-bottom:3px}
+.target-card-summary b{display:block;color:var(--t);font-size:14px;line-height:1.35;font-variant-numeric:tabular-nums}
+.target-card-summary small{display:block;font-size:10px;color:var(--t2);line-height:1.4;margin-top:2px}
+.target-summary-name>b{font-size:15px}
+.target-summary-name>span{color:var(--info);font-weight:800}
+.target-summary-status>b{color:var(--warn)}
+.target-summary-ok .target-summary-status>b{color:var(--ok)}
+.target-summary-stop .target-summary-status>b{color:var(--risk)}
+.target-open-btn,.target-back-btn{border:1px solid rgba(53,201,154,.34);background:rgba(53,201,154,.10);color:#77dfbf;border-radius:7px;padding:9px 12px;font:inherit;font-size:12px;font-weight:900;cursor:pointer;white-space:nowrap}
+.target-open-btn:hover,.target-back-btn:hover{background:rgba(53,201,154,.18)}
+.target-detail-view{display:none}
+body.target-detail-open #data-mode>.page-heading,
+body.target-detail-open #target-list>.section-head,
+body.target-detail-open #target-list>.tnav,
+body.target-detail-open #data-mode>.methodology,
+body.target-detail-open #data-mode>.public-check{display:none}
+body.target-detail-open #data-mode .target-card{display:none}
+body.target-detail-open #data-mode .target-card.target-detail-active{display:block}
+body.target-detail-open #data-mode .target-card.target-detail-active .target-card-summary{display:none}
+body.target-detail-open #data-mode .target-card.target-detail-active .target-detail-view{display:block}
+body.target-detail-open #data-mode .cgrid{padding-bottom:10px}
+
+.target-detail-view{background:transparent}
+.target-detail-header{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:16px;align-items:center;background:var(--card);border:1px solid var(--bdr);border-radius:8px 8px 0 0;padding:18px 20px}
+.target-back-btn{align-self:start;margin-top:2px}
+.target-kicker{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px}
+.target-kicker span{font-size:10px;color:var(--t2);background:var(--card2);border:1px solid var(--bdr);border-radius:999px;padding:3px 7px}
+.target-detail-heading h2{font-size:25px;line-height:1.25;color:var(--t)}
+.target-detail-heading h2 small{font-size:16px;color:#cbd6df;font-weight:750}
+.target-detail-heading p{font-size:11px;color:var(--t2);margin-top:4px}
+.target-live-price{text-align:right;min-width:120px}
+.target-live-price span{display:block;font-size:10px;color:var(--t2)}
+.target-live-price b{display:block;font-size:25px;color:var(--t);font-variant-numeric:tabular-nums}
+.target-live-price small{display:block;font-size:12px;font-weight:850}
+.target-snapshot{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));background:#101720;border:1px solid var(--bdr);border-top:0;border-radius:0 0 8px 8px;margin-bottom:14px}
+.target-snapshot>div{padding:13px 15px;border-left:1px solid var(--bdr);min-width:0}
+.target-snapshot>div:first-child{border-left:0}
+.target-snapshot span{display:block;font-size:10px;color:var(--t2)}
+.target-snapshot b{display:block;font-size:15px;color:var(--t);margin-top:3px;line-height:1.35}
+.target-snapshot small{display:block;font-size:10px;color:var(--t2);line-height:1.45;margin-top:3px}
+.target-detail-layout{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:14px;align-items:start}
+.target-detail-main,.target-decision-rail{min-width:0}
+.target-detail-main{background:var(--card);border:1px solid var(--bdr);border-radius:8px;overflow:hidden}
+.target-detail-tabs{display:grid;grid-template-columns:repeat(4,1fr);background:#101720;border-bottom:1px solid var(--bdr);padding:0 14px}
+.target-detail-tabs button{position:relative;border:0;background:transparent;color:var(--t2);padding:14px 8px;font:inherit;font-size:13px;font-weight:850;cursor:pointer}
+.target-detail-tabs button.on{color:var(--ok)}
+.target-detail-tabs button.on::after{content:"";position:absolute;left:18%;right:18%;bottom:0;height:2px;background:var(--ok)}
+.target-detail-panel{display:none;padding:18px}
+.target-detail-panel.on{display:block}
+.detail-section-head{display:flex;justify-content:space-between;align-items:flex-end;gap:20px;margin-bottom:13px;padding-bottom:12px;border-bottom:1px solid var(--bdr)}
+.detail-section-head span{display:block;font-size:10px;color:var(--ok);font-weight:900;margin-bottom:3px}
+.detail-section-head h3{font-size:20px;color:var(--t);line-height:1.3}
+.detail-section-head p{font-size:11px;color:var(--t2);max-width:360px;text-align:right;line-height:1.5}
+.target-detail-panel .zone-box,.target-detail-panel .detail-box,.target-detail-panel .factor-box{background:#111822;border-radius:7px;margin:0}
+.target-detail-panel .detail-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.target-detail-panel .metric-tile,.target-detail-panel .ic2,.target-detail-panel .zone-grid div,.target-detail-panel .zone-steps div{background:#17212c;border-color:var(--bdr)}
+.target-detail-panel .metric-tile{padding:10px}
+.target-detail-panel .metric-tile span{font-size:11px}
+.target-detail-panel .metric-tile b{font-size:15px;margin-top:3px}
+.target-detail-panel .metric-tile small{font-size:10px}
+.target-detail-panel .zone-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.target-detail-panel .zone-grid div{padding:10px}
+.target-detail-panel .zone-grid b{font-size:14px}
+.target-detail-panel .zone-steps{gap:8px}
+.target-detail-panel .zone-steps div{padding:10px}
+.target-detail-panel .zone-more,.target-detail-panel .card-more{margin-top:12px;padding-top:10px}
+.target-detail-panel .zone-more summary,.target-detail-panel .card-more summary{font-size:12px;color:var(--ok)}
+.target-detail-panel .factor-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.target-detail-panel .factor{grid-template-columns:58px 32px 1fr}
+.target-detail-panel .ig{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.target-detail-panel .technical-metrics{grid-template-columns:repeat(4,minmax(0,1fr))}
+.trend-chart-card{background:#111822;border:1px solid var(--bdr);border-radius:7px;padding:14px;margin-bottom:10px}
+.trend-chart-card .spark{margin-bottom:12px}
+.target-detail-panel .pref-item{background:#17212c;border:1px solid var(--bdr);padding:7px 9px}
+.target-decision-rail{position:sticky;top:86px;display:grid;gap:10px}
+.target-decision-rail .quick-take{margin:0;grid-template-columns:1fr}
+.target-decision-rail .quick-take div{background:var(--card);padding:13px;border-radius:8px}
+.target-decision-rail .quick-take b{font-size:16px}
+.target-decision-rail .decision-card{background:var(--card);border-radius:8px;margin:0;padding:14px}
+.target-decision-rail .decision-head span{color:var(--ok)}
+.target-decision-rail .decision-row{grid-template-columns:48px 1fr;gap:9px;margin-top:9px}
+.target-decision-rail .decision-row p{font-size:12px}
+.target-score-card,.target-source-note{background:var(--card);border:1px solid var(--bdr);border-radius:8px;padding:13px}
+.target-score-card>div:first-child{display:flex;justify-content:space-between;align-items:center}
+.target-score-card span{font-size:11px;color:var(--t2)}
+.target-score-card b{font-size:20px}
+.target-score-card .sr{margin:8px 0}
+.target-score-card .sbadge{margin:0}
+.target-source-note b{font-size:11px;color:var(--t2)}
+.target-source-note p{font-size:10px;color:var(--t2);line-height:1.55;margin-top:4px}
+.target-disclaimer{font-size:10px;color:var(--t2);line-height:1.5;padding:12px 2px 0}
+
+@media(max-width:980px){
+  .target-card-summary{grid-template-columns:minmax(220px,1.4fr) .45fr .4fr minmax(150px,.8fr) auto;gap:10px}
+  .target-detail-layout{grid-template-columns:minmax(0,1fr) 300px}
+  .target-detail-panel .detail-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .target-snapshot{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .target-snapshot>div:nth-child(odd){border-left:0}
+  .target-snapshot>div:nth-child(n+3){border-top:1px solid var(--bdr)}
+}
+@media(max-width:760px){
+  .page-heading{display:none}
+  #market-mode .radar-layout{grid-template-columns:1fr}
+  #market-mode .market-radar{padding:13px}
+  .target-card-summary{grid-template-columns:minmax(0,1fr) auto;padding:13px;gap:8px 12px}
+  .target-summary-name{grid-column:1/-1}
+  .target-summary-price,.target-summary-score{display:inline-grid}
+  .target-summary-status{grid-column:1/-1;padding-top:8px;border-top:1px solid var(--bdr)}
+  .target-open-btn{grid-column:1/-1;width:100%}
+  .target-detail-header{grid-template-columns:minmax(0,1fr) auto;padding:14px 13px;gap:10px}
+  .target-back-btn{grid-column:1/-1;justify-self:start;padding:7px 10px}
+  .target-detail-heading h2{font-size:22px}
+  .target-detail-heading h2 small{display:block;font-size:14px;margin-top:2px}
+  .target-live-price{min-width:92px}
+  .target-live-price b{font-size:21px}
+  .target-snapshot{grid-template-columns:repeat(2,minmax(0,1fr));margin-bottom:10px}
+  .target-snapshot>div{padding:11px 10px}
+  .target-snapshot b{font-size:13px}
+  .target-snapshot small{font-size:9px}
+  .target-detail-layout{display:flex;flex-direction:column;gap:10px}
+  .target-decision-rail{position:static;order:-1;width:100%;gap:8px}
+  .target-decision-rail .quick-take{grid-template-columns:1fr 1fr}
+  .target-decision-rail .decision-card{padding:12px}
+  .target-decision-rail .decision-row{grid-template-columns:42px 1fr}
+  .target-score-card,.target-source-note{display:none}
+  .target-detail-main{width:100%}
+  .target-detail-tabs{position:sticky;top:60px;z-index:80;padding:0 5px}
+  .target-detail-tabs button{padding:12px 4px;font-size:12px}
+  .target-detail-panel{padding:13px}
+  .detail-section-head{display:block;margin-bottom:10px;padding-bottom:9px}
+  .detail-section-head h3{font-size:18px}
+  .detail-section-head p{text-align:left;margin-top:5px;font-size:10px}
+  .target-detail-panel .detail-grid,
+  .target-detail-panel .ig,
+  .target-detail-panel .technical-metrics,
+  .target-detail-panel .factor-grid{grid-template-columns:1fr}
+  .target-detail-panel .zone-grid{grid-template-columns:1fr}
+  .target-detail-panel .zone-steps{grid-template-columns:1fr}
+  .target-detail-panel .metric-tile{padding:9px}
+  .target-detail-panel .metric-tile b{font-size:14px}
+  .target-disclaimer{padding:10px 2px 2px}
+}
+</style>'''
+
 JS_CODE = '''<script>
 window.LAST_FOCUS_SCROLL = 0;
+window.RETURN_APP_PAGE = 'research-mode';
+window.ACTIVE_TARGET_ID = '';
+var APP_PAGE_TITLES = {
+  'focus-mode':'今日市場',
+  'core-mode':'核心 ETF',
+  'research-mode':'研究標的',
+  'market-mode':'市場雷達',
+  'tools-mode':'試算工具',
+  'data-mode':'完整資料'
+};
 function rememberFocusSpot(){
-  var focus=document.getElementById('focus-mode');
-  if(focus && focus.classList.contains('on')) window.LAST_FOCUS_SCROLL=window.scrollY||0;
+  var active=document.querySelector('.mode-pane.on');
+  if(active){
+    window.RETURN_APP_PAGE=active.id||'research-mode';
+    window.LAST_FOCUS_SCROLL=window.scrollY||0;
+  }
 }
 function restoreFocusSpot(){
   var y=Number(window.LAST_FOCUS_SCROLL||0);
-  if(y>0){
-    window.scrollTo({top:y,behavior:'smooth'});
-    return;
-  }
-  var fallback=document.getElementById('target-overview') || document.getElementById('market-summary');
-  if(fallback) fallback.scrollIntoView({behavior:'smooth',block:'start'});
+  window.scrollTo({top:y,behavior:'smooth'});
 }
 function returnToFocusSpot(){
-  showMode('focus-mode');
-  setTimeout(restoreFocusSpot,30);
+  clearTargetDetail();
+  showMode(window.RETURN_APP_PAGE||'research-mode',true);
 }
-function showMode(id){
+function clearTargetDetail(){
+  document.body.classList.remove('target-detail-open');
+  document.querySelectorAll('.target-card.target-detail-active').forEach(function(card){
+    card.classList.remove('target-detail-active');
+  });
+  window.ACTIVE_TARGET_ID='';
+}
+function showTargetSection(cardId,name){
+  var card=document.getElementById(cardId);
+  if(!card) return;
+  card.querySelectorAll('[data-target-section]').forEach(function(btn){
+    btn.classList.toggle('on',btn.dataset.targetSection===name);
+  });
+  card.querySelectorAll('[data-target-panel]').forEach(function(panel){
+    panel.classList.toggle('on',panel.dataset.targetPanel===name);
+  });
+  if(window.innerWidth<=760){
+    var tabs=card.querySelector('.target-detail-tabs');
+    if(tabs) tabs.scrollIntoView({block:'start',behavior:'smooth'});
+  }
+}
+function scrollTargetDetailTop(){
+  var root=document.documentElement;
+  var previousBehavior=root.style.scrollBehavior;
+  root.style.scrollBehavior='auto';
+  window.scrollTo(0,0);
+  root.style.scrollBehavior=previousBehavior;
+}
+function openTargetDetail(cardId,tabId,remember){
+  if(remember!==false) rememberFocusSpot();
+  clearTargetDetail();
+  showMode('data-mode',false,true);
+  showTab(tabId,true);
+  var card=document.getElementById(cardId);
+  if(!card) return;
+  card.classList.add('target-detail-active');
+  document.body.classList.add('target-detail-open');
+  window.ACTIVE_TARGET_ID=cardId;
+  showTargetSection(cardId,'decision');
+  var title=document.getElementById('appPageTitle');
+  if(title) title.textContent=card.dataset.label||'標的分析';
+  if(history.replaceState) history.replaceState(null,'','#'+cardId);
+  scrollTargetDetailTop();
+  if(remember===false) setTimeout(scrollTargetDetailTop,120);
+}
+function closeMobileMore(){
+  var sheet=document.getElementById('mobileMoreSheet');
+  if(sheet) sheet.classList.remove('open');
+}
+function toggleMobileMore(){
+  var sheet=document.getElementById('mobileMoreSheet');
+  if(sheet) sheet.classList.toggle('open');
+}
+function showHomePanel(name){
+  document.querySelectorAll('[data-home-panel]').forEach(function(btn){
+    btn.classList.toggle('on',btn.dataset.homePanel===name);
+  });
+  var core=document.querySelector('.home-core-preview');
+  var research=document.querySelector('.home-research-preview');
+  if(core) core.classList.toggle('mobile-panel-on',name==='core');
+  if(research) research.classList.toggle('mobile-panel-on',name==='research');
+}
+function showMode(id,restore,keepTarget){
   var active=document.querySelector('.mode-pane.on');
-  if(id==='data-mode' && active && active.id==='focus-mode') rememberFocusSpot();
+  if(id==='data-mode' && active && active.id!=='data-mode') rememberFocusSpot();
+  if(!keepTarget) clearTargetDetail();
   document.querySelectorAll('.mode-pane').forEach(function(s){s.classList.remove('on')});
-  document.querySelectorAll('.mode-btn').forEach(function(b){b.classList.remove('on')});
+  document.querySelectorAll('[data-mode]').forEach(function(b){b.classList.remove('on')});
   var el=document.getElementById(id); if(el) el.classList.add('on');
-  var btn=document.querySelector('[data-mode="'+id+'"]'); if(btn) btn.classList.add('on');
+  document.querySelectorAll('[data-mode="'+id+'"]').forEach(function(btn){btn.classList.add('on')});
+  var title=document.getElementById('appPageTitle');
+  if(title) title.textContent=APP_PAGE_TITLES[id]||'市場報告';
+  closeMobileMore();
   if(id==='data-mode' && typeof filterOverview==='function') filterOverview();
-  if(id==='focus-mode') setTimeout(restoreFocusSpot,30);
+  if(restore){setTimeout(restoreFocusSpot,40);}
+  else{window.scrollTo({top:0,behavior:'smooth'});}
 }
-function showTab(id){
+function showTab(id,keepTarget){
+  if(!keepTarget) clearTargetDetail();
   document.querySelectorAll('.tc').forEach(function(s){s.classList.remove('on')});
   document.querySelectorAll('.tb').forEach(function(b){b.classList.remove('on')});
   var el=document.getElementById(id); if(el) el.classList.add('on');
   var btn=document.querySelector('[data-tab="'+id+'"]'); if(btn) btn.classList.add('on');
 }
-document.addEventListener('DOMContentLoaded',function(){showTab('tw-stocks')});
+document.addEventListener('DOMContentLoaded',function(){
+  showTab('tw-stocks');
+  showHomePanel('core');
+  var requested=(location.hash||'').replace('#','');
+  if(APP_PAGE_TITLES[requested]) showMode(requested);
+  else if(requested.indexOf('target-')===0){
+    var requestedCard=document.getElementById(requested);
+    if(requestedCard) openTargetDetail(requested,requestedCard.dataset.tab||'tw-stocks',false);
+  }
+  var sheet=document.getElementById('mobileMoreSheet');
+  if(sheet) sheet.addEventListener('click',function(e){if(e.target===sheet) closeMobileMore();});
+});
 </script>'''
 
 
@@ -4620,36 +5306,115 @@ def mode_switch_html():
     )
 
 
+def app_sidebar_html(update_time):
+    items = [
+        ('focus-mode', '今日'),
+        ('core-mode', '核心 ETF'),
+        ('research-mode', '研究'),
+        ('market-mode', '市場'),
+        ('tools-mode', '試算'),
+        ('data-mode', '完整資料'),
+    ]
+    buttons = ''.join(
+        f'<button class="app-nav-btn{" on" if mode == "focus-mode" else ""}" '
+        f'data-mode="{mode}" onclick="showMode(\'{mode}\')" type="button">'
+        f'<span>{label}</span></button>'
+        for mode, label in items
+    )
+    return (
+        f'<aside class="app-sidebar">'
+        f'<div class="app-brand">每日市場報告</div>'
+        f'<nav class="app-nav" aria-label="主要導覽">{buttons}</nav>'
+        f'<div class="app-sidebar-note">資料更新時間<br><b>{h(update_time)}</b></div>'
+        f'</aside>'
+    )
+
+
+def mobile_bottom_nav_html():
+    return (
+        f'<nav class="mobile-bottom-nav" aria-label="手機主要導覽">'
+        f'<button class="mobile-nav-btn on" data-mode="focus-mode" onclick="showMode(\'focus-mode\')" type="button">今日</button>'
+        f'<button class="mobile-nav-btn" data-mode="core-mode" onclick="showMode(\'core-mode\')" type="button">核心</button>'
+        f'<button class="mobile-nav-btn" data-mode="research-mode" onclick="showMode(\'research-mode\')" type="button">研究</button>'
+        f'<button class="mobile-nav-btn" data-mode="market-mode" onclick="showMode(\'market-mode\')" type="button">市場</button>'
+        f'<button class="mobile-nav-btn" onclick="toggleMobileMore()" type="button">更多</button>'
+        f'</nav>'
+        f'<div class="mobile-more-sheet" id="mobileMoreSheet">'
+        f'<div class="mobile-more-panel"><header><b>更多功能</b><button type="button" onclick="closeMobileMore()">×</button></header>'
+        f'<nav>'
+        f'<button type="button" onclick="showMode(\'tools-mode\')">試算工具</button>'
+        f'<button type="button" onclick="showMode(\'data-mode\')">完整資料與分析卡</button>'
+        f'</nav></div></div>'
+    )
+
+
+def home_preview_tabs_html():
+    return (
+        f'<div class="home-preview-tabs" role="tablist" aria-label="首頁標的摘要">'
+        f'<button class="on" data-home-panel="core" onclick="showHomePanel(\'core\')" type="button">核心 ETF</button>'
+        f'<button data-home-panel="research" onclick="showHomePanel(\'research\')" type="button">研究</button>'
+        f'</div>'
+    )
+
+
+def page_heading_html(title, description, meta=''):
+    return (
+        f'<div class="page-heading"><div><h2>{h(title)}</h2><p>{h(description)}</p></div>'
+        f'<span>{h(meta)}</span></div>'
+    )
+
+
 def build_html(idx_html, tw_s, tw_e, us_s, us_e, bonds, update_time, market_ctx=None):
+    market_full_html = idx_html.replace('id="market-radar"', 'id="market-radar-full"', 1)
+    market_home_html = (
+        idx_html
+        .replace('class="sc market-radar"', 'class="sc market-radar home-market-radar"', 1)
+        .replace('id="market-radar"', 'id="market-radar-home"', 1)
+    )
     return (
         f'<!DOCTYPE html>\n<html lang="zh-Hant">\n<head>\n'
         f'<meta charset="UTF-8">\n'
         f'<meta name="viewport" content="width=device-width,initial-scale=1.0">\n'
         f'<title>智慧投資分析 | {update_time}</title>\n'
-        f'{CSS}\n</head>\n<body>\n'
-        f'<header class="hdr"><div class="wrap"><div class="hi">'
-        f'<h1><span class="dot">◆</span> 智慧投資分析</h1>'
-        f'<span class="ub">更新：{update_time} 台灣時間</span>'
-        f'</div></div></header>\n'
-        f'<main class="wrap">\n'
-        f'{mode_switch_html()}\n'
-        f'<section class="mode-pane on" id="focus-mode">\n'
-        f'{mobile_jump_nav_html()}\n'
-        f'<div class="desktop-top-grid">\n'
+        f'{CSS}\n{APP_SHELL_CSS}\n</head>\n<body>\n'
+        f'<div class="app-shell">\n'
+        f'{app_sidebar_html(update_time)}\n'
+        f'<main class="app-main">\n'
+        f'<header class="app-topbar"><h1 id="appPageTitle">今日市場</h1>'
+        f'<div class="topbar-meta"><span class="topbar-time">資料截至 {update_time} 台灣時間</span>'
+        f'<button class="reload-btn" type="button" onclick="location.reload()">重新載入</button>'
+        f'<span class="data-status">資料已載入</span></div></header>\n'
+        f'<div class="app-content">\n'
+        f'<section class="mode-pane app-page on" id="focus-mode">\n'
         f'{newbie_summary_html(market_ctx)}\n'
-        f'{idx_html}\n'
-        f'</div>\n'
+        f'{market_home_html}\n'
+        f'{home_preview_tabs_html()}\n'
+        f'<div class="home-dashboard-grid">{home_core_preview_html()}{home_research_preview_html()}</div>\n'
         f'{visual_action_board_html(market_ctx)}\n'
+        f'</section>\n'
+        f'<section class="mode-pane app-page" id="core-mode">\n'
+        f'{page_heading_html("核心 ETF", "把長期配置標的集中在這裡，先看體質、價格狀態與可看區間。", "長期配置")}\n'
         f'{core_etf_spotlight_html()}\n'
+        f'</section>\n'
+        f'<section class="mode-pane app-page" id="research-mode">\n'
+        f'{page_heading_html("研究標的", "先看今日需要確認的標的，再用搜尋、體質與價格狀態縮小範圍。", "公開資料研究")}\n'
         f'{today_focus_html()}\n'
         f'{target_overview_html(market_ctx)}\n'
+        f'{theme_radar_html()}\n'
+        f'</section>\n'
+        f'<section class="mode-pane app-page" id="market-mode">\n'
+        f'{page_heading_html("市場雷達", "比較台股、美股科技、波動與亞洲市場，理解今天的環境，不把指數直接當買進訊號。", "全球市場")}\n'
+        f'{market_full_html}\n'
+        f'</section>\n'
+        f'<section class="mode-pane app-page" id="tools-mode">\n'
+        f'{page_heading_html("試算工具", "模擬定期投入與臨時買入，把金額、批次、手續費與歷史風險放在同一處。", "不代表個人投資建議")}\n'
         f'<div class="desktop-mid-grid" id="tools">\n'
         f'{dca_simulator_html(market_ctx)}\n'
         f'{buy_now_tool_html(market_ctx)}\n'
         f'</div>\n'
-        f'{theme_radar_html()}\n'
         f'</section>\n'
-        f'<section class="mode-pane" id="data-mode">\n'
+        f'<section class="mode-pane app-page" id="data-mode">\n'
+        f'{page_heading_html("完整資料", "保留所有標的完整卡、基本面、ETF 資料、因子分數、技術細節與資料來源。", "進階檢視")}\n'
         f'<section class="target-section" id="target-list">\n'
         f'<div class="section-head"><div><div class="st">標的分析</div>'
         f'<p>一覽看完後，再到這裡看完整卡。每張卡先放結論、原因、反方與行動；技術細節和資料來源可展開。</p></div>'
@@ -4670,7 +5435,9 @@ def build_html(idx_html, tw_s, tw_e, us_s, us_e, bonds, update_time, market_ctx=
         f'{methodology_html()}\n'
         f'{public_readiness_html(update_time, market_ctx)}\n'
         f'</section>\n'
-        f'</main>\n'
+        f'</div></main>\n'
+        f'</div>\n'
+        f'{mobile_bottom_nav_html()}\n'
         f'<footer><div class="wrap">\n'
         f'<p>資料來源：TWSE 盤後公開資料 / TWSE ETF e添富配息清單 / FinMind 免費公開資料 / 政府資料開放平臺基金資料 / Yahoo Finance 免費公開資料 | 分析方式：規則化因子評分（無任何 AI API）</p>\n'
         f'<p>以上分析僅供參考，不構成投資建議。投資有風險，請自行判斷。</p>\n'
@@ -4680,7 +5447,7 @@ def build_html(idx_html, tw_s, tw_e, us_s, us_e, bonds, update_time, market_ctx=
 
 
 def report_is_healthy(html):
-    card_count = html.count('class="sc target-card"')
+    card_count = len(re.findall(r'class="sc target-card(?:\s|")', html))
     failure_count = html.count('資料暫時無法取得') + html.count('處理失敗')
     if card_count < 30:
         return False, f'卡片數過少：{card_count}'
