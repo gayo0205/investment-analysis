@@ -551,7 +551,12 @@ def fmt_flow_amount(value, price):
     if abs(amount) < 1:
         return '持平'
     side = '流入' if amount > 0 else '流出'
-    return f'{side} {abs(amount) / 100_000_000:.1f}億估'
+    amount_abs = abs(amount)
+    if amount_abs >= 100_000_000:
+        amount_text = f'{amount_abs / 100_000_000:.1f} 億元'
+    else:
+        amount_text = f'{amount_abs / 10_000:.0f} 萬元'
+    return f'{side}約 {amount_text}（估）'
 
 
 def fmt_flow_streak(value):
@@ -1339,6 +1344,131 @@ def institutional_flow_html(meta, price=None):
         f'<p>{h(chip["summary"])}</p>'
         f'<div class="detail-grid chip-flow-grid">{tiles}</div>'
         f'<div class="detail-note">{h(chip["action"])} 資料來源：{h(meta.get("finmind_chip_source", "FinMind InstitutionalInvestorsBuySell"))}；買賣超為股數換算張數，金額為用目前價格粗估。</div>'
+        f'</div>'
+    )
+
+
+def chip_flow_judgment(meta, price=None):
+    if not meta.get('finmind_chip_date'):
+        return dict(
+            available=False,
+            state='法人資料待補',
+            tone='neutral',
+            score=50,
+            summary='三大法人買賣超暫時抓不到，不能用資金流判斷。',
+            action='回到價格區間、趨勢與基本面判斷。',
+        )
+
+    total_1d = safe_num(meta.get('finmind_institutional_net_buy')) or 0
+    total_5d = safe_num(meta.get('finmind_institutional_net_buy_5d')) or 0
+    total_20d = safe_num(meta.get('finmind_institutional_net_buy_20d')) or 0
+    foreign_5d = safe_num(meta.get('finmind_foreign_net_buy_5d')) or 0
+    trust_5d = safe_num(meta.get('finmind_investment_trust_net_buy_5d')) or 0
+    dealer_5d = safe_num(meta.get('finmind_dealer_net_buy_5d')) or 0
+    streak = safe_num(meta.get('finmind_institutional_streak')) or 0
+
+    score = 50
+    score += 4 if total_1d > 0 else -4 if total_1d < 0 else 0
+    score += 12 if total_5d > 0 else -12
+    score += 12 if total_20d > 0 else -12
+    score += 8 if foreign_5d > 0 else -6
+    score += 8 if trust_5d > 0 else -4
+    score += 3 if dealer_5d > 0 else -2 if dealer_5d < 0 else 0
+    score += 6 if streak >= 3 else -6 if streak <= -3 else 0
+    score = clamp_score(score)
+
+    if total_5d > 0 and total_20d > 0 and foreign_5d > 0 and trust_5d > 0:
+        state, tone = '法人同步流入', 'positive'
+        action = '資金流是加分，但仍要確認價格沒有過熱。'
+    elif total_5d > 0 and total_20d > 0:
+        state, tone = '法人偏多', 'positive'
+        action = '法人方向偏多，可以加分，但不能單靠買超進場。'
+    elif total_5d > 0 and total_20d <= 0:
+        state, tone = '短線回補', 'mixed'
+        action = '短線買盤回來，中期尚未確認，不適合直接追高。'
+    elif total_5d <= 0 and total_20d > 0:
+        state, tone = '短線降溫', 'mixed'
+        action = '中期仍有資金，但短線轉弱，要看是否守住支撐。'
+    elif total_5d < 0 and total_20d < 0:
+        state, tone = '法人退潮', 'negative'
+        action = '法人資金流出時，不要因為價格看似便宜就急著攤平。'
+    else:
+        state, tone = '資金分歧', 'neutral'
+        action = '法人方向不明，先看價格區間與基本面。'
+
+    summary = (
+        f'近 5 日合計{fmt_net_lots(total_5d)}，近 20 日{fmt_net_lots(total_20d)}；'
+        f'外資 5 日{fmt_net_lots(foreign_5d)}，投信 5 日{fmt_net_lots(trust_5d)}。'
+    )
+    return dict(
+        available=True,
+        state=state,
+        tone=tone,
+        score=score,
+        summary=summary,
+        action=action,
+        total_1d=total_1d,
+        total_5d=total_5d,
+        total_20d=total_20d,
+        foreign_5d=foreign_5d,
+        trust_5d=trust_5d,
+        dealer_5d=dealer_5d,
+        streak=streak,
+    )
+
+
+def flow_bar_html(label, value, max_abs):
+    v = safe_num(value) or 0
+    pct = 0 if not max_abs or max_abs <= 0 else min(100, abs(v) / max_abs * 100)
+    cls = 'flow-in' if v > 0 else 'flow-out' if v < 0 else 'flow-flat'
+    return (
+        f'<div class="flow-bar-row {cls}">'
+        f'<span>{h(label)}</span><div class="flow-track"><i style="width:{pct:.0f}%"></i></div>'
+        f'<b>{h(fmt_net_lots(v))}</b></div>'
+    )
+
+
+def institutional_flow_html(meta, price=None):
+    chip = chip_flow_judgment(meta, price)
+    if not chip['available']:
+        return (
+            f'<div class="chip-flow-box chip-neutral">'
+            f'<div class="chip-flow-head"><div><span>法人資金流</span><b>{h(chip["state"])}</b></div>'
+            f'<strong>待補</strong></div><p>{h(chip["summary"])}</p></div>'
+        )
+    tone = chip.get('tone', 'neutral')
+    max_abs = max(
+        abs(safe_num(chip.get('total_5d')) or 0),
+        abs(safe_num(chip.get('foreign_5d')) or 0),
+        abs(safe_num(chip.get('trust_5d')) or 0),
+        abs(safe_num(chip.get('dealer_5d')) or 0),
+        1,
+    )
+    bars = ''.join([
+        flow_bar_html('合計 5 日', chip.get('total_5d'), max_abs),
+        flow_bar_html('外資 5 日', chip.get('foreign_5d'), max_abs),
+        flow_bar_html('投信 5 日', chip.get('trust_5d'), max_abs),
+        flow_bar_html('自營 5 日', chip.get('dealer_5d'), max_abs),
+    ])
+    tiles = ''.join([
+        metric_tile('資料日', meta.get('finmind_chip_date') or 'N/A', 'FinMind 公開資料'),
+        metric_tile('1 日合計', fmt_net_lots(chip.get('total_1d')), '最新一個交易日'),
+        metric_tile('5 日合計', fmt_net_lots(chip.get('total_5d')), '短線資金方向'),
+        metric_tile('20 日合計', fmt_net_lots(chip.get('total_20d')), '中期資金方向'),
+        metric_tile('約當金額', fmt_flow_amount(chip.get('total_5d'), price), '5 日買賣超股數 × 最新價格'),
+        metric_tile('連續狀態', fmt_flow_streak(chip.get('streak')), '連買/連賣越久越值得注意'),
+        metric_tile('資金流分', f'{chip.get("score", 50):.0f}', '只是一個因子，不單獨決定買賣'),
+    ])
+    return (
+        f'<div class="chip-flow-box chip-{h(tone)}">'
+        f'<div class="chip-flow-head"><div><span>法人資金流</span><b>{h(chip["state"])}</b></div>'
+        f'<strong>{chip.get("score", 50):.0f}</strong></div>'
+        f'<p>{h(chip["summary"])}</p>'
+        f'<div class="chip-flow-visual">{bars}</div>'
+        f'<div class="detail-grid chip-flow-grid">{tiles}</div>'
+        f'<details class="chip-flow-formula"><summary>約當金額怎麼算？</summary>'
+        f'<p>估算方式：近 5 日法人買賣超股數 × 最新價格。它不是交易所提供的精準成交金額，所以只能看方向與量級，不要拿來當精準成本。</p></details>'
+        f'<div class="detail-note">{h(chip["action"])} 資料來源：{h(meta.get("finmind_chip_source", "FinMind InstitutionalInvestorsBuySell"))}；買賣超為股數換算張數。</div>'
         f'</div>'
     )
 
@@ -2501,6 +2631,97 @@ def decision_card_html(ticker, a, ext, rec, plan):
         f'<div class="decision-row"><span>反方</span><p>{d["counter"]}</p></div>'
         f'<div class="decision-row"><span>行動</span><p>{d["action"]}</p></div>'
         f'<div class="decision-note"><b>可信度原因：</b>{q["reason"]}<br><span>資料項目：{q["notes"]}</span></div>'
+        f'</div>'
+    )
+
+
+def decision_meter_html(label, value, hint=''):
+    v = safe_num(value)
+    if v is None:
+        text, pct, color = 'N/A', 0, '#657282'
+    else:
+        pct = max(0, min(100, v))
+        text = f'{v:.0f}'
+        color = '#1D9E75' if pct >= 70 else '#185FA5' if pct >= 55 else '#BA7517' if pct >= 40 else '#D85A30'
+    return (
+        f'<div class="decision-meter"><div><span>{h(label)}</span><b style="color:{color}">{h(text)}</b></div>'
+        f'<i><em style="width:{pct:.0f}%;background:{color}"></em></i><small>{h(hint)}</small></div>'
+    )
+
+
+def decision_evidence_cards_html(ticker, a, ext):
+    meta = a.get('meta') or {}
+    is_etf = is_etf_like(ticker)
+    fs = a.get('factor_scores') or {}
+    price = safe_num(ext.get('latest_close')) or meta.get('quote_price')
+    chip = chip_flow_judgment(meta, price)
+    w_pct = safe_num(ext.get('w_pct'))
+    risk = safe_num(fs.get('risk')) or 50
+    trend = safe_num(fs.get('trend')) or 50
+    fundamental = safe_num(fs.get('fundamental')) or 50
+    w_text = f'{w_pct:.0f}%' if w_pct is not None else 'N/A'
+    tech_title = '趨勢偏強' if trend >= 65 else '趨勢普通' if trend >= 45 else '趨勢偏弱'
+    if w_pct is not None and w_pct >= 85:
+        tech_body = f'52 週位階 {w_text}，價格偏高，適合等回檔或縮小單筆。'
+    elif w_pct is not None and w_pct <= 35:
+        tech_body = f'52 週位階 {w_text}，接近相對低位，但仍要確認趨勢沒有轉壞。'
+    else:
+        tech_body = f'52 週位階 {w_text}，趨勢為「{ext.get("ma_align", "N/A")}」。'
+
+    if chip.get('available'):
+        flow_title = chip.get('state', '資金分歧')
+        flow_body = (
+            f'5 日{fmt_net_lots(chip.get("total_5d"))}，20 日{fmt_net_lots(chip.get("total_20d"))}；'
+            f'約當金額為{fmt_flow_amount(chip.get("total_5d"), price)}。'
+        )
+    else:
+        flow_title = '法人資料待補'
+        flow_body = '這檔暫時不能用外資、投信、自營商判斷，只看價格與基本面。'
+
+    basic_title = 'ETF 資料' if is_etf else '基本面'
+    basic_body = etf_basic_phrase(meta) if is_etf else stock_basic_phrase(meta)
+    risk_title = '風險可控' if risk >= 65 else '風險中等' if risk >= 45 else '風險偏高'
+    risk_body = f'風險分數 {risk:.0f}；公開版只能提醒風險，不能替你決定部位大小。'
+
+    cards = [
+        ('技術面', tech_title, tech_body, 'tech'),
+        ('法人資金', flow_title, flow_body, chip.get('tone', 'neutral')),
+        (basic_title, '資料重點', basic_body, 'basic'),
+        ('風險', risk_title, risk_body, 'risk'),
+    ]
+    return ''.join(
+        f'<div class="decision-mini-card decision-mini-{h(tone)}"><span>{h(label)}</span>'
+        f'<b>{h(title)}</b><p>{h(body)}</p></div>'
+        for label, title, body, tone in cards
+    )
+
+
+def decision_card_html(ticker, a, ext, rec, plan):
+    d = decision_texts(ticker, a, ext, rec, plan)
+    q = data_quality_note(ticker, a)
+    meta = a.get('meta') or {}
+    chip = chip_flow_judgment(meta, safe_num(ext.get('latest_close')) or meta.get('quote_price'))
+    fs = a.get('factor_scores') or {}
+    meters = ''.join([
+        decision_meter_html('體質', a.get('score'), a.get('stxt', '')),
+        decision_meter_html('風險', fs.get('risk'), '越高代表越穩'),
+        decision_meter_html('法人', chip.get('score') if chip.get('available') else None, chip.get('state', '待補')),
+    ])
+    evidence = decision_evidence_cards_html(ticker, a, ext)
+    return (
+        f'<div class="decision-card decision-card-v2">'
+        f'<div class="decision-head"><span>小白決策卡</span><b class="confidence-pill">資料可信度：{h(q["confidence"])}</b></div>'
+        f'<div class="decision-hero-row"><span>結論</span><strong>{h(d["conclusion"])}</strong></div>'
+        f'<div class="decision-action-grid">'
+        f'<div><span>今天怎麼做</span><p>{h(d["action"])}</p></div>'
+        f'<div><span>什麼情況要改變</span><p>{h(d["counter"])}</p></div>'
+        f'</div>'
+        f'<div class="decision-meter-grid">{meters}</div>'
+        f'<div class="decision-evidence-grid">{evidence}</div>'
+        f'<details class="decision-more"><summary>查看原始推論與資料可信度</summary>'
+        f'<div class="decision-row"><span>原因</span><p>{h(d["reason"])}</p></div>'
+        f'<div class="decision-note"><b>可信度原因：</b>{h(q["reason"])}<br><span>資料項目：{h(q["notes"])}</span></div>'
+        f'</details>'
         f'</div>'
     )
 
@@ -4813,6 +5034,33 @@ h1{font-size:19px;font-weight:700;color:var(--t);display:flex;align-items:center
 .decision-row span{font-size:10px;color:var(--t2);font-weight:700}
 .decision-row p{font-size:11px;color:var(--t);line-height:1.6}
 .decision-note{font-size:10px;color:var(--t2);line-height:1.5;margin-top:8px;border-top:1px solid var(--bdr);padding-top:7px}
+.decision-card-v2{padding:14px;background:linear-gradient(180deg,rgba(24,95,165,0.08),var(--card));border-color:rgba(24,95,165,0.20)}
+.confidence-pill{border:1px solid var(--bdr);background:var(--card2);border-radius:999px;padding:4px 8px;white-space:nowrap}
+.decision-hero-row{display:grid;grid-template-columns:54px 1fr;gap:10px;align-items:start;background:#101720;border:1px solid var(--bdr);border-radius:9px;padding:12px;margin:8px 0 10px}
+.decision-hero-row span,.decision-action-grid span,.decision-mini-card span,.decision-meter span{font-size:10px;color:var(--t2);font-weight:850}
+.decision-hero-row strong{font-size:20px;line-height:1.35;color:var(--t);letter-spacing:0;font-weight:950}
+.decision-action-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
+.decision-action-grid>div{background:var(--card2);border:1px solid var(--bdr);border-radius:9px;padding:10px}
+.decision-action-grid p{font-size:11px;color:var(--t);line-height:1.6;margin-top:4px}
+.decision-meter-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:8px 0 10px}
+.decision-meter{background:var(--card2);border:1px solid var(--bdr);border-radius:9px;padding:9px;min-width:0}
+.decision-meter>div{display:flex;justify-content:space-between;gap:8px;align-items:center}
+.decision-meter b{font-size:16px;line-height:1;font-variant-numeric:tabular-nums}
+.decision-meter i{display:block;height:7px;background:rgba(101,114,130,0.18);border-radius:999px;margin:7px 0 5px;overflow:hidden}
+.decision-meter em{display:block;height:100%;border-radius:999px}
+.decision-meter small{display:block;font-size:9px;color:var(--t2);line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.decision-evidence-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:8px}
+.decision-mini-card{background:var(--card2);border:1px solid var(--bdr);border-radius:9px;padding:10px;min-width:0}
+.decision-mini-card b{display:block;font-size:13px;color:var(--t);line-height:1.35;margin-top:3px}
+.decision-mini-card p{font-size:10px;color:var(--t2);line-height:1.55;margin-top:5px}
+.decision-mini-positive{border-color:rgba(29,158,117,0.30);background:var(--ok-bg)}
+.decision-mini-mixed{border-color:rgba(186,117,23,0.32);background:var(--warn-bg)}
+.decision-mini-negative,.decision-mini-risk{border-color:rgba(216,90,48,0.30);background:var(--risk-bg)}
+.decision-more{margin-top:10px;border-top:1px solid var(--bdr);padding-top:8px}
+.decision-more summary{cursor:pointer;list-style:none;font-size:11px;font-weight:900;color:var(--t)}
+.decision-more summary::-webkit-details-marker{display:none}
+.decision-more summary::after{content:"＋";float:right;color:var(--t2)}
+.decision-more[open] summary::after{content:"－"}
 .quick-take{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0}
 .quick-take div{background:var(--card2);border:1px solid var(--bdr);border-radius:8px;padding:10px 11px}
 .quick-take span{display:block;font-size:10px;color:var(--t2);margin-bottom:3px;font-weight:700}
@@ -4845,6 +5093,21 @@ h1{font-size:19px;font-weight:700;color:var(--t);display:flex;align-items:center
 .chip-negative .chip-flow-head strong{color:var(--risk);background:var(--risk-bg)}
 .chip-flow-box>p{font-size:11px;color:var(--t);line-height:1.6;margin-bottom:9px}
 .chip-flow-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
+.chip-flow-visual{display:grid;gap:7px;margin:8px 0 10px}
+.flow-bar-row{display:grid;grid-template-columns:68px minmax(70px,1fr) 104px;gap:8px;align-items:center}
+.flow-bar-row span{font-size:10px;color:var(--t2);font-weight:850}
+.flow-bar-row b{font-size:10px;color:var(--t);text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.flow-track{height:8px;background:rgba(101,114,130,0.18);border-radius:999px;overflow:hidden}
+.flow-track i{display:block;height:100%;border-radius:999px;background:var(--t2)}
+.flow-in .flow-track i{background:var(--ok)}
+.flow-out .flow-track i{background:var(--risk)}
+.flow-flat .flow-track i{background:var(--t2)}
+.chip-flow-formula{border-top:1px solid var(--bdr);margin-top:9px;padding-top:8px}
+.chip-flow-formula summary{cursor:pointer;list-style:none;font-size:10px;font-weight:900;color:var(--t)}
+.chip-flow-formula summary::-webkit-details-marker{display:none}
+.chip-flow-formula summary::after{content:"＋";float:right;color:var(--t2)}
+.chip-flow-formula[open] summary::after{content:"－"}
+.chip-flow-formula p{font-size:10px;color:var(--t2);line-height:1.55;margin-top:6px}
 .holding-chips{margin-top:8px;border-top:1px solid var(--bdr);padding-top:8px}
 .holding-chips b{display:block;font-size:10px;color:var(--t2);margin-bottom:5px}
 .holding-chips div{display:flex;flex-wrap:wrap;gap:5px}
@@ -5504,6 +5767,15 @@ body.target-detail-open #data-mode .cgrid{padding-bottom:10px}
   .target-decision-rail .quick-take{grid-template-columns:1fr 1fr}
   .target-decision-rail .decision-card{padding:12px}
   .target-decision-rail .decision-row{grid-template-columns:42px 1fr}
+  .decision-hero-row{grid-template-columns:1fr;padding:11px}
+  .decision-hero-row strong{font-size:18px}
+  .decision-action-grid,.decision-evidence-grid{grid-template-columns:1fr}
+  .decision-meter-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+  .decision-meter{padding:8px 7px}
+  .decision-meter small{white-space:normal}
+  .chip-flow-grid{grid-template-columns:1fr}
+  .flow-bar-row{grid-template-columns:58px minmax(60px,1fr);gap:6px}
+  .flow-bar-row b{grid-column:2;text-align:left}
   .target-score-card,.target-source-note{display:none}
   .target-detail-main{width:100%}
   .target-detail-tabs{position:sticky;top:60px;z-index:80;padding:0 5px}
