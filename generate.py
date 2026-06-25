@@ -2681,7 +2681,7 @@ def decision_evidence_cards_html(ticker, a, ext):
     basic_title = 'ETF 資料' if is_etf else '基本面'
     basic_body = etf_basic_phrase(meta) if is_etf else stock_basic_phrase(meta)
     risk_title = '風險可控' if risk >= 65 else '風險中等' if risk >= 45 else '風險偏高'
-    risk_body = f'風險分數 {risk:.0f}；公開版只能提醒風險，不能替你決定部位大小。'
+    risk_body = f'風險分數 {risk:.0f}；這裡只提供公開資料提醒，部位大小仍要自己控制。'
 
     cards = [
         ('技術面', tech_title, tech_body, 'tech'),
