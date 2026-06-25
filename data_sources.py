@@ -25,6 +25,7 @@ SITCA_FUND_NAV_URL = 'https://www.sitca.org.tw/MemberK0000/F/03/nav.csv'
 FSC_FUND_FEE_URL = 'https://stat.fsc.gov.tw/FSC_OAS3_RESTORE/api/CSV_EXPORT?TableID=066&OUTPUT_FILE=Y'
 TWSE_ETF_DIVIDEND_URL = 'https://wwwc.twse.com.tw/zh/ETFortune/dividendList'
 FINMIND_PUBLIC_CACHE = {}
+FINMIND_CHIP_CACHE = {}
 TW_ETF_PUBLIC_CACHE = {}
 TWSE_FUND_BASIC_CACHE = None
 SITCA_FUND_NAV_CACHE = None
@@ -426,31 +427,115 @@ def _calc_financial_statement(rows):
     }
 
 
+def _institution_group(name):
+    text = str(name or '')
+    if 'Foreign' in text:
+        return 'foreign'
+    if text == 'Investment_Trust':
+        return 'trust'
+    if text.startswith('Dealer'):
+        return 'dealer'
+    return 'other'
+
+
+def _flow_streak(values):
+    usable = [v for v in values if v is not None]
+    if not usable:
+        return 0
+    latest = usable[-1]
+    if abs(latest) < 1:
+        return 0
+    sign = 1 if latest > 0 else -1
+    count = 0
+    for value in reversed(usable):
+        if value is None or abs(value) < 1:
+            break
+        if (value > 0 and sign > 0) or (value < 0 and sign < 0):
+            count += 1
+        else:
+            break
+    return sign * count
+
+
 def _calc_institutional(rows):
-    latest = _latest_rows(rows)
-    if not latest:
+    usable = [row for row in rows if _date_key(row)]
+    if not usable:
         return {}
-    foreign = trust = dealer = total = 0.0
-    for row in latest:
+    by_date = {}
+    for row in usable:
+        date = _date_key(row)
+        item = by_date.setdefault(date, dict(foreign=0.0, trust=0.0, dealer=0.0, total=0.0))
         buy = _safe_num(row.get('buy')) or 0
         sell = _safe_num(row.get('sell')) or 0
         net = buy - sell
-        name = str(row.get('name') or '')
-        total += net
-        if 'Foreign' in name:
-            foreign += net
-        elif name == 'Investment_Trust':
-            trust += net
-        elif name.startswith('Dealer'):
-            dealer += net
+        group = _institution_group(row.get('name'))
+        if group in item:
+            item[group] += net
+        item['total'] += net
+
+    dates = sorted(by_date)
+    if not dates:
+        return {}
+    latest_date = dates[-1]
+    latest = by_date[latest_date]
+
+    def window_sum(key, days):
+        selected = dates[-days:]
+        return sum(by_date[date].get(key, 0.0) for date in selected)
+
+    def series(key):
+        return [by_date[date].get(key, 0.0) for date in dates]
+
+    foreign = latest.get('foreign', 0.0)
+    trust = latest.get('trust', 0.0)
+    dealer = latest.get('dealer', 0.0)
+    total = latest.get('total', 0.0)
     return {
-        'finmind_chip_date': _date_key(latest[0]),
+        'finmind_chip_date': latest_date,
+        'finmind_chip_window_days': len(dates),
         'finmind_foreign_net_buy': foreign,
         'finmind_investment_trust_net_buy': trust,
         'finmind_dealer_net_buy': dealer,
         'finmind_institutional_net_buy': total,
+        'finmind_foreign_net_buy_5d': window_sum('foreign', 5),
+        'finmind_investment_trust_net_buy_5d': window_sum('trust', 5),
+        'finmind_dealer_net_buy_5d': window_sum('dealer', 5),
+        'finmind_institutional_net_buy_5d': window_sum('total', 5),
+        'finmind_foreign_net_buy_20d': window_sum('foreign', 20),
+        'finmind_investment_trust_net_buy_20d': window_sum('trust', 20),
+        'finmind_dealer_net_buy_20d': window_sum('dealer', 20),
+        'finmind_institutional_net_buy_20d': window_sum('total', 20),
+        'finmind_foreign_streak': _flow_streak(series('foreign')),
+        'finmind_investment_trust_streak': _flow_streak(series('trust')),
+        'finmind_dealer_streak': _flow_streak(series('dealer')),
+        'finmind_institutional_streak': _flow_streak(series('total')),
         'finmind_chip_source': 'FinMind InstitutionalInvestorsBuySell',
     }
+
+
+def fetch_finmind_institutional_flow(stock_id):
+    """Fetch true institutional buy/sell flow for Taiwan tickers.
+
+    Values are FinMind-reported buy minus sell share counts. Presentation layers
+    may convert them to lots or estimated TWD value, but should keep the source
+    note visible because the public endpoint can occasionally miss fields.
+    """
+    stock_id = str(stock_id or '').strip()
+    if not stock_id:
+        return {}
+    if stock_id in FINMIND_CHIP_CACHE:
+        return dict(FINMIND_CHIP_CACHE[stock_id])
+
+    result = {'finmind_chip_available': False, 'finmind_chip_errors': []}
+    try:
+        rows = _finmind_v3('InstitutionalInvestorsBuySell', stock_id, _period_start(80))
+        result.update(_calc_institutional(rows))
+    except Exception as ex:
+        result['finmind_chip_errors'].append(f'三大法人略過：{ex}')
+
+    result['finmind_chip_available'] = 'finmind_institutional_net_buy' in result
+    FINMIND_CHIP_CACHE[stock_id] = dict(result)
+    return dict(result)
 
 
 def fetch_finmind_public_stock_data(stock_id):
@@ -490,10 +575,10 @@ def fetch_finmind_public_stock_data(stock_id):
     except Exception as ex:
         result['finmind_errors'].append(f'財報略過：{ex}')
 
-    try:
-        result.update(_calc_institutional(_finmind_v3('InstitutionalInvestorsBuySell', stock_id, _period_start(45))))
-    except Exception as ex:
-        result['finmind_errors'].append(f'三大法人略過：{ex}')
+    chip = fetch_finmind_institutional_flow(stock_id)
+    if chip:
+        result.update(chip)
+        result['finmind_errors'].extend(chip.get('finmind_chip_errors') or [])
 
     result['finmind_available'] = any(
         key in result for key in (

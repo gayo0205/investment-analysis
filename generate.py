@@ -18,7 +18,7 @@ import os
 import re
 import warnings
 import time
-from data_sources import fetch_finmind_public_stock_data, fetch_tw_etf_public_data, fetch_twse_stock_day_all
+from data_sources import fetch_finmind_public_stock_data, fetch_finmind_institutional_flow, fetch_tw_etf_public_data, fetch_twse_stock_day_all
 warnings.filterwarnings('ignore')
 
 CACHE_DIR = Path(os.environ.get('YF_CACHE_DIR') or (Path(__file__).resolve().parent / '.yf_cache_runtime'))
@@ -542,6 +542,26 @@ def fmt_net_lots(value):
     return f'{side} {lots:,.0f}張'
 
 
+def fmt_flow_amount(value, price):
+    shares = safe_num(value)
+    px = safe_num(price)
+    if shares is None or px is None or px <= 0:
+        return 'N/A'
+    amount = shares * px
+    if abs(amount) < 1:
+        return '持平'
+    side = '流入' if amount > 0 else '流出'
+    return f'{side} {abs(amount) / 100_000_000:.1f}億估'
+
+
+def fmt_flow_streak(value):
+    v = safe_num(value)
+    if v is None or abs(v) < 1:
+        return '未連續'
+    days = int(abs(v))
+    return f'連買 {days} 日' if v > 0 else f'連賣 {days} 日'
+
+
 def pct_return(series, lookback=756):
     if series is None:
         return None
@@ -966,6 +986,19 @@ def apply_tw_etf_metadata(ticker, meta, last_price=None):
     return merged
 
 
+def apply_institutional_flow_metadata(ticker, meta):
+    """補台股真實三大法人買賣超；美股不混用台股法人資料。"""
+    if not is_tw_ticker(ticker):
+        return meta
+    code = ticker.replace('.TW', '')
+    flow = fetch_finmind_institutional_flow(code)
+    if not flow:
+        return meta
+    merged = dict(meta)
+    merged.update(flow)
+    return merged
+
+
 def should_merge_twse_quote(ticker, twse_quote):
     if not twse_quote:
         return False, ''
@@ -986,7 +1019,7 @@ def fetch_public_metadata(ticker, last_price=None):
             if ratio < 0.5 or ratio > 1.5:
                 skipped = dict(meta)
                 skipped['twse_validation_note'] = f'TWSE價格尺度與Yahoo日線差異過大，暫不合併（ratio {ratio:.2f}）'
-                return skipped
+                return apply_institutional_flow_metadata(ticker, skipped)
         should_merge, note = should_merge_twse_quote(ticker, twse_quote)
         if not should_merge:
             skipped = dict(meta)
@@ -994,12 +1027,12 @@ def fetch_public_metadata(ticker, last_price=None):
             skipped['twse_reference_close'] = twse_quote.get('quote_price')
             skipped['twse_validation_note'] = note
             skipped['data_source_priority'] = '盤中Yahoo報價優先，TWSE盤後日資料保留為正式收盤參考'
-            return apply_tw_etf_metadata(ticker, skipped, last_price)
+            return apply_institutional_flow_metadata(ticker, apply_tw_etf_metadata(ticker, skipped, last_price))
         merged = dict(meta)
         merged.update(twse_quote)
         merged['data_source_priority'] = 'TWSE盤後資料優先，Yahoo補基本面/歷史資料'
-        return apply_tw_etf_metadata(ticker, merged, merged.get('quote_price') or last_price)
-    return apply_tw_etf_metadata(ticker, meta, last_price)
+        return apply_institutional_flow_metadata(ticker, apply_tw_etf_metadata(ticker, merged, merged.get('quote_price') or last_price))
+    return apply_institutional_flow_metadata(ticker, apply_tw_etf_metadata(ticker, meta, last_price))
 
 
 def calc_buy_fee(amount, ticker):
@@ -1188,6 +1221,128 @@ def etf_basic_phrase(meta):
     return '、'.join(parts[:4])
 
 
+def chip_flow_judgment(meta, price=None):
+    if not meta.get('finmind_chip_date'):
+        return dict(
+            available=False,
+            state='法人資料待補',
+            tone='neutral',
+            score=50,
+            summary='三大法人買賣超暫時抓不到，不能用資金流判斷。',
+            action='回到價格區間、趨勢與基本面判斷。',
+        )
+
+    total_1d = safe_num(meta.get('finmind_institutional_net_buy')) or 0
+    total_5d = safe_num(meta.get('finmind_institutional_net_buy_5d')) or 0
+    total_20d = safe_num(meta.get('finmind_institutional_net_buy_20d')) or 0
+    foreign_5d = safe_num(meta.get('finmind_foreign_net_buy_5d')) or 0
+    trust_5d = safe_num(meta.get('finmind_investment_trust_net_buy_5d')) or 0
+    dealer_5d = safe_num(meta.get('finmind_dealer_net_buy_5d')) or 0
+    streak = safe_num(meta.get('finmind_institutional_streak')) or 0
+
+    score = 50
+    if total_1d > 0:
+        score += 4
+    elif total_1d < 0:
+        score -= 4
+    if total_5d > 0:
+        score += 12
+    else:
+        score -= 12
+    if total_20d > 0:
+        score += 12
+    else:
+        score -= 12
+    if foreign_5d > 0:
+        score += 8
+    else:
+        score -= 6
+    if trust_5d > 0:
+        score += 8
+    else:
+        score -= 4
+    if dealer_5d > 0:
+        score += 3
+    elif dealer_5d < 0:
+        score -= 2
+    if streak >= 3:
+        score += 6
+    elif streak <= -3:
+        score -= 6
+    score = clamp_score(score)
+
+    if total_5d > 0 and total_20d > 0 and foreign_5d > 0 and trust_5d > 0:
+        state, tone = '法人同步流入', 'positive'
+        action = '資金流支持，但仍要看價格是否過熱。'
+    elif total_5d > 0 and total_20d > 0:
+        state, tone = '法人偏多', 'positive'
+        action = '可列入分批觀察，不能單靠法人買超追價。'
+    elif total_5d > 0 and total_20d <= 0:
+        state, tone = '短線回補', 'mixed'
+        action = '短線有資金回補，但中期還沒確認，適合觀察不重押。'
+    elif total_5d <= 0 and total_20d > 0:
+        state, tone = '短線降溫', 'mixed'
+        action = '中期仍有資金，但短線轉弱，先等價格穩定。'
+    elif total_5d < 0 and total_20d < 0:
+        state, tone = '法人退潮', 'negative'
+        action = '法人資金偏流出，不急著買；跌破支撐要降低風險。'
+    else:
+        state, tone = '資金分歧', 'neutral'
+        action = '法人方向不明，回到基本面與價格區間。'
+
+    summary = (
+        f'近 5 日合計 {fmt_net_lots(total_5d)}、近 20 日 {fmt_net_lots(total_20d)}；'
+        f'外資 5 日 {fmt_net_lots(foreign_5d)}，投信 5 日 {fmt_net_lots(trust_5d)}。'
+    )
+    if price is not None:
+        summary += f' 近 5 日合計約當 {fmt_flow_amount(total_5d, price)}。'
+    return dict(
+        available=True,
+        state=state,
+        tone=tone,
+        score=score,
+        summary=summary,
+        action=action,
+        total_1d=total_1d,
+        total_5d=total_5d,
+        total_20d=total_20d,
+        foreign_5d=foreign_5d,
+        trust_5d=trust_5d,
+        dealer_5d=dealer_5d,
+        streak=streak,
+    )
+
+
+def institutional_flow_html(meta, price=None):
+    chip = chip_flow_judgment(meta, price)
+    if not chip['available']:
+        return (
+            f'<div class="chip-flow-box chip-neutral">'
+            f'<div class="chip-flow-head"><div><span>法人資金流</span><b>{h(chip["state"])}</b></div>'
+            f'<strong>待補</strong></div><p>{h(chip["summary"])}</p></div>'
+        )
+    tone = chip.get('tone', 'neutral')
+    tiles = ''.join([
+        metric_tile('1日合計', fmt_net_lots(chip.get('total_1d')), f'資料日 {meta.get("finmind_chip_date")}'),
+        metric_tile('5日合計', fmt_net_lots(chip.get('total_5d')), fmt_flow_amount(chip.get('total_5d'), price)),
+        metric_tile('20日合計', fmt_net_lots(chip.get('total_20d')), '中期資金方向'),
+        metric_tile('外資5日', fmt_net_lots(chip.get('foreign_5d')), '外資偏中大型股'),
+        metric_tile('投信5日', fmt_net_lots(chip.get('trust_5d')), '投信常影響台股主流題材'),
+        metric_tile('自營5日', fmt_net_lots(chip.get('dealer_5d')), '自營商較偏短線'),
+        metric_tile('連續狀態', fmt_flow_streak(chip.get('streak')), '連買/連賣越久越值得注意'),
+        metric_tile('資金流分', f'{chip.get("score", 50):.0f}', '只是一個因子，不單獨決定買賣'),
+    ])
+    return (
+        f'<div class="chip-flow-box chip-{h(tone)}">'
+        f'<div class="chip-flow-head"><div><span>法人資金流</span><b>{h(chip["state"])}</b></div>'
+        f'<strong>{chip.get("score", 50):.0f}</strong></div>'
+        f'<p>{h(chip["summary"])}</p>'
+        f'<div class="detail-grid chip-flow-grid">{tiles}</div>'
+        f'<div class="detail-note">{h(chip["action"])} 資料來源：{h(meta.get("finmind_chip_source", "FinMind InstitutionalInvestorsBuySell"))}；買賣超為股數換算張數，金額為用目前價格粗估。</div>'
+        f'</div>'
+    )
+
+
 def buy_now_ratio(ticker, a, ext):
     profile = get_profile(ticker)
     score = a['score']
@@ -1242,11 +1397,17 @@ def decision_texts(ticker, a, ext, rec, plan=None):
     risk = a.get('factor_scores', {}).get('risk', 50)
     max_dd = ext.get('max_drawdown')
     dd_text = f'，歷史最大回撤約 {max_dd:.0f}%' if max_dd is not None else ''
+    chip = chip_flow_judgment(meta, safe_num(ext.get('latest_close')) or meta.get('quote_price'))
+    chip_text = f'法人資金：{chip["state"]}，{chip["summary"]}' if chip.get('available') else '法人資金：資料待補。'
 
     if is_etf:
         dca_txt, _, dca_reason = rec['dca']
         if risk < 45:
             conclusion = '風險偏高，只能小額觀察'
+        elif chip.get('tone') == 'negative' and w_pct >= 75:
+            conclusion = '法人退潮且價格偏高，暫停加碼'
+        elif chip.get('tone') == 'positive' and w_pct < 80 and score >= 60:
+            conclusion = '法人流入支持，可紀律分批'
         elif w_pct >= 85:
             conclusion = '長期可持續扣款，但不追高加碼'
         elif score >= 70:
@@ -1255,23 +1416,33 @@ def decision_texts(ticker, a, ext, rec, plan=None):
             conclusion = '先降低加碼衝動，等趨勢回穩'
         else:
             conclusion = dca_txt
-        reason = f'價格位階在 52 週的 {w_pct:.0f}%，趨勢為「{ma}」，風險分數 {risk}{dd_text}。ETF資料：{etf_basic_phrase(meta)}。{dca_reason}'
+        reason = f'價格位階在 52 週的 {w_pct:.0f}%，趨勢為「{ma}」，風險分數 {risk}{dd_text}。ETF資料：{etf_basic_phrase(meta)}。{chip_text}。{dca_reason}'
         counter = '如果大盤跌破季線、ETF折溢價異常、費用率偏高、配息來源不穩或成分股過度集中，這個判斷要降級。'
         if plan and plan.get('amount', 0) > 0:
             action = f'定期定額照計畫，本月示範投入約 {money(plan["amount"])} 元；臨時想買請看本卡買進區間，並用上方「今天想買」分批估算。'
         else:
             action = '本月不加碼，先保留現金；臨時想買要看本卡買進區間，只用小比例試單。'
+        if chip.get('tone') == 'negative':
+            action += ' 法人資金偏退潮時，不因便宜感加碼。'
     else:
         trade_txt, _, trade_reason = rec['trade']
-        if score >= 70:
+        if chip.get('tone') == 'negative':
+            conclusion = '法人資金退潮，新手先不要追'
+        elif chip.get('tone') == 'positive' and score >= 65 and w_pct < 85:
+            conclusion = '法人流入支持，可小比例研究'
+        elif score >= 70:
             conclusion = '可小比例觀察，不建議重壓個股'
         elif score < 45:
             conclusion = '新手先不要追，等風險降低'
         else:
             conclusion = trade_txt
-        reason = f'技術分數 {score}，價格位階 {w_pct:.0f}%，趨勢為「{ma}」{dd_text}。基本面：{stock_basic_phrase(meta)}。{trade_reason}'
+        reason = f'技術分數 {score}，價格位階 {w_pct:.0f}%，趨勢為「{ma}」{dd_text}。基本面：{stock_basic_phrase(meta)}。{chip_text}。{trade_reason}'
         counter = '如果營收連續轉弱、EPS下修、毛利率下降、Forward PE轉差或跌破季線，這個觀察要立刻降級。'
         action = '新手先把個股當觀察清單；真的想買，先看本卡買進區間，用小比例分批，不要影響核心 ETF 部位。'
+        if chip.get('tone') == 'positive' and w_pct >= 85:
+            action += ' 法人買超但價格已高，只能強勢追蹤，不是重押買點。'
+        elif chip.get('tone') == 'negative':
+            action += ' 法人資金流出時，先等止跌或基本面確認。'
 
     return dict(conclusion=conclusion, reason=reason, counter=counter, action=action)
 
@@ -1279,6 +1450,8 @@ def decision_texts(ticker, a, ext, rec, plan=None):
 def store_buy_now_data(ticker, name, price, a, ext, rec, plan, zone=None):
     decision = decision_texts(ticker, a, ext, rec, plan)
     quality = data_quality_note(ticker, a)
+    meta = a.get('meta') or {}
+    chip = chip_flow_judgment(meta, price)
     BUY_NOW_DATA[ticker] = dict(
         name=name,
         price=round(float(price), 4),
@@ -1297,6 +1470,20 @@ def store_buy_now_data(ticker, name, price, a, ext, rec, plan, zone=None):
         reason=decision['reason'],
         counter=decision['counter'],
         action=decision['action'],
+        chip_available=bool(chip.get('available')),
+        chip_state=chip.get('state'),
+        chip_tone=chip.get('tone'),
+        chip_score=chip.get('score'),
+        chip_summary=chip.get('summary'),
+        chip_action=chip.get('action'),
+        chip_date=meta.get('finmind_chip_date'),
+        chip_total_1d=chip.get('total_1d'),
+        chip_total_5d=chip.get('total_5d'),
+        chip_total_20d=chip.get('total_20d'),
+        chip_foreign_5d=chip.get('foreign_5d'),
+        chip_trust_5d=chip.get('trust_5d'),
+        chip_dealer_5d=chip.get('dealer_5d'),
+        chip_streak=chip.get('streak'),
         price_zone=zone or {},
     )
 
@@ -2418,6 +2605,134 @@ def theme_radar_html():
     )
 
 
+def sector_flow_radar_html(compact=False):
+    """Real Taiwan institutional flow by tracked sector.
+
+    Only Taiwan tickers with FinMind institutional data are included. US names
+    remain in theme radar, but not in this true fund-flow radar.
+    """
+    if not BUY_NOW_DATA:
+        return ''
+
+    def metrics_for(theme):
+        rows = []
+        for tk in theme.get('watch', []):
+            item = BUY_NOW_DATA.get(tk)
+            if not item or not item.get('chip_available') or not item.get('is_tw'):
+                continue
+            rows.append((tk, item))
+        if not rows:
+            return None
+
+        total_1d = sum(safe_num(item.get('chip_total_1d')) or 0 for _, item in rows)
+        total_5d = sum(safe_num(item.get('chip_total_5d')) or 0 for _, item in rows)
+        total_20d = sum(safe_num(item.get('chip_total_20d')) or 0 for _, item in rows)
+        foreign_5d = sum(safe_num(item.get('chip_foreign_5d')) or 0 for _, item in rows)
+        trust_5d = sum(safe_num(item.get('chip_trust_5d')) or 0 for _, item in rows)
+        dealer_5d = sum(safe_num(item.get('chip_dealer_5d')) or 0 for _, item in rows)
+        amount_5d = sum((safe_num(item.get('chip_total_5d')) or 0) * (safe_num(item.get('price')) or 0) for _, item in rows)
+        avg_wpct = sum(safe_num(item.get('w_pct')) or 50 for _, item in rows) / len(rows)
+        avg_score = sum(safe_num(item.get('score')) or 0 for _, item in rows) / len(rows)
+
+        if total_5d > 0 and total_20d > 0 and foreign_5d > 0 and trust_5d > 0:
+            state, cls = '漲潮', 'tide'
+            meaning = '外資與投信近 5 日同步偏買，且 20 日合計仍流入。'
+        elif total_5d > 0 and total_20d > 0:
+            state, cls = '輪動', 'rotate'
+            meaning = '法人近 5 日與 20 日偏買，但不同法人之間仍有分歧。'
+        elif total_5d > 0 and total_20d <= 0:
+            state, cls = '短線回補', 'rotate'
+            meaning = '短線買盤回來，但中期還沒確認，不適合直接追高。'
+        elif total_5d < 0 and total_20d < 0:
+            state, cls = '退潮', 'ebb'
+            meaning = '近 5 日與 20 日都偏賣，法人資金正在流出。'
+        else:
+            state, cls = '觀望', 'watch'
+            meaning = '法人方向不夠明確，先看下一次更新是否延續。'
+
+        if avg_wpct >= 85 and cls in ['tide', 'rotate']:
+            meaning += ' 但追蹤標的平均位階偏高，只能小額或等回測。'
+        elif avg_wpct <= 45 and cls in ['tide', 'rotate']:
+            meaning += ' 價格沒有明顯過熱，可優先打開完整卡檢查買進區間。'
+
+        ranked = sorted(
+            rows,
+            key=lambda pair: (
+                safe_num(pair[1].get('chip_score')) or 50,
+                safe_num(pair[1].get('score')) or 0,
+            ),
+            reverse=True,
+        )
+        return dict(
+            state=state,
+            cls=cls,
+            meaning=meaning,
+            total_1d=total_1d,
+            total_5d=total_5d,
+            total_20d=total_20d,
+            foreign_5d=foreign_5d,
+            trust_5d=trust_5d,
+            dealer_5d=dealer_5d,
+            amount_5d=amount_5d,
+            avg_wpct=avg_wpct,
+            avg_score=avg_score,
+            rows=ranked,
+        )
+
+    ranked_themes = []
+    for theme in NEWS_THEMES:
+        m = metrics_for(theme)
+        if not m:
+            continue
+        priority = (
+            {'tide': 80, 'rotate': 60, 'watch': 35, 'ebb': 20}.get(m['cls'], 30)
+            + min(20, abs(m['amount_5d']) / 100_000_000 * 0.6)
+            + (m['avg_score'] - 50) * 0.15
+        )
+        ranked_themes.append((priority, theme, m))
+
+    ranked_themes.sort(key=lambda x: x[0], reverse=True)
+    if compact:
+        ranked_themes = ranked_themes[:4]
+
+    cards = []
+    for _, theme, m in ranked_themes:
+        amount_text = '持平' if abs(m['amount_5d']) < 1 else f'{"流入" if m["amount_5d"] > 0 else "流出"} {abs(m["amount_5d"]) / 100_000_000:.1f}億估'
+        targets = ''.join(
+            f'<span>{h(tk.replace(".TW", ""))}<small>{h(item.get("chip_state") or "待補")}</small></span>'
+            for tk, item in m['rows'][:5]
+        )
+        cards.append(
+            f'<article class="sector-card sector-{h(m["cls"])}">'
+            f'<div class="sector-card-head"><div><b>{h(theme["theme"])}</b>'
+            f'<small>{h("、".join(theme["words"][:4]))}</small></div>'
+            f'<strong>{h(m["state"])}</strong></div>'
+            f'<div class="sector-metrics">'
+            f'<div><span>5日合計</span><b>{h(fmt_net_lots(m["total_5d"]))}</b></div>'
+            f'<div><span>約當金額</span><b>{h(amount_text)}</b></div>'
+            f'<div><span>20日合計</span><b>{h(fmt_net_lots(m["total_20d"]))}</b></div>'
+            f'</div>'
+            f'<p>{h(m["meaning"])}</p>'
+            f'<div class="sector-targets">{targets}</div>'
+            f'</article>'
+        )
+
+    if not cards:
+        return ''
+    meta = '首頁摘要' if compact else '三大法人'
+    section_id = 'sector-flow-radar-compact' if compact else 'sector-flow-radar'
+    return (
+        f'<section class="sc sector-flow-radar" id="{section_id}">'
+        f'<div class="tool-head"><div><div class="st">法人資金流雷達</div>'
+        f'<p>用台股三大法人買賣超加總板塊：外資、投信、自營商。美股與沒有法人資料的標的不放進這個雷達。</p></div>'
+        f'<span class="section-meta">{h(meta)}</span></div>'
+        f'<div class="sector-flow-legend"><span class="legend-tide">漲潮</span><span class="legend-rotate">輪動/回補</span><span class="legend-watch">觀望</span><span class="legend-ebb">退潮</span></div>'
+        f'<div class="sector-grid">{"".join(cards)}</div>'
+        f'<div class="tool-note">資料來源：FinMind InstitutionalInvestorsBuySell。買賣超以股數換算張數；板塊約當金額為買賣超股數乘以目前價格粗估，只用來判斷方向與量級，不是交易所原始成交金額。</div>'
+        f'</section>'
+    )
+
+
 def methodology_html():
     return (
         f'<section class="sc methodology" id="methodology">'
@@ -2433,7 +2748,7 @@ def methodology_html():
         f'<div><b>零股怎麼算</b><p>個股是單一公司股票，不等於零股。台股一張是1,000股，未滿一張就是零股；試算會用股數與約幾張一起顯示。</p></div>'
         f'<div><b>RSI 怎麼解讀</b><p>RSI 高不一定危險。若趨勢強、量能正常，可能是強勢延續；若高檔轉弱、KD 偏空、波動放大，才提高風險。</p></div>'
         f'</div>'
-        f'<div class="method-note">本頁只使用公開資料與固定規則，不放持倉、成本、券商帳戶、API key 或任何個人通知設定。</div>'
+        f'<div class="method-note">資料口徑以公開市場資料與固定規則為主；請把它當成市場理解工具，不要當成保證獲利或個人化下單指令。</div>'
         f'</section>'
     )
 
@@ -3510,6 +3825,10 @@ def apply_factor_framework(ticker, a, ext, meta=None):
         data_notes.append('TWSE價格尺度驗證未通過，改用Yahoo報價')
     if meta.get('finmind_available'):
         data_notes.append('FinMind台股基本面/籌碼可用')
+    if meta.get('finmind_chip_available'):
+        data_notes.append('FinMind三大法人買賣超可用')
+    if meta.get('finmind_chip_errors'):
+        data_notes.append('三大法人買賣超暫時抓不到')
     if meta.get('finmind_errors'):
         data_notes.append('部分FinMind欄位暫時抓不到')
     if 'Delayed' in str(ext.get('quote_note', '')):
@@ -4160,6 +4479,7 @@ def stock_card(ticker, name, price, chg, hist_close, a, ext, rec):
     zone_html = price_zone_html(price_zone)
     decision_html = decision_card_html(ticker, a, ext, rec, invest_plan)
     detail_html = metadata_detail_html(ticker, a, ext)
+    chip_detail_html = institutional_flow_html(a.get('meta') or {}, price)
     factor_html = factor_score_html(a, ticker)
     quick_status = price_zone.get('status') if price_zone else a['stxt']
     quick_action = price_zone.get('action') if price_zone else rec['dca'][0]
@@ -4233,6 +4553,7 @@ def stock_card(ticker, name, price, chg, hist_close, a, ext, rec):
         f'<div class="detail-section-head"><div><span>價格計畫</span><h3>今天怎麼做</h3></div>'
         f'<p>先決定是否行動，再看要分幾批、什麼情況停止。</p></div>'
         f'{zone_html}'
+        f'{chip_detail_html}'
         f'{strategy_more_html}'
     )
     summary_tone = action_tone(quick_status)
@@ -4510,6 +4831,20 @@ h1{font-size:19px;font-weight:700;color:var(--t);display:flex;align-items:center
 .metric-tile b{display:block;font-size:13px;color:var(--t);font-variant-numeric:tabular-nums;line-height:1.35;overflow-wrap:anywhere}
 .metric-tile small{display:block;font-size:9px;color:var(--t2);line-height:1.35;margin-top:2px}
 .detail-note{font-size:10px;color:var(--t2);line-height:1.55;margin-top:8px}
+.chip-flow-box{background:var(--card2);border:1px solid var(--bdr);border-radius:8px;padding:12px;margin:10px 0}
+.chip-positive{border-color:rgba(29,158,117,0.35);background:linear-gradient(180deg,rgba(29,158,117,0.10),var(--card2))}
+.chip-mixed{border-color:rgba(186,117,23,0.34);background:linear-gradient(180deg,rgba(186,117,23,0.10),var(--card2))}
+.chip-negative{border-color:rgba(216,90,48,0.34);background:linear-gradient(180deg,rgba(216,90,48,0.10),var(--card2))}
+.chip-neutral{border-color:rgba(24,95,165,0.28);background:linear-gradient(180deg,rgba(24,95,165,0.08),var(--card2))}
+.chip-flow-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:8px}
+.chip-flow-head span{display:block;font-size:10px;color:var(--t2);font-weight:800;margin-bottom:2px}
+.chip-flow-head b{display:block;font-size:16px;color:var(--t);line-height:1.35}
+.chip-flow-head strong{display:grid;place-items:center;min-width:38px;height:38px;border-radius:10px;background:var(--card);border:1px solid var(--bdr);font-size:15px;color:var(--t);font-variant-numeric:tabular-nums}
+.chip-positive .chip-flow-head strong{color:var(--ok);background:var(--ok-bg)}
+.chip-mixed .chip-flow-head strong{color:var(--warn);background:var(--warn-bg)}
+.chip-negative .chip-flow-head strong{color:var(--risk);background:var(--risk-bg)}
+.chip-flow-box>p{font-size:11px;color:var(--t);line-height:1.6;margin-bottom:9px}
+.chip-flow-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
 .holding-chips{margin-top:8px;border-top:1px solid var(--bdr);padding-top:8px}
 .holding-chips b{display:block;font-size:10px;color:var(--t2);margin-bottom:5px}
 .holding-chips div{display:flex;flex-wrap:wrap;gap:5px}
@@ -4594,6 +4929,35 @@ h1{font-size:19px;font-weight:700;color:var(--t);display:flex;align-items:center
 .theme-card p{font-size:10px;color:var(--t2);line-height:1.5;margin-bottom:7px}
 .theme-watch{display:flex;flex-wrap:wrap;gap:5px}
 .theme-watch span{font-size:10px;color:var(--t);background:var(--card);border:1px solid var(--bdr);border-radius:999px;padding:3px 7px;line-height:1.3}
+.sector-flow-radar{margin:14px 0;border-color:rgba(24,95,165,0.22)}
+.sector-flow-legend{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.sector-flow-legend span{font-size:10px;font-weight:900;border-radius:999px;padding:4px 8px;border:1px solid var(--bdr)}
+.legend-tide{color:var(--ok);background:var(--ok-bg)}
+.legend-rotate{color:#176c9c;background:rgba(24,95,165,0.16)}
+.legend-watch{color:var(--warn);background:var(--warn-bg)}
+.legend-ebb{color:var(--risk);background:var(--risk-bg)}
+.sector-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(245px,1fr));gap:9px;margin-top:10px}
+.sector-card{background:var(--card2);border:1px solid var(--bdr);border-radius:10px;padding:12px;min-width:0}
+.sector-tide{border-color:rgba(29,158,117,0.36);background:linear-gradient(180deg,rgba(29,158,117,0.12),var(--card2))}
+.sector-rotate{border-color:rgba(24,95,165,0.34);background:linear-gradient(180deg,rgba(24,95,165,0.11),var(--card2))}
+.sector-watch{border-color:rgba(186,117,23,0.34);background:linear-gradient(180deg,rgba(186,117,23,0.12),var(--card2))}
+.sector-ebb{border-color:rgba(216,90,48,0.34);background:linear-gradient(180deg,rgba(216,90,48,0.12),var(--card2))}
+.sector-card-head{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;margin-bottom:9px}
+.sector-card-head b{display:block;font-size:14px;color:var(--t);line-height:1.35}
+.sector-card-head small{display:block;font-size:10px;color:var(--t2);line-height:1.35;margin-top:2px}
+.sector-card-head strong{white-space:nowrap;border-radius:999px;padding:4px 8px;font-size:11px;font-weight:900;background:var(--card);border:1px solid var(--bdr)}
+.sector-tide .sector-card-head strong{color:var(--ok);background:var(--ok-bg);border-color:rgba(29,158,117,0.34)}
+.sector-rotate .sector-card-head strong{color:#1E5F92;background:rgba(24,95,165,0.16);border-color:rgba(24,95,165,0.30)}
+.sector-watch .sector-card-head strong{color:var(--warn);background:var(--warn-bg);border-color:rgba(186,117,23,0.34)}
+.sector-ebb .sector-card-head strong{color:var(--risk);background:var(--risk-bg);border-color:rgba(216,90,48,0.34)}
+.sector-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-bottom:8px}
+.sector-metrics div{background:var(--card);border:1px solid var(--bdr);border-radius:7px;padding:7px}
+.sector-metrics span{display:block;font-size:10px;color:var(--t2);line-height:1.25}
+.sector-metrics b{display:block;font-size:14px;color:var(--t);font-variant-numeric:tabular-nums;margin-top:2px}
+.sector-card p{font-size:11px;color:var(--t2);line-height:1.6;margin-bottom:9px}
+.sector-targets{display:flex;flex-wrap:wrap;gap:5px}
+.sector-targets span{font-size:10px;color:var(--t);background:var(--card);border:1px solid var(--bdr);border-radius:999px;padding:4px 7px;line-height:1.25}
+.sector-targets small{display:inline;color:var(--t2);margin-left:4px}
 .order-wrap{overflow-x:auto;margin-top:10px;border:1px solid var(--bdr);border-radius:8px;background:var(--card2)}
 .order-table{width:100%;border-collapse:collapse;min-width:960px}
 .order-table th,.order-table td{padding:9px 10px;border-bottom:1px solid var(--bdr);font-size:11px;text-align:left;vertical-align:top}
@@ -4867,6 +5231,10 @@ body{font-family:"Noto Sans TC","Microsoft JhengHei",system-ui,sans-serif;line-h
 .decision-hero{padding:22px 24px;border-left:3px solid var(--ok)}
 .hero-heading{display:flex;justify-content:space-between;align-items:center;gap:14px}
 .hero-temperature{display:inline-flex;border:1px solid rgba(224,162,58,.35);background:rgba(224,162,58,.10);color:var(--warn);border-radius:999px;padding:5px 10px;font-size:12px;font-weight:900}
+.hero-temperature-hot{border-color:rgba(255,138,101,.46);background:rgba(216,90,48,.18);color:var(--risk)}
+.hero-temperature-warm{border-color:rgba(227,166,76,.48);background:rgba(186,117,23,.18);color:var(--warn)}
+.hero-temperature-neutral{border-color:rgba(118,183,232,.40);background:rgba(24,95,165,.16);color:var(--info)}
+.hero-temperature-cool,.hero-temperature-cold{border-color:rgba(140,199,232,.42);background:rgba(47,108,143,.18);color:var(--cold)}
 .market-brief h2{font-size:34px;line-height:1.18;margin-top:16px;max-width:none}
 .market-brief p{font-size:15px;line-height:1.7;color:#cbd6df;margin-top:8px}
 .status-strip{grid-template-columns:repeat(4,minmax(0,1fr));gap:0;margin-top:20px;border-top:1px solid var(--bdr);padding-top:14px}
@@ -5388,6 +5756,7 @@ def build_html(idx_html, tw_s, tw_e, us_s, us_e, bonds, update_time, market_ctx=
         f'<section class="mode-pane app-page on" id="focus-mode">\n'
         f'{newbie_summary_html(market_ctx)}\n'
         f'{market_home_html}\n'
+        f'{sector_flow_radar_html(compact=True)}\n'
         f'{home_preview_tabs_html()}\n'
         f'<div class="home-dashboard-grid">{home_core_preview_html()}{home_research_preview_html()}</div>\n'
         f'{visual_action_board_html(market_ctx)}\n'
@@ -5405,6 +5774,7 @@ def build_html(idx_html, tw_s, tw_e, us_s, us_e, bonds, update_time, market_ctx=
         f'<section class="mode-pane app-page" id="market-mode">\n'
         f'{page_heading_html("市場雷達", "比較台股、美股科技、波動與亞洲市場，理解今天的環境，不把指數直接當買進訊號。", "全球市場")}\n'
         f'{market_full_html}\n'
+        f'{sector_flow_radar_html(compact=False)}\n'
         f'</section>\n'
         f'<section class="mode-pane app-page" id="tools-mode">\n'
         f'{page_heading_html("試算工具", "模擬定期投入與臨時買入，把金額、批次、手續費與歷史風險放在同一處。", "不代表個人投資建議")}\n'
