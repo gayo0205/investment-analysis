@@ -2918,7 +2918,7 @@ def sector_flow_radar_html(compact=False):
 
     cards = []
     for _, theme, m in ranked_themes:
-        amount_text = '持平' if abs(m['amount_5d']) < 1 else f'{"流入" if m["amount_5d"] > 0 else "流出"} {abs(m["amount_5d"]) / 100_000_000:.1f}億估'
+        amount_text = fmt_flow_amount(m['total_5d'], m['amount_5d'] / m['total_5d'] if m['total_5d'] else None)
         targets = ''.join(
             f'<span>{h(tk.replace(".TW", ""))}<small>{h(item.get("chip_state") or "待補")}</small></span>'
             for tk, item in m['rows'][:5]
@@ -5796,6 +5796,43 @@ body.target-detail-open #data-mode .cgrid{padding-bottom:10px}
 }
 </style>'''
 
+UI_OVERRIDE_CSS = '''<style>
+.decision-card-v3{background:linear-gradient(180deg,rgba(13,25,38,.96),rgba(14,22,32,.96));border-color:rgba(110,231,199,.24)}
+.decision-card-v3 .decision-head span{font-size:13px;letter-spacing:.02em;color:#dce7f2}
+.decision-stage-line{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:8px 0 12px}
+.decision-stage-line span{display:inline-flex;align-items:center;border:1px solid rgba(110,231,199,.26);background:rgba(110,231,199,.10);color:#7ee0c3;border-radius:999px;padding:6px 10px;font-size:12px;font-weight:900}
+.decision-stage-line b{font-size:12px;color:#f2bd58;background:rgba(242,189,88,.12);border:1px solid rgba(242,189,88,.24);border-radius:999px;padding:6px 10px}
+.decision-card-v3 .decision-hero-row strong{font-size:22px;line-height:1.28;letter-spacing:.01em}
+.decision-mini-card p{font-size:12px;line-height:1.65}
+.zone-v2{background:linear-gradient(180deg,rgba(16,29,42,.98),rgba(13,22,33,.98));border-color:rgba(112,128,144,.30)}
+.zone-v2 .zone-head b{display:inline-flex;align-items:center;border-radius:999px;padding:5px 10px;background:rgba(110,231,199,.10);border:1px solid rgba(110,231,199,.22);color:#7ee0c3}
+.zone-hot .zone-head b,.zone-danger .zone-head b{background:rgba(255,111,96,.12);border-color:rgba(255,111,96,.25);color:#ff8a78}
+.zone-warm .zone-head b{background:rgba(242,189,88,.12);border-color:rgba(242,189,88,.25);color:#f2bd58}
+.stage-summary{border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.035);border-radius:8px;padding:11px 12px;margin:10px 0}
+.stage-summary strong{display:block;color:#f4f7fb;font-size:14px;margin-bottom:4px}
+.stage-summary p{margin:0;color:#a9bacb;font-size:12px;line-height:1.65}
+.zone-grid-v2>div{background:rgba(255,255,255,.04);border-color:rgba(255,255,255,.08)}
+.zone-grid-v2 span{color:#88a1b8}
+.zone-grid-v2 b{font-size:14px}
+.zone-more li{margin:5px 0;color:#c4d2df;line-height:1.55}
+.chip-flow-head strong{min-width:96px;height:auto;padding:8px 10px;border-radius:999px;font-size:12px;line-height:1.2;white-space:nowrap}
+.chip-flow-box p{line-height:1.65;color:#b9cad9}
+.flow-in .flow-track i{background:linear-gradient(90deg,#3fd69f,#7ee0c3)}
+.flow-out .flow-track i{background:linear-gradient(90deg,#ff8a78,#d85a30)}
+.flow-flat .flow-track i{background:#8c98a6}
+.order-action.order-momentum{color:#7ee0c3;background:rgba(110,231,199,.12);border-color:rgba(110,231,199,.28)}
+.order-action.order-stop{color:#ff8a78;background:rgba(255,111,96,.12);border-color:rgba(255,111,96,.28)}
+.order-action.order-wait{color:#f2bd58;background:rgba(242,189,88,.12);border-color:rgba(242,189,88,.28)}
+.order-action.order-ok{color:#7ee0c3;background:rgba(110,231,199,.12);border-color:rgba(110,231,199,.28)}
+@media(max-width:760px){
+  .decision-card-v3 .decision-hero-row strong{font-size:19px}
+  .decision-stage-line{align-items:flex-start;flex-direction:column}
+  .decision-stage-line b{white-space:normal}
+  .chip-flow-head{align-items:flex-start}
+  .chip-flow-head strong{min-width:auto}
+}
+</style>'''
+
 JS_CODE = '''<script>
 window.LAST_FOCUS_SCROLL = 0;
 window.RETURN_APP_PAGE = 'research-mode';
@@ -6016,7 +6053,7 @@ def build_html(idx_html, tw_s, tw_e, us_s, us_e, bonds, update_time, market_ctx=
         f'<meta charset="UTF-8">\n'
         f'<meta name="viewport" content="width=device-width,initial-scale=1.0">\n'
         f'<title>智慧投資分析 | {update_time}</title>\n'
-        f'{CSS}\n{APP_SHELL_CSS}\n</head>\n<body>\n'
+        f'{CSS}\n{APP_SHELL_CSS}\n{UI_OVERRIDE_CSS}\n</head>\n<body>\n'
         f'<div class="app-shell">\n'
         f'{app_sidebar_html(update_time)}\n'
         f'<main class="app-main">\n'
@@ -6100,6 +6137,826 @@ def report_is_healthy(html):
 
 # =============================================================
 # 資料擷取
+# =============================================================
+
+def flow_strength_label(score):
+    v = safe_num(score)
+    if v is None:
+        return '待補'
+    if v >= 70:
+        return '偏強'
+    if v >= 55:
+        return '略強'
+    if v >= 45:
+        return '中性'
+    if v >= 30:
+        return '偏弱'
+    return '明顯偏弱'
+
+
+def is_core_etf_ticker(ticker):
+    return ticker in ['0050.TW', '006208.TW', '006204.TW', '00662.TW']
+
+
+def flow_side_text(value):
+    v = safe_num(value) or 0
+    if v > 0:
+        return '買超'
+    if v < 0:
+        return '賣超'
+    return '持平'
+
+
+def flow_brief(label, value):
+    return f'{label}{flow_side_text(value)} {fmt_net_lots(value)}'
+
+
+def chip_flow_judgment(meta, price=None):
+    if not meta or not meta.get('finmind_chip_available'):
+        return dict(
+            available=False,
+            state='三大法人資料待補',
+            tone='neutral',
+            score=50,
+            strength_label='待補',
+            summary='這檔暫時抓不到外資、投信、自營商買賣超，不能用資金流判斷。',
+            action='先回到價格、趨勢與基本面檢查。',
+        )
+
+    total_1d = safe_num(meta.get('finmind_institutional_net_buy')) or 0
+    total_5d = safe_num(meta.get('finmind_institutional_net_buy_5d')) or 0
+    total_20d = safe_num(meta.get('finmind_institutional_net_buy_20d')) or 0
+    foreign_5d = safe_num(meta.get('finmind_foreign_net_buy_5d')) or 0
+    trust_5d = safe_num(meta.get('finmind_investment_trust_net_buy_5d')) or 0
+    dealer_5d = safe_num(meta.get('finmind_dealer_net_buy_5d')) or 0
+    streak = safe_num(meta.get('finmind_institutional_streak')) or 0
+
+    score = 50
+    score += 12 if total_5d > 0 else -12 if total_5d < 0 else 0
+    score += 8 if total_20d > 0 else -8 if total_20d < 0 else 0
+    score += 8 if foreign_5d > 0 else -7 if foreign_5d < 0 else 0
+    score += 6 if trust_5d > 0 else -5 if trust_5d < 0 else 0
+    score += 3 if dealer_5d > 0 else -2 if dealer_5d < 0 else 0
+    if streak >= 3:
+        score += 5
+    elif streak <= -3:
+        score -= 5
+    score = clamp_score(score)
+    strength = flow_strength_label(score)
+
+    if total_5d > 0 and total_20d > 0 and foreign_5d > 0 and trust_5d > 0:
+        state, tone = '外資與投信同步偏買', 'positive'
+        action = '資金面是加分，但仍要確認價格不是失控追高。'
+    elif total_5d > 0 and (foreign_5d > 0 or trust_5d > 0):
+        state, tone = '三大法人短線偏買', 'positive'
+        action = '可以提高觀察順位，但不能只因買超就進場。'
+    elif total_5d > 0 and total_20d <= 0:
+        state, tone = '短線回補，中期未確認', 'mixed'
+        action = '短線買盤回來，但還要看後續是否延續。'
+    elif total_5d < 0 and total_20d < 0:
+        state, tone = '三大法人偏賣', 'negative'
+        action = '資金正在撤，價格看似便宜時也要防便宜陷阱。'
+    elif total_5d < 0:
+        state, tone = '短線偏賣', 'mixed'
+        action = '短線資金退潮，先看支撐有沒有守住。'
+    else:
+        state, tone = '資金方向不明', 'neutral'
+        action = '三大法人沒有明顯方向，回到趨勢與基本面。'
+
+    summary = (
+        f'近 5 日合計{fmt_net_lots(total_5d)}，近 20 日合計{fmt_net_lots(total_20d)}；'
+        f'{flow_brief("外資 5 日", foreign_5d)}，{flow_brief("投信 5 日", trust_5d)}，'
+        f'{flow_brief("自營商 5 日", dealer_5d)}。'
+    )
+    return dict(
+        available=True,
+        state=state,
+        tone=tone,
+        score=score,
+        strength_label=strength,
+        summary=summary,
+        action=action,
+        total_1d=total_1d,
+        total_5d=total_5d,
+        total_20d=total_20d,
+        foreign_5d=foreign_5d,
+        trust_5d=trust_5d,
+        dealer_5d=dealer_5d,
+        streak=streak,
+    )
+
+
+def flow_bar_html(label, value, max_abs):
+    v = safe_num(value) or 0
+    base = max(safe_num(max_abs) or 1, 1)
+    pct = min(100, abs(v) / base * 100)
+    cls = 'flow-in' if v > 0 else 'flow-out' if v < 0 else 'flow-flat'
+    return (
+        f'<div class="flow-bar-row {cls}">'
+        f'<span>{h(label)}</span><div class="flow-track"><i style="width:{pct:.0f}%"></i></div>'
+        f'<b>{h(fmt_net_lots(v))}</b></div>'
+    )
+
+
+def institutional_flow_html(meta, price=None):
+    chip = chip_flow_judgment(meta, price)
+    tone = chip.get('tone', 'neutral')
+    if not chip.get('available'):
+        return (
+            f'<div class="chip-flow-box chip-neutral">'
+            f'<div class="chip-flow-head"><div><span>三大法人資金流</span><b>{h(chip["state"])}</b></div>'
+            f'<strong>待補</strong></div><p>{h(chip["summary"])}</p></div>'
+        )
+
+    max_abs = max(
+        abs(safe_num(chip.get('total_5d')) or 0),
+        abs(safe_num(chip.get('foreign_5d')) or 0),
+        abs(safe_num(chip.get('trust_5d')) or 0),
+        abs(safe_num(chip.get('dealer_5d')) or 0),
+        1,
+    )
+    bars = ''.join([
+        flow_bar_html('合計 5 日', chip.get('total_5d'), max_abs),
+        flow_bar_html('外資 5 日', chip.get('foreign_5d'), max_abs),
+        flow_bar_html('投信 5 日', chip.get('trust_5d'), max_abs),
+        flow_bar_html('自營商 5 日', chip.get('dealer_5d'), max_abs),
+    ])
+    tiles = ''.join([
+        metric_tile('資料日', meta.get('finmind_chip_date') or 'N/A', meta.get('finmind_chip_source', 'FinMind')),
+        metric_tile('1 日合計', fmt_net_lots(chip.get('total_1d')), '最新一日三大法人合計'),
+        metric_tile('5 日合計', fmt_net_lots(chip.get('total_5d')), '短線資金方向'),
+        metric_tile('20 日合計', fmt_net_lots(chip.get('total_20d')), '中期資金方向'),
+        metric_tile('約當金額', fmt_flow_amount(chip.get('total_5d'), price), '5 日買賣超股數 × 最新價格'),
+        metric_tile('連續狀態', fmt_flow_streak(chip.get('streak')), '連買/連賣越久越值得注意'),
+    ])
+    return (
+        f'<div class="chip-flow-box chip-{h(tone)}">'
+        f'<div class="chip-flow-head"><div><span>三大法人資金流</span><b>{h(chip["state"])}</b></div>'
+        f'<strong>資金流：{h(chip["strength_label"])} {chip.get("score", 50):.0f}/100</strong></div>'
+        f'<p>{h(chip["summary"])}</p>'
+        f'<div class="chip-flow-visual">{bars}</div>'
+        f'<div class="detail-grid chip-flow-grid">{tiles}</div>'
+        f'<details class="chip-flow-formula"><summary>約當金額怎麼算？</summary>'
+        f'<p>近 5 日三大法人買賣超股數 × 最新價格，只能看方向與量級，不是交易所提供的精準成交金額。</p></details>'
+        f'<div class="detail-note">{h(chip["action"])} 資料來源：{h(meta.get("finmind_chip_source", "FinMind InstitutionalInvestorsBuySell"))}；買賣超為股數換算張數。</div>'
+        f'</div>'
+    )
+
+
+def price_stage_inputs(ticker, price, a, ext):
+    px = safe_num(price)
+    ma20 = safe_num(ext.get('ma20'))
+    ma60 = safe_num(ext.get('ma60'))
+    ma240 = safe_num(ext.get('ma240'))
+    vol = volatility_profile(ticker, px or 0, a, ext)
+    atr = safe_num(vol.get('atr')) or ((px or 0) * 0.02)
+    atr_pct = safe_num(vol.get('atr_pct')) or 2.0
+    band_abs = safe_num(vol.get('band_abs')) or atr
+    w_pct = safe_num(ext.get('w_pct'))
+    if w_pct is None:
+        w_pct = 50
+    fs = a.get('factor_scores') or {}
+    meta = a.get('meta') or {}
+    chip = chip_flow_judgment(meta, px)
+    return dict(
+        px=px, ma20=ma20, ma60=ma60, ma240=ma240, vol=vol, atr=atr,
+        atr_pct=atr_pct, band_abs=band_abs, w_pct=w_pct,
+        rsi=safe_num(a.get('rsi')), dev=safe_num(a.get('dev20')),
+        bpct=safe_num(a.get('bpct')), vol_ratio=safe_num(a.get('vol_ratio')),
+        macd_bull=a.get('macd_bull'), risk=safe_num(fs.get('risk')) or 50,
+        trend=safe_num(fs.get('trend')) or 50,
+        fundamental=safe_num(fs.get('fundamental')) or 50,
+        chip=chip,
+    )
+
+
+def classify_price_stage(ticker, data):
+    px, ma20, ma60, ma240 = data['px'], data['ma20'], data['ma60'], data['ma240']
+    if px is None or ma20 is None or ma60 is None:
+        return dict(stage='資料不足', key='unknown', tone='neutral', warning_score=0)
+    atr_pct = data['atr_pct']
+    w_pct = data['w_pct']
+    rsi = data['rsi']
+    dev = data['dev']
+    bpct = data['bpct']
+    vol_ratio = data['vol_ratio'] or 1
+    chip = data['chip']
+    risk = data['risk']
+    fundamental = data['fundamental']
+
+    up_structure = px >= ma20 and ma20 >= ma60 and (ma240 is None or ma60 >= ma240 * 0.98)
+    above_support = px >= ma60 and (ma240 is None or px >= ma240 * 0.98)
+    below_ma20 = px < ma20
+    below_ma60 = px < ma60
+    high_position = (
+        w_pct >= 85
+        or (dev is not None and dev >= max(6, atr_pct * 1.8))
+        or (bpct is not None and bpct >= 88)
+    )
+    cheap_position = (
+        w_pct <= 35
+        or px <= ma60
+        or (dev is not None and dev <= -max(4, atr_pct * 1.2))
+    )
+    momentum_hot = (
+        (rsi is not None and rsi >= 78)
+        or (dev is not None and dev >= max(8, atr_pct * 2.3))
+        or (bpct is not None and bpct >= 92 and vol_ratio >= 1.2)
+    )
+    momentum_weak = (
+        below_ma20
+        or data['macd_bull'] is False
+        or (rsi is not None and rsi < 45)
+        or (bpct is not None and bpct < 45)
+    )
+    chip_weak = chip.get('available') and (
+        (chip.get('total_5d', 0) < 0 and chip.get('total_20d', 0) < 0)
+        or (chip.get('foreign_5d', 0) < 0 and chip.get('total_5d', 0) < 0)
+    )
+    chip_strong = chip.get('available') and chip.get('total_5d', 0) > 0 and (
+        chip.get('foreign_5d', 0) > 0 or chip.get('trust_5d', 0) > 0
+    )
+    basic_weak = fundamental < 42
+    risk_weak = risk < 40
+    bargain_trap = cheap_position and (below_ma60 or chip_weak or basic_weak or risk_weak)
+
+    warning_score = 0
+    warning_score += 25 if high_position else 0
+    warning_score += 18 if momentum_hot else 0
+    warning_score += 18 if momentum_weak else 0
+    warning_score += 18 if chip_weak else 0
+    warning_score += 12 if basic_weak else 0
+    warning_score += 9 if risk_weak else 0
+    warning_score = min(100, warning_score)
+
+    if bargain_trap:
+        return dict(stage='便宜陷阱', key='trap', tone='danger', warning_score=warning_score)
+    if below_ma60 and (momentum_weak or chip_weak or basic_weak):
+        return dict(stage='轉弱下跌', key='weak', tone='danger', warning_score=max(warning_score, 70))
+    if high_position and warning_score >= 62:
+        return dict(stage='高檔轉弱預警', key='sell_warning', tone='hot', warning_score=warning_score)
+    if up_structure and high_position and not momentum_weak and not chip_weak:
+        return dict(stage='多頭續強', key='bull_run', tone='momentum', warning_score=warning_score)
+    if up_structure and below_ma20 and above_support and not chip_weak and not basic_weak:
+        return dict(stage='疑似震盪洗盤', key='shakeout', tone='ok', warning_score=warning_score)
+    if above_support and not chip_weak and not basic_weak and px <= ma20 + data['band_abs'] * 0.6:
+        return dict(stage='多頭正常回檔', key='pullback', tone='ok', warning_score=warning_score)
+    if high_position:
+        return dict(stage='高檔震盪', key='high_range', tone='warm', warning_score=warning_score)
+    if px >= ma60 and not basic_weak:
+        return dict(stage='合理分批區', key='normal', tone='ok', warning_score=warning_score)
+    return dict(stage='等待確認', key='wait', tone='warm', warning_score=warning_score)
+
+
+def stage_action_copy(stage_key, ticker, is_core):
+    if stage_key == 'bull_run':
+        return (
+            '趨勢還在，今天看起來高，未來不一定仍是高。',
+            '怕錯過可以小額試單；想買得舒服，等回踩承接區。',
+            '不要因為創高就賣，但也不要一次重押。'
+        )
+    if stage_key == 'pullback':
+        return (
+            '比較像多頭中的正常回檔，尚未破壞趨勢。',
+            '可分批觀察，優先等回踩承接區。',
+            '若跌破支撐且三大法人轉賣，再改成防守。'
+        )
+    if stage_key == 'shakeout':
+        return (
+            '像震盪洗盤，但還不能直接認定主力會拉回去。',
+            '先看是否站回短均；小額分批可以，重押不適合。',
+            '若 3 日內站不回支撐，視為轉弱。'
+        )
+    if stage_key == 'sell_warning':
+        return (
+            '價格在高位，且動能或資金開始變弱。',
+            '新買先停；已有持股者準備保護獲利。',
+            '若跌破短線支撐且三大法人續賣，可先減碼。'
+        )
+    if stage_key == 'weak':
+        return (
+            '不是便宜，是趨勢正在變弱。',
+            '暫不入場，不要因為跌了就攤平。',
+            '等止跌、站回支撐、資金回流後再重新看。'
+        )
+    if stage_key == 'trap':
+        return (
+            '價格看似便宜，但下跌可能有原因。',
+            '暫不入場；先確認基本面、三大法人與趨勢是否修復。',
+            '這種低價不當成打折，先當成風險警訊。'
+        )
+    if stage_key == 'high_range':
+        return (
+            '高檔整理中，方向還沒明確。',
+            '不急著追；可用小額追蹤或等回踩。',
+            '若重新放量突破可追蹤，跌破支撐就防守。'
+        )
+    if stage_key == 'normal':
+        return (
+            '價格與趨勢相對正常。',
+            '可按區間分批，不需要一次買滿。',
+            '若基本面或資金轉弱，分批計畫要暫停。'
+        )
+    return ('資料還不夠明確。', '先觀察，不急著下單。', '等資料與趨勢更清楚再決定。')
+
+
+def calc_price_zones(ticker, price, a, ext):
+    data = price_stage_inputs(ticker, price, a, ext)
+    px, ma20, ma60 = data['px'], data['ma20'], data['ma60']
+    if px is None or ma20 is None or ma60 is None:
+        return None
+
+    ma240 = data['ma240']
+    atr = data['atr'] or px * 0.02
+    band = data['band_abs'] or atr
+    vol = data['vol']
+    boll_u = safe_num(a.get('boll_u'))
+    is_core = is_core_etf_ticker(ticker)
+    is_etf = is_etf_like(ticker)
+    stage = classify_price_stage(ticker, data)
+    stage_key = stage['key']
+    summary, action, counter = stage_action_copy(stage_key, ticker, is_core)
+
+    support = ma60 if ma240 is None else max(ma60, ma240 * 0.98)
+    if stage_key in ['bull_run', 'high_range', 'sell_warning']:
+        buy_low_raw = max(ma20 - 0.9 * band, support - 0.25 * band)
+        buy_high_raw = ma20 + 0.35 * band
+    elif stage_key in ['pullback', 'shakeout', 'normal']:
+        buy_low_raw = max(support - 0.45 * band, ma20 - 1.2 * band)
+        buy_high_raw = ma20 + 0.45 * band
+    elif stage_key in ['trap', 'weak']:
+        buy_low_raw = support - 1.4 * band
+        buy_high_raw = support - 0.35 * band
+    else:
+        buy_low_raw = ma60 - 0.6 * band
+        buy_high_raw = ma20 + 0.3 * band
+
+    buy_low_raw, buy_high_raw = sorted([buy_low_raw, buy_high_raw])
+    dynamic_chase = ma20 + 2.0 * atr
+    if boll_u is not None:
+        dynamic_chase = min(dynamic_chase, boll_u * 1.01)
+    chase_raw = max(buy_high_raw * 1.02, dynamic_chase)
+    stop_raw = min(ma60 - 0.8 * band, support - 0.7 * band)
+    early_warning_raw = max(ma20 - 0.35 * band, ma60 + 0.15 * band)
+
+    buy_low = zone_price(ticker, buy_low_raw)
+    buy_high = zone_price(ticker, buy_high_raw)
+    chase_limit = zone_price(ticker, chase_raw)
+    stop_line = zone_price(ticker, stop_raw)
+    early_warning_line = zone_price(ticker, early_warning_raw)
+    if not all(v is not None for v in [buy_low, buy_high, chase_limit, stop_line]):
+        return None
+    if stop_line >= buy_low:
+        stop_line = zone_price(ticker, buy_low * 0.96)
+    if chase_limit <= buy_high:
+        chase_limit = zone_price(ticker, buy_high * 1.03)
+
+    momentum_allowed = stage_key in ['bull_run', 'high_range'] and stage['warning_score'] < 60
+    momentum_pull = max(0.25 * atr, px * (0.003 if is_core else 0.006))
+    momentum_entry = zone_price(ticker, max(buy_high, px - momentum_pull)) if momentum_allowed else None
+    reduce_watch = zone_price(ticker, chase_limit)
+    trim_line = zone_price(ticker, max(chase_limit + 1.1 * atr, buy_high * (1.08 if is_etf else 1.12)))
+    failure_line = stop_line
+
+    if stage_key in ['trap', 'weak']:
+        entry_mode = '暫不進場'
+        entry_reason = '低價來自轉弱或資料惡化，先確認修復，不把它當便宜。'
+    elif stage_key in ['bull_run', 'high_range']:
+        entry_mode = '小額試單 / 回踩承接'
+        entry_reason = '強勢趨勢可以怕錯過，但只能小額；主要買點仍等回踩。'
+    elif stage_key in ['pullback', 'shakeout', 'normal']:
+        entry_mode = '分批承接'
+        entry_reason = '趨勢尚未破壞，可把買點拆成 3 批，不一次買滿。'
+    else:
+        entry_mode = '等待確認'
+        entry_reason = '訊號不夠明確，先等價格或資金方向更清楚。'
+
+    if is_core:
+        sell_status = '核心續抱，先看預警'
+        sell_text = '核心 ETF 通常不是因為偏高就賣；高位轉弱時先停止額外加碼。'
+    elif is_etf:
+        sell_status = '高位轉弱才減碼'
+        sell_text = 'ETF 先看折溢價、流動性與趨勢；不是到價就賣。'
+    else:
+        sell_status = '高位轉弱可先減碼'
+        sell_text = '個股若高位轉弱、三大法人續賣或基本面跟不上，可先減碼一部分。'
+
+    if stage_key == 'sell_warning':
+        sell_status = '提前預警，可準備保護獲利'
+        sell_text = f'若跌破 {fmt_zone_price(early_warning_line)} 且三大法人續賣，可先減碼 10%~20%。'
+    elif stage_key in ['weak', 'trap']:
+        sell_status = '不接刀，有持股先降風險'
+        sell_text = f'若已持有且跌破 {fmt_zone_price(failure_line)} 後站不回，要重新檢查持有理由。'
+
+    buy_steps = [
+        ('第 1 批', entry_mode, entry_reason),
+        ('回踩區', f'{fmt_zone_price(buy_low)} ~ {fmt_zone_price(buy_high)}', '價格回到這裡且沒有轉壞，才是比較舒服的承接區。'),
+        ('停止買', f'跌破 {fmt_zone_price(stop_line)}', '跌破支撐不是更便宜，而是先確認是否變成便宜陷阱。'),
+    ]
+    if momentum_allowed:
+        buy_steps[0] = ('小額試單', f'{fmt_zone_price(momentum_entry)} 附近', '只適合怕錯過的少量追蹤，主力資金仍等回踩。')
+
+    sell_steps = [
+        ('高位提醒', f'高於 {fmt_zone_price(reduce_watch)}', '不代表立刻賣，只代表不要再追太大。'),
+        ('提前預警', f'跌破 {fmt_zone_price(early_warning_line)}', '若同時三大法人轉賣，可先減碼 10%~20%。'),
+        ('正式重看', f'跌破 {fmt_zone_price(failure_line)}', '若 3 日內站不回，重新檢查趨勢與基本面。'),
+    ]
+
+    watch_items = [
+        f'現在階段：{stage["stage"]}，不是只看高低價。',
+        f'回踩承接區：{fmt_zone_price(buy_low)} ~ {fmt_zone_price(buy_high)}。',
+        f'提前預警線：{fmt_zone_price(early_warning_line)}；跌破後要看是否站回。',
+        f'三大法人：{data["chip"].get("summary", "資料待補")}',
+        '便宜要分兩種：健康回檔可以觀察，轉弱下跌先不要接。',
+    ]
+
+    return dict(
+        status=stage['stage'],
+        stage_key=stage_key,
+        summary=summary,
+        action=action,
+        counter=counter,
+        tone=stage['tone'],
+        warning_score=stage['warning_score'],
+        buy_low=buy_low,
+        buy_high=buy_high,
+        stop_line=stop_line,
+        chase_limit=chase_limit,
+        momentum_entry=momentum_entry,
+        momentum_allowed=momentum_allowed,
+        range_text=f'{fmt_zone_price(buy_low)} ~ {fmt_zone_price(buy_high)}',
+        guard_text=f'高於 {fmt_zone_price(chase_limit)} 不重押；低於 {fmt_zone_price(stop_line)} 先重看',
+        reduce_watch=reduce_watch,
+        trim_line=trim_line,
+        failure_line=failure_line,
+        early_warning_line=early_warning_line,
+        sell_status=sell_status,
+        sell_text=sell_text,
+        fail_text=f'若跌破 {fmt_zone_price(failure_line)} 且 3 日內站不回，代表這波趨勢要重新檢查。',
+        buy_steps=buy_steps,
+        sell_steps=sell_steps,
+        watch_items=watch_items,
+        entry_mode=entry_mode,
+        entry_reason=entry_reason,
+        price=px,
+        atr_pct=round(data['atr_pct'], 2),
+        volatility_label=vol.get('level'),
+        turning_weak=stage_key in ['sell_warning', 'weak', 'trap'],
+        overheated=stage_key in ['bull_run', 'high_range', 'sell_warning'],
+        bargain_trap=stage_key == 'trap',
+        basis='用市場環境、均線結構、ATR、三大法人與基本面一起判斷，不把高低價當唯一訊號。',
+        ma_text=f'20日線 {fmt_zone_price(ma20)}、60日線 {fmt_zone_price(ma60)}'
+                + (f'、240日線 {fmt_zone_price(ma240)}' if ma240 is not None else ''),
+        role=get_profile(ticker).get('role', ''),
+        w_pct=round(data['w_pct'], 1),
+    )
+
+
+def action_tone(status):
+    if status in ['多頭正常回檔', '疑似震盪洗盤', '合理分批區']:
+        return 'ok'
+    if status in ['多頭續強', '高檔震盪', '等待確認', '資料不足']:
+        return 'wait'
+    if status in ['高檔轉弱預警', '轉弱下跌', '便宜陷阱']:
+        return 'stop'
+    return 'wait'
+
+
+def home_action_text(item):
+    status = zone_status(item)
+    if status in ['多頭正常回檔', '疑似震盪洗盤', '合理分批區']:
+        return '可分批觀察'
+    if status == '多頭續強':
+        return '小額試單或等回踩'
+    if status == '高檔震盪':
+        return '不重押，等方向'
+    if status == '高檔轉弱預警':
+        return '停買，持有者看預警'
+    if status in ['轉弱下跌', '便宜陷阱']:
+        return '暫不入場'
+    return '先觀察'
+
+
+def price_zone_html(zone):
+    if not zone:
+        return ''
+    tone = zone.get('tone', 'neutral')
+    marker = 50
+    px = safe_num(zone.get('price'))
+    low = safe_num(zone.get('buy_low'))
+    high = safe_num(zone.get('buy_high'))
+    chase = safe_num(zone.get('chase_limit'))
+    stop = safe_num(zone.get('stop_line'))
+    if px is not None and stop is not None and chase is not None and chase > stop:
+        marker = max(0, min(100, (px - stop) / (chase - stop) * 100))
+    step_html = ''.join(
+        f'<div><span>{h(title)}</span><b>{h(value)}</b><small>{h(note)}</small></div>'
+        for title, value, note in zone.get('buy_steps', [])
+    )
+    sell_step_html = ''.join(
+        f'<div><span>{h(title)}</span><b>{h(value)}</b><small>{h(note)}</small></div>'
+        for title, value, note in zone.get('sell_steps', [])
+    )
+    watch_html = ''.join(f'<li>{h(x)}</li>' for x in zone.get('watch_items', [])[:5])
+    return (
+        f'<div class="zone-box zone-{h(tone)} zone-v2">'
+        f'<div class="zone-head"><span>趨勢與價格地圖</span><b>{h(zone["status"])}</b></div>'
+        f'<div class="stage-summary"><strong>{h(zone["summary"])}</strong><p>{h(zone["action"])}</p></div>'
+        f'<div class="zone-track"><i class="zone-ok" style="left:28%;width:35%"></i><b style="left:{marker:.0f}%"></b></div>'
+        f'<div class="zone-labels"><span>重看</span><span>承接</span><span>強勢</span><span>追價風險</span></div>'
+        f'<div class="zone-grid zone-grid-v2">'
+        f'<div><span>回踩承接區</span><b>{h(zone["range_text"])}</b><small>{h(zone["entry_reason"])}</small></div>'
+        f'<div><span>現價入場</span><b>{h(zone["entry_mode"])}</b><small>{h(zone["counter"])}</small></div>'
+        f'<div><span>賣出預警</span><b>{h(zone["sell_status"])}</b><small>{h(zone["sell_text"])}</small></div>'
+        f'<div><span>改變看法</span><b>低於 {h(fmt_zone_price(zone.get("failure_line")))}</b><small>{h(zone["fail_text"])}</small></div>'
+        f'</div>'
+        f'<details class="zone-more"><summary>看分批、賣出與觀察依據</summary>'
+        f'<div class="zone-subtitle">買進拆批</div><div class="zone-steps">{step_html}</div>'
+        f'<div class="zone-subtitle">賣出劇本</div><div class="zone-steps">{sell_step_html}</div>'
+        f'<div class="zone-subtitle">觀察依據</div><ul>{watch_html}</ul>'
+        f'<p>{h(zone.get("basis", ""))}</p></details>'
+        f'</div>'
+    )
+
+
+def decision_texts(ticker, a, ext, rec, plan=None):
+    zone = calc_price_zones(ticker, safe_num(ext.get('latest_close')) or safe_num(a.get('close')) or safe_num(a.get('price')), a, ext)
+    meta = a.get('meta') or {}
+    chip = chip_flow_judgment(meta, safe_num(ext.get('latest_close')) or meta.get('quote_price'))
+    profile = get_profile(ticker)
+    is_core = is_core_etf_ticker(ticker)
+    is_etf = is_etf_like(ticker)
+    if zone:
+        conclusion = f'{zone["status"]}：{zone["entry_mode"]}'
+        reason = (
+            f'{zone["summary"]} {zone["basis"]} '
+            f'三大法人：{chip.get("summary", "資料待補")} '
+            f'價格區間：{zone.get("range_text", "N/A")}。'
+        )
+        counter = zone.get('fail_text') or '如果價格、資金與基本面同時轉弱，就要降低信心。'
+        action = zone.get('action') or '先按區間分批，不要情緒追價。'
+        if is_core and zone.get('stage_key') not in ['trap', 'weak']:
+            action = '核心 ETF 可維持紀律扣款；臨時加碼看回踩區，不要因為市場熱就一次買滿。'
+        if zone.get('stage_key') in ['trap', 'weak']:
+            action = '先不要入場；這不是單純便宜，而是可能已經轉弱。'
+    else:
+        conclusion = '資料不足：先觀察'
+        reason = '價格或均線資料不足，不能給入場區間。'
+        counter = '等資料補齊後再判斷。'
+        action = '先不要用這張卡做買賣決策。'
+    return dict(conclusion=conclusion, reason=reason, counter=counter, action=action)
+
+
+def decision_meter_html(label, value, hint=''):
+    v = safe_num(value)
+    if v is None:
+        text, pct, color = 'N/A', 0, '#657282'
+    else:
+        pct = max(0, min(100, v))
+        text = f'{v:.0f}'
+        color = '#1D9E75' if pct >= 70 else '#185FA5' if pct >= 55 else '#BA7517' if pct >= 40 else '#D85A30'
+    return (
+        f'<div class="decision-meter"><div><span>{h(label)}</span><b style="color:{color}">{h(text)}</b></div>'
+        f'<i><em style="width:{pct:.0f}%;background:{color}"></em></i><small>{h(hint)}</small></div>'
+    )
+
+
+def decision_evidence_cards_html(ticker, a, ext, zone=None):
+    meta = a.get('meta') or {}
+    fs = a.get('factor_scores') or {}
+    price = safe_num(ext.get('latest_close')) or meta.get('quote_price')
+    chip = chip_flow_judgment(meta, price)
+    zone = zone or calc_price_zones(ticker, price, a, ext)
+    w_pct = safe_num(ext.get('w_pct'))
+    risk = safe_num(fs.get('risk')) or 50
+    fundamental = safe_num(fs.get('fundamental')) or 50
+    w_text = f'{w_pct:.0f}%' if w_pct is not None else 'N/A'
+    tech_title = zone.get('status') if zone else '趨勢待確認'
+    tech_body = zone.get('summary') if zone else f'52 週位置 {w_text}，先等趨勢資料補齊。'
+    if chip.get('available'):
+        flow_title = f'{chip.get("strength_label")} {chip.get("score", 50):.0f}/100'
+        flow_body = chip.get('summary')
+    else:
+        flow_title = '資料待補'
+        flow_body = '這檔不能用外資、投信、自營商判斷。'
+    basic_title = 'ETF 資料' if is_etf_like(ticker) else '基本面'
+    basic_body = etf_basic_phrase(meta) if is_etf_like(ticker) else stock_basic_phrase(meta)
+    risk_title = '風險可控' if risk >= 65 else '風險中等' if risk >= 45 else '風險偏高'
+    risk_body = f'風險分數 {risk:.0f}；基本面/ETF 支撐分 {fundamental:.0f}。低價若伴隨風險升高，不視為買點。'
+    cards = [
+        ('趨勢階段', tech_title, tech_body, zone.get('tone', 'neutral') if zone else 'neutral'),
+        ('三大法人', flow_title, flow_body, chip.get('tone', 'neutral')),
+        (basic_title, '支撐條件', basic_body, 'basic'),
+        ('風險', risk_title, risk_body, 'risk'),
+    ]
+    return ''.join(
+        f'<div class="decision-mini-card decision-mini-{h(tone)}"><span>{h(label)}</span>'
+        f'<b>{h(title)}</b><p>{h(body)}</p></div>'
+        for label, title, body, tone in cards
+    )
+
+
+def decision_card_html(ticker, a, ext, rec, plan):
+    price = safe_num(ext.get('latest_close')) or safe_num(a.get('close')) or safe_num((a.get('meta') or {}).get('quote_price'))
+    zone = calc_price_zones(ticker, price, a, ext)
+    d = decision_texts(ticker, a, ext, rec, plan)
+    q = data_quality_note(ticker, a)
+    meta = a.get('meta') or {}
+    chip = chip_flow_judgment(meta, price)
+    fs = a.get('factor_scores') or {}
+    meters = ''.join([
+        decision_meter_html('標的體質', a.get('score'), a.get('stxt', '')),
+        decision_meter_html('風險穩定', fs.get('risk'), '越高代表波動壓力較低'),
+        decision_meter_html('三大法人', chip.get('score') if chip.get('available') else None, chip.get('state', '待補')),
+    ])
+    evidence = decision_evidence_cards_html(ticker, a, ext, zone)
+    stage = zone.get('status') if zone else '資料不足'
+    warning = zone.get('warning_score') if zone else None
+    warning_text = f'賣出預警 {warning:.0f}/100' if warning is not None else '預警待補'
+    return (
+        f'<div class="decision-card decision-card-v2 decision-card-v3">'
+        f'<div class="decision-head"><span>今日判斷</span><b class="confidence-pill">資料可信度：{h(q["confidence"])}</b></div>'
+        f'<div class="decision-stage-line"><span>{h(stage)}</span><b>{h(warning_text)}</b></div>'
+        f'<div class="decision-hero-row"><span>結論</span><strong>{h(d["conclusion"])}</strong></div>'
+        f'<div class="decision-action-grid">'
+        f'<div><span>現在怎麼做</span><p>{h(d["action"])}</p></div>'
+        f'<div><span>什麼情況改變看法</span><p>{h(d["counter"])}</p></div>'
+        f'</div>'
+        f'<div class="decision-meter-grid">{meters}</div>'
+        f'<div class="decision-evidence-grid">{evidence}</div>'
+        f'<details class="decision-more"><summary>看完整理由與資料限制</summary>'
+        f'<div class="decision-row"><span>理由</span><p>{h(d["reason"])}</p></div>'
+        f'<div class="decision-note"><b>資料可信度怎麼看：</b>{h(q["reason"])}<br><span>資料限制：{h(q["notes"])}</span></div>'
+        f'</details>'
+        f'</div>'
+    )
+
+
+def daily_order_overview_html(market_ctx=None, embedded=False):
+    if not BUY_NOW_DATA:
+        return ''
+    keys = [
+        tk for tk in
+        list(TW_ETFS.keys()) + list(TW_STOCKS.keys()) +
+        list(US_ETFS.keys()) + list(US_STOCKS.keys()) + list(BONDS.keys())
+        if tk in BUY_NOW_DATA
+    ]
+    keys_json = json.dumps(keys, ensure_ascii=False)
+    default_budget = PUBLIC_EXAMPLE_PLAN.get('lump_budget', 10000)
+    section_tag = 'div' if embedded else 'section'
+    section_class = 'tool-card daily-orders embedded-orders' if embedded else 'tool-card daily-orders'
+    script = """
+function orderCategory(item){
+  if(item.is_tw&&item.is_etf) return 'tw-etf';
+  if(item.is_tw&&!item.is_etf) return 'tw-stock';
+  if(!item.is_tw&&item.is_etf) return 'us-etf';
+  return 'us-stock';
+}
+function orderConfidenceFactor(conf){
+  if(conf==='高') return 1;
+  if(conf==='中') return 0.75;
+  return 0.45;
+}
+function orderTargetInfo(item){
+  var z=item.price_zone||{};
+  var status=z.status||'';
+  var price=Number(item.price||0);
+  var low=Number(z.buy_low||0), high=Number(z.buy_high||0);
+  var momentum=Number(z.momentum_entry||0);
+  var cls='order-wait', action='先觀察', note='等趨勢或資料更清楚。', target=price;
+  if(status==='便宜陷阱'||status==='轉弱下跌'){
+    cls='order-stop'; action='暫不入場'; target=0;
+    note='這不是單純便宜，可能是趨勢或基本面轉壞。';
+  }else if(status==='高檔轉弱預警'){
+    cls='order-stop'; action='停買看預警'; target=0;
+    note='高位加轉弱，不急著接，持有者看賣出預警。';
+  }else if(status==='多頭續強'){
+    cls='order-momentum'; action='小額試單'; target=momentum||Math.max(high||0, price*0.995);
+    note='牛市可能續強，但只能小額，不重押。';
+  }else if(status==='多頭正常回檔'||status==='疑似震盪洗盤'||status==='合理分批區'){
+    cls='order-ok'; action='分批觀察'; target=Math.max(low||0, Math.min(high||price, price*0.995));
+    note='趨勢未壞，可按區間分批，不一次買滿。';
+  }else if(status==='高檔震盪'){
+    cls='order-wait'; action='等方向'; target=high||price*0.98;
+    note='高檔整理，等回踩或突破確認。';
+  }
+  return {cls:cls, action:action, note:note, price:target};
+}
+function orderRatio(item, target){
+  var z=item.price_zone||{};
+  var status=z.status||'';
+  var ratio=0;
+  if(status==='多頭正常回檔'||status==='疑似震盪洗盤'||status==='合理分批區') ratio=item.role==='長期核心'?0.28:(item.is_etf?0.10:0.05);
+  if(status==='多頭續強') ratio=item.role==='長期核心'?0.12:(item.is_etf?0.06:0.03);
+  if(status==='高檔震盪') ratio=item.role==='長期核心'?0.08:0.02;
+  if(status==='高檔轉弱預警'||status==='轉弱下跌'||status==='便宜陷阱') ratio=0;
+  if(Number(item.risk_score||50)<40) ratio*=0.55;
+  ratio*=orderConfidenceFactor(item.confidence);
+  if(target.cls==='order-stop') ratio=0;
+  return Math.max(0, Math.min(0.45, ratio));
+}
+function runDailyOrders(){
+  var out=document.getElementById('orderRows');
+  var cards=document.getElementById('orderCards');
+  var budgetEl=document.getElementById('orderBudget');
+  if(!out||!budgetEl||!window.BUY_NOW_DATA) return;
+  var filterEl=document.getElementById('orderFilter');
+  var scopeEl=document.getElementById('orderScope');
+  var searchEl=document.getElementById('orderSearch');
+  var budget=Math.max(0, Number(budgetEl.value||0));
+  var filter=filterEl?filterEl.value:'all';
+  var scope=scopeEl?scopeEl.value:'actionable';
+  var q=searchEl?String(searchEl.value||'').trim().toLowerCase():'';
+  var keys=window.ORDER_KEYS||Object.keys(window.BUY_NOW_DATA);
+  var html='', cardHtml='';
+  keys.forEach(function(tk){
+    var item=window.BUY_NOW_DATA[tk]; if(!item) return;
+    var cat=orderCategory(item);
+    if(filter!=='all'&&filter!==cat) return;
+    var z=item.price_zone||{};
+    var code=tk.replace('.TW','');
+    var query=[tk, code, item.name||'', item.role||'', item.bucket||'', cat, z.status||'', item.conclusion||'', item.action||''].join(' ').toLowerCase();
+    if(q&&query.indexOf(q)<0) return;
+    var target=orderTargetInfo(item);
+    var actionable=(target.cls==='order-ok'||target.cls==='order-momentum');
+    var waiting=(target.cls==='order-wait');
+    var riskLine=(target.cls==='order-stop');
+    if(scope==='actionable'&&!actionable) return;
+    if(scope==='wait'&&!waiting) return;
+    if(scope==='risk'&&!riskLine) return;
+    var ratio=orderRatio(item,target);
+    var amount=Math.round((budget*ratio)/100)*100;
+    var fee=0;
+    if(item.is_tw&&amount>0) fee=Math.max(window.BUY_MIN_FEE||20, Math.round(amount*(window.BUY_FEE_RATE||0.000855)));
+    if(ratio>0&&item.is_tw&&target.price>0&&amount<target.price+fee&&budget>=target.price+fee){
+      amount=Math.min(budget, Math.ceil((target.price+fee)/100)*100);
+      fee=Math.max(window.BUY_MIN_FEE||20, Math.round(amount*(window.BUY_FEE_RATE||0.000855)));
+    }
+    var shares=target.price>0 ? Math.floor(Math.max(0, amount-fee)/target.price) : 0;
+    if(shares<=0){ amount=0; fee=0; }
+    var spend=shares>0 ? shares*target.price+fee : 0;
+    var maxBuy=roundOrderPrice(item, z.buy_high||target.price||0, 'buy');
+    var sellWatch=roundOrderPrice(item, z.early_warning_line||z.trim_line||z.reduce_watch||0, 'sell');
+    var failLine=roundOrderPrice(item, z.failure_line||z.stop_line||0, 'sell');
+    var currency=item.is_tw?'TWD':'USD';
+    var feeText=item.is_tw?(fee>0?'含手續費約 '+fmtMoney(fee)+' 元':'本次不買，無手續費估算'):'海外手續費/匯率另計';
+    html+='<tr>'+
+      '<td><b>'+code+' '+item.name+'</b><small>'+item.role+' / '+item.bucket+' / '+currency+'</small></td>'+
+      '<td><span class="order-action '+target.cls+'">'+target.action+'</span><small>'+target.note+'</small></td>'+
+      '<td><b>'+(target.price?fmtOrderPrice(target.price,item):'不掛買單')+'</b><small>現價 '+fmtOrderPrice(item.price,item)+'</small></td>'+
+      '<td><b>'+fmtMoney(spend)+' 元</b><small>'+fmtShares(shares,item)+'，'+feeText+'</small></td>'+
+      '<td><b>'+fmtOrderPrice(maxBuy,item)+'</b><small>高於這裡不重押</small></td>'+
+      '<td><b>'+fmtOrderPrice(sellWatch,item)+'</b><small>'+(z.sell_status||'看預警')+'</small></td>'+
+      '<td><b>'+fmtOrderPrice(failLine,item)+'</b><small>跌破先重看</small></td>'+
+      '<td><small>'+((z.status||'區間待補')+'；可信度 '+item.confidence+'；風險 '+(item.risk_score||'N/A'))+'</small></td>'+
+      '</tr>';
+    cardHtml+='<article class="order-card">'+
+      '<div class="order-card-head"><div><b>'+code+' '+item.name+'</b><span>'+item.role+' / '+item.bucket+'</span></div><span class="order-action '+target.cls+'">'+target.action+'</span></div>'+
+      '<div class="order-card-grid">'+
+      '<div><span>掛單價</span><b>'+(target.price?fmtOrderPrice(target.price,item):'不掛買單')+'</b><small>現價 '+fmtOrderPrice(item.price,item)+'</small></div>'+
+      '<div><span>建議投入</span><b>'+fmtMoney(spend)+' 元</b><small>'+fmtShares(shares,item)+'</small></div>'+
+      '<div><span>賣出預警</span><b>'+fmtOrderPrice(sellWatch,item)+'</b><small>'+(z.sell_status||'看預警')+'</small></div>'+
+      '<div><span>重看線</span><b>'+fmtOrderPrice(failLine,item)+'</b><small>跌破先重看</small></div>'+
+      '</div><p>'+target.note+'</p><small>'+((z.status||'區間待補')+'；可信度 '+item.confidence+'；風險 '+(item.risk_score||'N/A'))+'</small></article>';
+  });
+  out.innerHTML=html||'<tr><td colspan="8"><div class="nd">沒有符合條件的標的。</div></td></tr>';
+  if(cards) cards.innerHTML=cardHtml||'<div class="nd">沒有符合條件的標的。</div>';
+}
+document.addEventListener('DOMContentLoaded',function(){
+  ['orderSearch','orderBudget','orderFilter','orderScope'].forEach(function(id){
+    var el=document.getElementById(id);
+    if(el) el.addEventListener('input',runDailyOrders);
+    if(el) el.addEventListener('change',runDailyOrders);
+  });
+  runDailyOrders();
+});
+"""
+    return (
+        f'<{section_tag} class="{section_class}" id="daily-orders">'
+        f'<div class="tool-head"><div><div class="st">今日掛單總覽</div>'
+        f'<p>每一列都是單一標的獨立試算；重點是看「能不能入場、掛多少、哪裡要停看」，不是把預算平均分給全部標的。</p></div>'
+        f'<span class="section-meta">執行試算</span></div>'
+        f'<div class="order-filter">'
+        f'<label><span>搜尋代碼或名稱</span><input id="orderSearch" type="search" placeholder="輸入 2330、台積電、00662、電力..." autocomplete="off"></label>'
+        f'<label><span>單一標的預算</span><input id="orderBudget" type="number" min="1000" step="1000" value="{default_budget}"></label>'
+        f'<label><span>顯示</span><select id="orderScope"><option value="actionable">可執行</option><option value="wait">等待觀察</option><option value="risk">風險提醒</option><option value="all">全部</option></select></label>'
+        f'<label><span>類別</span><select id="orderFilter">'
+        f'<option value="all">全部</option><option value="tw-etf">台股 ETF</option><option value="tw-stock">台股股票</option>'
+        f'<option value="us-etf">美股 ETF</option><option value="us-stock">美股股票</option></select></label>'
+        f'<label><span>規則口徑</span><select disabled><option>趨勢階段 + 價格區間 + 風險</option></select></label>'
+        f'</div>'
+        f'<div class="order-wrap"><table class="order-table">'
+        f'<thead><tr><th>標的</th><th>今日動作</th><th>參與/掛單價</th><th>建議投入</th><th>最高買價</th><th>賣出預警</th><th>重看線</th><th>理由</th></tr></thead>'
+        f'<tbody id="orderRows"></tbody></table></div>'
+        f'<div id="orderCards" class="order-cards"></div>'
+        f'<div class="tool-note">「不推薦入場」可能有兩種原因：價格太高，或價格雖低但趨勢/資金/基本面轉壞。後者會標成便宜陷阱或轉弱下跌，不能只因為便宜就買。</div>'
+        f'<script>window.ORDER_KEYS={keys_json};</script><script>{script}</script>'
+        f'</{section_tag}>'
+    )
+
+
+# =============================================================
+# 鞈??瑕?
 # =============================================================
 
 def safe_download(tickers, period='1y'):
