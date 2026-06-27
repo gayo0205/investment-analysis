@@ -7064,7 +7064,7 @@ document.addEventListener('DOMContentLoaded',function(){
 '''
     return (
         f'<section class="sc target-overview" id="target-overview">'
-        f'<div class="tool-head"><div><div class="st">標的一覽</div>'
+        f'<div class="tool-head"><div><div class="st">標的總覽</div>'
         f'<p>用體質、價格階段、可信度快速掃描 {target_count} 檔標的。這裡只做市場理解與研究排序，不提供個人化掛單建議。</p></div>'
         f'<span class="section-meta">體質 / 階段</span></div>'
         f'<div class="overview-controls">'
