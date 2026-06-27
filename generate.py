@@ -5808,6 +5808,9 @@ UI_OVERRIDE_CSS = '''<style>
 .zone-v2 .zone-head b{display:inline-flex;align-items:center;border-radius:999px;padding:5px 10px;background:rgba(110,231,199,.10);border:1px solid rgba(110,231,199,.22);color:#7ee0c3}
 .zone-hot .zone-head b,.zone-danger .zone-head b{background:rgba(255,111,96,.12);border-color:rgba(255,111,96,.25);color:#ff8a78}
 .zone-warm .zone-head b{background:rgba(242,189,88,.12);border-color:rgba(242,189,88,.25);color:#f2bd58}
+.zone-v2 .zone-track{height:10px;background:rgba(139,158,177,.20);overflow:visible}
+.zone-v2 .zone-track .zone-range{position:absolute;top:0;bottom:0;border-radius:999px;background:linear-gradient(90deg,rgba(110,231,199,.28),rgba(110,231,199,.62))}
+.zone-v2 .zone-track .zone-marker{position:absolute;top:50%;width:14px;height:14px;border-radius:50%;background:#f4f7fb;border:3px solid #112033;transform:translate(-50%,-50%);box-shadow:0 2px 8px rgba(0,0,0,.35)}
 .stage-summary{border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.035);border-radius:8px;padding:11px 12px;margin:10px 0}
 .stage-summary strong{display:block;color:#f4f7fb;font-size:14px;margin-bottom:4px}
 .stage-summary p{margin:0;color:#a9bacb;font-size:12px;line-height:1.65}
@@ -5817,6 +5820,7 @@ UI_OVERRIDE_CSS = '''<style>
 .zone-more li{margin:5px 0;color:#c4d2df;line-height:1.55}
 .chip-flow-head strong{min-width:96px;height:auto;padding:8px 10px;border-radius:999px;font-size:12px;line-height:1.2;white-space:nowrap}
 .chip-flow-box p{line-height:1.65;color:#b9cad9}
+.chip-focus-note{margin:8px 0 10px;padding:9px 10px;border-radius:8px;background:rgba(110,231,199,.07);border:1px solid rgba(110,231,199,.16);color:#bdd2df;font-size:12px;line-height:1.65}
 .flow-in .flow-track i{background:linear-gradient(90deg,#3fd69f,#7ee0c3)}
 .flow-out .flow-track i{background:linear-gradient(90deg,#ff8a78,#d85a30)}
 .flow-flat .flow-track i{background:#8c98a6}
@@ -6171,16 +6175,34 @@ def flow_brief(label, value):
     return f'{label}{flow_side_text(value)} {fmt_net_lots(value)}'
 
 
+def institutional_focus_text(meta):
+    bucket = str((meta or {}).get('bucket') or '')
+    industry = str((meta or {}).get('industry') or '')
+    name = str((meta or {}).get('long_name') or (meta or {}).get('short_name') or '')
+    text = '外資 / 投信 / 自營商都看，但重點不同。'
+    if 'ETF' in bucket or 'ETF' in name:
+        text += ' ETF 與權值型標的先看外資，其次投信；自營商多作短線參考。'
+    elif any(word in industry + name for word in ['半導體', '電子', 'AI', '電力', '散熱', '伺服器']):
+        text += ' 題材與科技股要同時看投信和外資：投信代表內資主流，外資代表國際資金是否認同。'
+    else:
+        text += ' 權值股偏重外資，中小型與題材股提高投信權重，自營商只當短線溫度計。'
+    return text
+
+
 def chip_flow_judgment(meta, price=None):
     if not meta or not meta.get('finmind_chip_available'):
         return dict(
-            available=False,
-            state='三大法人資料待補',
-            tone='neutral',
-            score=50,
-            strength_label='待補',
-            summary='這檔暫時抓不到外資、投信、自營商買賣超，不能用資金流判斷。',
-            action='先回到價格、趨勢與基本面檢查。',
+        available=False,
+        state='三大法人資料待補',
+        tone='neutral',
+        score=50,
+        strength_label='待補',
+        focus=(
+            '三大法人指外資、投信、自營商。外資偏國際資金，投信偏台灣基金資金，'
+            '自營商偏短線與避險交易。'
+        ),
+        summary='這檔暫時抓不到外資、投信、自營商買賣超，不能用資金流判斷。',
+        action='先回到價格、趨勢與基本面檢查。',
         )
 
     total_1d = safe_num(meta.get('finmind_institutional_net_buy')) or 0
@@ -6234,6 +6256,7 @@ def chip_flow_judgment(meta, price=None):
         tone=tone,
         score=score,
         strength_label=strength,
+        focus=institutional_focus_text(meta),
         summary=summary,
         action=action,
         total_1d=total_1d,
@@ -6265,7 +6288,7 @@ def institutional_flow_html(meta, price=None):
         return (
             f'<div class="chip-flow-box chip-neutral">'
             f'<div class="chip-flow-head"><div><span>三大法人資金流</span><b>{h(chip["state"])}</b></div>'
-            f'<strong>待補</strong></div><p>{h(chip["summary"])}</p></div>'
+            f'<strong>待補</strong></div><p>{h(chip["summary"])}</p><div class="chip-focus-note">{h(chip.get("focus", ""))}</div></div>'
         )
 
     max_abs = max(
@@ -6294,6 +6317,7 @@ def institutional_flow_html(meta, price=None):
         f'<div class="chip-flow-head"><div><span>三大法人資金流</span><b>{h(chip["state"])}</b></div>'
         f'<strong>資金流：{h(chip["strength_label"])} {chip.get("score", 50):.0f}/100</strong></div>'
         f'<p>{h(chip["summary"])}</p>'
+        f'<div class="chip-focus-note">{h(chip.get("focus", ""))}</div>'
         f'<div class="chip-flow-visual">{bars}</div>'
         f'<div class="detail-grid chip-flow-grid">{tiles}</div>'
         f'<details class="chip-flow-formula"><summary>約當金額怎麼算？</summary>'
@@ -6662,7 +6686,7 @@ def price_zone_html(zone):
         f'<div class="zone-box zone-{h(tone)} zone-v2">'
         f'<div class="zone-head"><span>趨勢與價格地圖</span><b>{h(zone["status"])}</b></div>'
         f'<div class="stage-summary"><strong>{h(zone["summary"])}</strong><p>{h(zone["action"])}</p></div>'
-        f'<div class="zone-track"><i class="zone-ok" style="left:28%;width:35%"></i><b style="left:{marker:.0f}%"></b></div>'
+        f'<div class="zone-track"><span class="zone-range" style="left:28%;width:35%"></span><i class="zone-marker" style="left:{marker:.0f}%"></i></div>'
         f'<div class="zone-labels"><span>重看</span><span>承接</span><span>強勢</span><span>追價風險</span></div>'
         f'<div class="zone-grid zone-grid-v2">'
         f'<div><span>回踩承接區</span><b>{h(zone["range_text"])}</b><small>{h(zone["entry_reason"])}</small></div>'
@@ -6952,6 +6976,112 @@ document.addEventListener('DOMContentLoaded',function(){
         f'<div class="tool-note">「不推薦入場」可能有兩種原因：價格太高，或價格雖低但趨勢/資金/基本面轉壞。後者會標成便宜陷阱或轉弱下跌，不能只因為便宜就買。</div>'
         f'<script>window.ORDER_KEYS={keys_json};</script><script>{script}</script>'
         f'</{section_tag}>'
+    )
+
+
+def target_overview_html(market_ctx=None):
+    ordered = all_targets_order()
+    if not ordered:
+        return ''
+    target_count = len(ordered)
+    rows = []
+    cat_labels = {
+        'tw-etfs': '台股 ETF',
+        'tw-stocks': '台股股票',
+        'us-etfs': '美股 ETF',
+        'us-stocks': '美股股票',
+        'bonds': '債券/商品',
+    }
+    confidence_rank = {'高': 3, '中': 2, '低': 1}
+    for tk in ordered:
+        item = BUY_NOW_DATA[tk]
+        status = zone_status(item)
+        tone = action_tone(status)
+        cat = target_tab_id(tk)
+        code = tk.replace('.TW', '')
+        price = item.get('price')
+        price_text = f'{float(price):,.2f}' if isinstance(price, (int, float)) else 'N/A'
+        score = safe_num(item.get('score')) or 0
+        score_tone = 'good' if score >= 70 else 'mid' if score >= 50 else 'low'
+        risk = safe_num(item.get('risk_score')) or 0
+        w_pct = safe_num(item.get('w_pct')) or 50
+        conf = item.get('confidence', 'N/A')
+        watch_score = {'ok': 300, 'wait': 200, 'stop': 100}.get(tone, 0) + score + confidence_rank.get(conf, 0) * 3
+        action = item.get('action') or item.get('conclusion') or '先看完整卡'
+        query_text = ' '.join([
+            code, tk, item.get('name', ''), item.get('role', ''), item.get('bucket', ''),
+            cat_labels.get(cat, cat), status, action, zone_range_text(item), item.get('confidence', '')
+        ]).lower()
+        rows.append(
+            f'<div class="overview-row overview-{tone}" data-cat="{h(cat)}" data-tone="{h(tone)}" '
+            f'data-score="{score:.2f}" data-risk="{risk:.2f}" data-wpct="{w_pct:.2f}" '
+            f'data-watch="{watch_score:.2f}" data-conf="{confidence_rank.get(conf, 0)}" '
+            f'data-query="{h(query_text)}" data-order="{len(rows)}">'
+            f'<div class="overview-name"><b>{h(code)} {h(item.get("name", ""))}</b>'
+            f'<small>{h(cat_labels.get(cat, cat))} / {h(item.get("role", ""))} / {h(item.get("bucket", ""))}</small></div>'
+            f'<div class="overview-score score-{score_tone}"><span>體質</span><b>{h(item.get("score", "N/A"))}</b><i><em style="width:{score:.0f}%"></em></i></div>'
+            f'<div class="overview-price"><span>現價</span><b>{price_text}</b></div>'
+            f'<div class="overview-status"><span>{h(status)}</span><small>{h(zone_range_text(item))}</small></div>'
+            f'<div class="overview-confidence"><span>可信度</span><b>{h(conf)}</b></div>'
+            f'{target_link(tk, "完整卡", "mini-link overview-link")}'
+            f'</div>'
+        )
+    script = '''
+function filterOverview(){
+  var list=document.getElementById('overviewList');
+  var empty=document.getElementById('overviewEmpty');
+  if(!list) return;
+  var cat=(document.getElementById('overviewCat')||{}).value||'all';
+  var tone=(document.getElementById('overviewTone')||{}).value||'all';
+  var sort=(document.getElementById('overviewSort')||{}).value||'watch';
+  var q=((document.getElementById('overviewSearch')||{}).value||'').trim().toLowerCase();
+  var rows=Array.prototype.slice.call(list.querySelectorAll('.overview-row'));
+  rows.sort(function(a,b){
+    function n(el,key){return Number(el.dataset[key]||0);}
+    if(sort==='score') return n(b,'score')-n(a,'score');
+    if(sort==='risk') return n(a,'risk')-n(b,'risk');
+    if(sort==='wpct') return n(a,'wpct')-n(b,'wpct');
+    if(sort==='conf') return n(b,'conf')-n(a,'conf');
+    return n(b,'watch')-n(a,'watch') || n(a,'order')-n(b,'order');
+  });
+  var shown=0;
+  rows.forEach(function(row){
+    var query=row.dataset.query||'';
+    var ok=(cat==='all'||row.dataset.cat===cat)&&(tone==='all'||row.dataset.tone===tone)&&(!q||query.indexOf(q)>=0);
+    row.style.display=ok?'grid':'none';
+    list.appendChild(row);
+    if(ok) shown++;
+  });
+  if(empty) empty.style.display=shown?'none':'block';
+}
+document.addEventListener('DOMContentLoaded',function(){
+  ['overviewSearch','overviewCat','overviewTone','overviewSort'].forEach(function(id){
+    var el=document.getElementById(id);
+    if(el){ el.addEventListener('change',filterOverview); el.addEventListener('input',filterOverview); }
+  });
+  filterOverview();
+});
+'''
+    return (
+        f'<section class="sc target-overview" id="target-overview">'
+        f'<div class="tool-head"><div><div class="st">標的一覽</div>'
+        f'<p>用體質、價格階段、可信度快速掃描 {target_count} 檔標的。這裡只做市場理解與研究排序，不提供個人化掛單建議。</p></div>'
+        f'<span class="section-meta">體質 / 階段</span></div>'
+        f'<div class="overview-controls">'
+        f'<label class="overview-search"><span>搜尋代碼或名稱</span><input id="overviewSearch" type="search" placeholder="輸入 2330、台積電、00662、電力..." autocomplete="off"></label>'
+        f'<label><span>類別</span><select id="overviewCat"><option value="all">全部</option>'
+        f'<option value="tw-etfs">台股 ETF</option><option value="tw-stocks">台股股票</option>'
+        f'<option value="us-etfs">美股 ETF</option><option value="us-stocks">美股股票</option><option value="bonds">債券/商品</option></select></label>'
+        f'<label><span>狀態</span><select id="overviewTone"><option value="all">全部狀態</option>'
+        f'<option value="ok">可分批/回檔</option><option value="wait">強勢或等待</option><option value="stop">過熱或轉弱</option></select></label>'
+        f'<label><span>排序</span><select id="overviewSort"><option value="watch">優先看</option>'
+        f'<option value="score">體質高到低</option><option value="risk">風險低到高</option>'
+        f'<option value="wpct">52週位置低到高</option><option value="conf">可信度高到低</option></select></label>'
+        f'</div>'
+        f'<div class="overview-list" id="overviewList">{"".join(rows)}</div>'
+        f'<div class="nd" id="overviewEmpty" style="display:none">沒有符合條件的標的。</div>'
+        f'<script>{script}</script>'
+        f'</section>'
     )
 
 
