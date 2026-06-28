@@ -1517,6 +1517,70 @@ def buy_now_ratio(ticker, a, ext):
     return round(ratio, 2)
 
 
+def price_zone_html(zone):
+    if not zone:
+        return ''
+    tone = zone.get('tone', 'neutral')
+    px = safe_num(zone.get('price'))
+    chase = safe_num(zone.get('chase_limit'))
+    stop = safe_num(zone.get('stop_line'))
+    marker = 50
+    if px is not None and stop is not None and chase is not None and chase > stop:
+        marker = max(3, min(97, (px - stop) / (chase - stop) * 100))
+
+    buy_low = fmt_zone_price(zone.get('buy_low'))
+    buy_high = fmt_zone_price(zone.get('buy_high'))
+    chase_text = fmt_zone_price(zone.get('chase_limit'))
+    stop_text = fmt_zone_price(zone.get('failure_line') or zone.get('stop_line'))
+    early_text = fmt_zone_price(zone.get('early_warning_line') or zone.get('reduce_watch'))
+    strong_text = f'{buy_high} ~ {chase_text}'
+    risk_text = f'>{chase_text}'
+
+    step_html = ''.join(
+        f'<div><span>{h(title)}</span><b>{h(value)}</b><small>{h(note)}</small></div>'
+        for title, value, note in zone.get('buy_steps', [])
+    )
+    sell_step_html = ''.join(
+        f'<div><span>{h(title)}</span><b>{h(value)}</b><small>{h(note)}</small></div>'
+        for title, value, note in zone.get('sell_steps', [])
+    )
+    watch_html = ''.join(f'<li>{h(x)}</li>' for x in zone.get('watch_items', [])[:5])
+
+    return (
+        f'<div class="zone-box zone-{h(tone)} zone-v2 price-position-card">'
+        f'<div class="zone-head price-position-head"><span>價格位置圖</span><b>{h(zone["status"])}</b></div>'
+        f'<div class="price-position-lead">'
+        f'<div><span>目前解讀</span><strong>{h(zone["summary"])}</strong><p>{h(zone["action"])}</p></div>'
+        f'<em>{h(zone.get("entry_mode", "先觀察"))}</em>'
+        f'</div>'
+        f'<div class="price-map" aria-label="價格位置圖">'
+        f'<div class="price-map-rail">'
+        f'<div class="price-map-segments">'
+        f'<span class="seg-reset"></span><span class="seg-entry"></span><span class="seg-strong"></span><span class="seg-risk"></span>'
+        f'</div>'
+        f'<i class="price-map-marker" style="left:{marker:.0f}%"><span>現價</span></i>'
+        f'</div>'
+        f'<div class="price-map-labels">'
+        f'<div><span>重看線</span><b>{h(stop_text)}</b><small>跌破先停看</small></div>'
+        f'<div><span>承接區</span><b>{h(zone["range_text"])}</b><small>比較舒服的分批區</small></div>'
+        f'<div><span>強勢區</span><b>{h(strong_text)}</b><small>趨勢還在但不重押</small></div>'
+        f'<div><span>追價風險</span><b>{h(risk_text)}</b><small>上方只追蹤不衝動</small></div>'
+        f'</div>'
+        f'</div>'
+        f'<div class="price-decision-grid">'
+        f'<div><span>入場判斷</span><b>{h(zone.get("entry_mode", "先觀察"))}</b><small>{h(zone.get("entry_reason", ""))}</small></div>'
+        f'<div><span>賣出預警</span><b>{h(zone.get("sell_status", "看預警"))}</b><small>{h(zone.get("sell_text", ""))}</small></div>'
+        f'<div><span>改變看法</span><b>低於 {h(stop_text)}</b><small>{h(zone.get("fail_text", ""))}</small></div>'
+        f'</div>'
+        f'<details class="zone-more price-position-more"><summary>展開看分批、賣出劇本與依據</summary>'
+        f'<div class="zone-subtitle">買進拆批</div><div class="zone-steps">{step_html}</div>'
+        f'<div class="zone-subtitle">賣出劇本</div><div class="zone-steps">{sell_step_html}</div>'
+        f'<div class="zone-subtitle">觀察依據</div><ul>{watch_html}</ul>'
+        f'<p>{h(zone.get("basis", ""))}</p></details>'
+        f'</div>'
+    )
+
+
 def decision_texts(ticker, a, ext, rec, plan=None):
     profile = get_profile(ticker)
     is_etf = is_etf_like(ticker)
@@ -5814,6 +5878,30 @@ UI_OVERRIDE_CSS = '''<style>
 .zone-v2 .zone-labels{margin-top:8px;color:#91a9bd;font-size:10px}
 .trend-chart-card .spark svg{height:140px;width:100%;max-width:100%}
 .desktop-mid-grid:has(> .tool-card:only-child){grid-template-columns:minmax(0,1fr)}
+.price-position-card{padding:14px;border-radius:10px}
+.price-position-head{align-items:center;margin-bottom:10px}
+.price-position-lead{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:start;background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.08);border-radius:9px;padding:12px;margin:10px 0 14px}
+.price-position-lead span{display:block;color:#8aa2b7;font-size:11px;font-weight:850;margin-bottom:4px}
+.price-position-lead strong{display:block;color:#f4f7fb;font-size:15px;line-height:1.45}
+.price-position-lead p{margin:5px 0 0;color:#a9bacb;font-size:12px;line-height:1.65}
+.price-position-lead em{font-style:normal;white-space:nowrap;color:#7ee0c3;background:rgba(110,231,199,.11);border:1px solid rgba(110,231,199,.24);border-radius:999px;padding:7px 10px;font-size:12px;font-weight:900}
+.price-map{margin:12px 0 13px}
+.price-map-rail{position:relative;height:34px;display:flex;align-items:center}
+.price-map-segments{display:grid;grid-template-columns:24fr 34fr 26fr 16fr;width:100%;height:11px;border-radius:999px;overflow:hidden;background:rgba(139,158,177,.18);box-shadow:inset 0 0 0 1px rgba(255,255,255,.06)}
+.price-map-segments span{display:block}
+.seg-reset{background:linear-gradient(90deg,rgba(255,111,96,.35),rgba(242,189,88,.24))}
+.seg-entry{background:linear-gradient(90deg,rgba(110,231,199,.30),rgba(110,231,199,.72))}
+.seg-strong{background:linear-gradient(90deg,rgba(88,166,255,.34),rgba(88,166,255,.60))}
+.seg-risk{background:linear-gradient(90deg,rgba(242,189,88,.40),rgba(255,111,96,.56))}
+.price-map-marker{position:absolute;top:50%;width:16px;height:16px;border-radius:50%;background:#f8fbff;border:3px solid #101b27;transform:translate(-50%,-50%);box-shadow:0 2px 10px rgba(0,0,0,.45);z-index:2}
+.price-map-marker span{position:absolute;left:50%;top:-24px;transform:translateX(-50%);font-size:10px;line-height:1;color:#e8f1f8;background:#142231;border:1px solid rgba(255,255,255,.10);border-radius:999px;padding:4px 7px;white-space:nowrap;font-style:normal}
+.price-map-labels{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:4px}
+.price-map-labels div,.price-decision-grid div{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:9px 10px;min-width:0}
+.price-map-labels span,.price-decision-grid span{display:block;color:#8aa2b7;font-size:10px;font-weight:850;margin-bottom:4px}
+.price-map-labels b,.price-decision-grid b{display:block;color:#edf5fb;font-size:13px;line-height:1.35;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.price-map-labels small,.price-decision-grid small{display:block;color:#93a8b9;font-size:10px;line-height:1.45;margin-top:3px}
+.price-decision-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:10px}
+.price-position-more{margin-top:12px}
 .stage-summary{border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.035);border-radius:8px;padding:11px 12px;margin:10px 0}
 .stage-summary strong{display:block;color:#f4f7fb;font-size:14px;margin-bottom:4px}
 .stage-summary p{margin:0;color:#a9bacb;font-size:12px;line-height:1.65}
@@ -5841,6 +5929,16 @@ UI_OVERRIDE_CSS = '''<style>
   .trend-chart-card .spark svg{height:118px}
   .zone-v2 .zone-labels{grid-template-columns:repeat(2,1fr);gap:4px 8px;text-align:left;font-size:10px}
   .zone-v2 .zone-grid-v2>div{padding:10px}
+  .price-position-card{padding:12px}
+  .price-position-lead{grid-template-columns:1fr;gap:8px;padding:11px}
+  .price-position-lead em{justify-self:start;white-space:normal}
+  .price-map-rail{height:36px;margin-top:8px}
+  .price-map-marker span{top:-22px;font-size:9px}
+  .price-map-labels{grid-template-columns:1fr 1fr;gap:7px}
+  .price-map-labels div{padding:8px}
+  .price-map-labels b{font-size:12px}
+  .price-decision-grid{grid-template-columns:1fr;gap:7px}
+  .price-decision-grid div{padding:9px}
 }
 </style>'''
 
@@ -6671,14 +6769,19 @@ def price_zone_html(zone):
     if not zone:
         return ''
     tone = zone.get('tone', 'neutral')
-    marker = 50
     px = safe_num(zone.get('price'))
-    low = safe_num(zone.get('buy_low'))
-    high = safe_num(zone.get('buy_high'))
     chase = safe_num(zone.get('chase_limit'))
     stop = safe_num(zone.get('stop_line'))
+    marker = 50
     if px is not None and stop is not None and chase is not None and chase > stop:
-        marker = max(0, min(100, (px - stop) / (chase - stop) * 100))
+        marker = max(3, min(97, (px - stop) / (chase - stop) * 100))
+
+    buy_high = fmt_zone_price(zone.get('buy_high'))
+    chase_text = fmt_zone_price(zone.get('chase_limit'))
+    stop_text = fmt_zone_price(zone.get('failure_line') or zone.get('stop_line'))
+    strong_text = f'{buy_high} ~ {chase_text}'
+    risk_text = f'>{chase_text}'
+
     step_html = ''.join(
         f'<div><span>{h(title)}</span><b>{h(value)}</b><small>{h(note)}</small></div>'
         for title, value, note in zone.get('buy_steps', [])
@@ -6689,18 +6792,32 @@ def price_zone_html(zone):
     )
     watch_html = ''.join(f'<li>{h(x)}</li>' for x in zone.get('watch_items', [])[:5])
     return (
-        f'<div class="zone-box zone-{h(tone)} zone-v2">'
-        f'<div class="zone-head"><span>趨勢與價格地圖</span><b>{h(zone["status"])}</b></div>'
-        f'<div class="stage-summary"><strong>{h(zone["summary"])}</strong><p>{h(zone["action"])}</p></div>'
-        f'<div class="zone-track"><span class="zone-range" style="left:28%;width:35%"></span><i class="zone-marker" style="left:{marker:.0f}%"></i></div>'
-        f'<div class="zone-labels"><span>重看</span><span>承接</span><span>強勢</span><span>追價風險</span></div>'
-        f'<div class="zone-grid zone-grid-v2">'
-        f'<div><span>回踩承接區</span><b>{h(zone["range_text"])}</b><small>{h(zone["entry_reason"])}</small></div>'
-        f'<div><span>現價入場</span><b>{h(zone["entry_mode"])}</b><small>{h(zone["counter"])}</small></div>'
-        f'<div><span>賣出預警</span><b>{h(zone["sell_status"])}</b><small>{h(zone["sell_text"])}</small></div>'
-        f'<div><span>改變看法</span><b>低於 {h(fmt_zone_price(zone.get("failure_line")))}</b><small>{h(zone["fail_text"])}</small></div>'
+        f'<div class="zone-box zone-{h(tone)} zone-v2 price-position-card">'
+        f'<div class="zone-head price-position-head"><span>價格位置圖</span><b>{h(zone["status"])}</b></div>'
+        f'<div class="price-position-lead">'
+        f'<div><span>目前解讀</span><strong>{h(zone["summary"])}</strong><p>{h(zone["action"])}</p></div>'
+        f'<em>{h(zone.get("entry_mode", "先觀察"))}</em>'
         f'</div>'
-        f'<details class="zone-more"><summary>看分批、賣出與觀察依據</summary>'
+        f'<div class="price-map" aria-label="價格位置圖">'
+        f'<div class="price-map-rail">'
+        f'<div class="price-map-segments">'
+        f'<span class="seg-reset"></span><span class="seg-entry"></span><span class="seg-strong"></span><span class="seg-risk"></span>'
+        f'</div>'
+        f'<i class="price-map-marker" style="left:{marker:.0f}%"><span>現價</span></i>'
+        f'</div>'
+        f'<div class="price-map-labels">'
+        f'<div><span>重看線</span><b>{h(stop_text)}</b><small>跌破先停看</small></div>'
+        f'<div><span>承接區</span><b>{h(zone["range_text"])}</b><small>比較舒服的分批區</small></div>'
+        f'<div><span>強勢區</span><b>{h(strong_text)}</b><small>趨勢還在但不重押</small></div>'
+        f'<div><span>追價風險</span><b>{h(risk_text)}</b><small>上方只追蹤不衝動</small></div>'
+        f'</div>'
+        f'</div>'
+        f'<div class="price-decision-grid">'
+        f'<div><span>入場判斷</span><b>{h(zone.get("entry_mode", "先觀察"))}</b><small>{h(zone.get("entry_reason", ""))}</small></div>'
+        f'<div><span>賣出預警</span><b>{h(zone.get("sell_status", "看預警"))}</b><small>{h(zone.get("sell_text", ""))}</small></div>'
+        f'<div><span>改變看法</span><b>低於 {h(stop_text)}</b><small>{h(zone.get("fail_text", ""))}</small></div>'
+        f'</div>'
+        f'<details class="zone-more price-position-more"><summary>展開看分批、賣出劇本與依據</summary>'
         f'<div class="zone-subtitle">買進拆批</div><div class="zone-steps">{step_html}</div>'
         f'<div class="zone-subtitle">賣出劇本</div><div class="zone-steps">{sell_step_html}</div>'
         f'<div class="zone-subtitle">觀察依據</div><ul>{watch_html}</ul>'
