@@ -4570,7 +4570,7 @@ def stock_card(ticker, name, price, chg, hist_close, a, ext, rec):
     sig = a['sig']
     sc_col       = SCORE_COL[sig]
     badge_tc, badge_bg = BADGE[sig]
-    sp   = sparkline(hist_close)
+    sp   = sparkline(hist_close, w=520, h=140)
     disp = ticker.replace('.TW', '')
     qt = f' · {ext.get("quote_time_text")}' if ext.get('quote_time_text') else ''
     price_caption = f'{ext.get("price_label", "最新收盤")} {ext.get("latest_date", "")}{qt} · {ext.get("market_status", "")}'
@@ -5811,6 +5811,9 @@ UI_OVERRIDE_CSS = '''<style>
 .zone-v2 .zone-track{height:10px;background:rgba(139,158,177,.20);overflow:visible}
 .zone-v2 .zone-track .zone-range{position:absolute;top:0;bottom:0;border-radius:999px;background:linear-gradient(90deg,rgba(110,231,199,.28),rgba(110,231,199,.62))}
 .zone-v2 .zone-track .zone-marker{position:absolute;top:50%;width:14px;height:14px;border-radius:50%;background:#f4f7fb;border:3px solid #112033;transform:translate(-50%,-50%);box-shadow:0 2px 8px rgba(0,0,0,.35)}
+.zone-v2 .zone-labels{margin-top:8px;color:#91a9bd;font-size:10px}
+.trend-chart-card .spark svg{height:140px;width:100%;max-width:100%}
+.desktop-mid-grid:has(> .tool-card:only-child){grid-template-columns:minmax(0,1fr)}
 .stage-summary{border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.035);border-radius:8px;padding:11px 12px;margin:10px 0}
 .stage-summary strong{display:block;color:#f4f7fb;font-size:14px;margin-bottom:4px}
 .stage-summary p{margin:0;color:#a9bacb;font-size:12px;line-height:1.65}
@@ -5834,6 +5837,10 @@ UI_OVERRIDE_CSS = '''<style>
   .decision-stage-line b{white-space:normal}
   .chip-flow-head{align-items:flex-start}
   .chip-flow-head strong{min-width:auto}
+  .trend-chart-card{padding:11px}
+  .trend-chart-card .spark svg{height:118px}
+  .zone-v2 .zone-labels{grid-template-columns:repeat(2,1fr);gap:4px 8px;text-align:left;font-size:10px}
+  .zone-v2 .zone-grid-v2>div{padding:10px}
 }
 </style>'''
 
@@ -6093,7 +6100,6 @@ def build_html(idx_html, tw_s, tw_e, us_s, us_e, bonds, update_time, market_ctx=
         f'{page_heading_html("試算工具", "模擬定期投入與臨時買入，把金額、批次、手續費與歷史風險放在同一處。", "不代表個人投資建議")}\n'
         f'<div class="desktop-mid-grid" id="tools">\n'
         f'{dca_simulator_html(market_ctx)}\n'
-        f'{buy_now_tool_html(market_ctx)}\n'
         f'</div>\n'
         f'</section>\n'
         f'<section class="mode-pane app-page" id="data-mode">\n'
