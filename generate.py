@@ -3038,8 +3038,42 @@ def methodology_html():
     )
 
 
-def public_readiness_html(update_time, market_ctx=None):
+def report_phase_info(now_tw):
+    if now_tw.weekday() >= 5:
+        return {
+            'label': '週末觀察版',
+            'note': '台股休市，台股資料多為前一交易日；重點看美股收盤、全球市場與下週觀察。'
+        }
+    t = now_tw.time()
+    if t < dt_time(8, 30):
+        return {
+            'label': '盤前版',
+            'note': '台股尚未開盤，台股多為上一交易日；重點看美股收盤與開盤前風險。'
+        }
+    if t < dt_time(9, 45):
+        return {
+            'label': '開盤後快照',
+            'note': '開盤後初步更新，早盤波動較大；先看方向，不把它當成全天結論。'
+        }
+    if t < dt_time(13, 30):
+        return {
+            'label': '早盤追蹤',
+            'note': '早盤資料較穩，但午盤與收盤仍可能改變價格位置與資金流判斷。'
+        }
+    if t < dt_time(16, 30):
+        return {
+            'label': '收盤快照',
+            'note': '台股已收盤，價格較完整；部分三大法人、ETF與官方資料可能稍晚補齊。'
+        }
+    return {
+        'label': '收盤完整版',
+        'note': '收盤後整理版；若三大法人與官方資料來源已更新，會一併納入判斷。'
+    }
+
+
+def public_readiness_html(update_time, market_ctx=None, report_phase=None):
     market_ctx = market_ctx or {}
+    report_phase = report_phase or {'label': '資料更新', 'note': '請以頁面顯示的資料時間為準。'}
     temp = market_ctx.get('temperature', '中性')
     regime = market_ctx.get('regime', '資料不足')
     return (
@@ -3048,6 +3082,7 @@ def public_readiness_html(update_time, market_ctx=None):
         f'<div class="method-lead">這一區是出貨前自查用：本頁是靜態頁，數字只代表這次產生報告時抓到的資料。</div>'
         f'<div class="check-grid">'
         f'<div><span>報告產生</span><b>{h(update_time)} 台灣時間</b><small>若過了交易日，請重新跑 generate.py 更新。</small></div>'
+        f'<div><span>資料時段</span><b>{h(report_phase["label"])}</b><small>{h(report_phase["note"])}</small></div>'
         f'<div><span>資料來源</span><b>TWSE / Yahoo</b><small>台股價格優先 TWSE 盤後公開資料；其他欄位用 Yahoo 免費資料補足。每張卡會列報價時間、來源與市場狀態。</small></div>'
         f'<div><span>市場狀態</span><b>{h(temp)}</b><small>{h(regime)}。這只調整分批與風險，不是保證漲跌。</small></div>'
         f'<div><span>手續費邏輯</span><b>分兩套</b><small>定期定額用台股1元優惠假設；臨時買入用一般電子下單低消估算。</small></div>'
@@ -5429,10 +5464,12 @@ html,body{max-width:100%;overflow-x:hidden}
 .app-nav-btn.on{background:#172530;color:var(--ok);box-shadow:inset 3px 0 0 var(--ok)}
 .nav-mark{display:grid;place-items:center;width:25px;height:25px;color:inherit;font-size:12px;font-weight:900}
 .app-sidebar-note{margin-top:auto;padding:14px 10px 0;border-top:1px solid var(--bdr);font-size:10px;color:var(--t2);line-height:1.55}
+.app-sidebar-note small{display:block;color:var(--accent);font-weight:900;margin-top:5px}
 .app-main{min-width:0;padding:0 24px 42px}
 .app-topbar{position:sticky;top:0;z-index:100;background:rgba(7,16,25,0.96);border-bottom:1px solid var(--bdr);min-height:68px;display:flex;align-items:center;justify-content:space-between;gap:18px;padding:10px 4px}
 .app-topbar h1{font-size:24px;color:var(--t);min-width:0}
 .topbar-meta{display:flex;align-items:center;gap:12px;font-size:11px;color:var(--t2)}
+.topbar-phase{display:inline-flex;align-items:center;border-radius:999px;padding:6px 10px;background:rgba(110,231,199,.10);border:1px solid rgba(110,231,199,.22);color:var(--accent);font-weight:900;white-space:nowrap}
 .reload-btn{border:1px solid var(--bdr);background:var(--card2);color:var(--t);border-radius:7px;padding:8px 11px;font:inherit;font-size:12px;font-weight:800;cursor:pointer}
 .data-status{color:var(--ok);font-weight:800;white-space:nowrap}
 .data-status::before{content:"";display:inline-block;width:8px;height:8px;background:var(--ok);border-radius:50%;margin-right:6px}
@@ -5498,6 +5535,7 @@ footer{margin-left:208px;background:#0a141d;border-color:var(--bdr)}
   .topbar-meta{gap:7px;margin-left:auto;flex:0 0 auto}
   .topbar-time{display:none}
   .data-status{display:none}
+  .topbar-phase{padding:5px 8px;font-size:10px}
   .reload-btn{width:36px;height:36px;padding:0;font-size:0}
   .reload-btn::after{content:"↻";font-size:22px}
   .data-status{font-size:10px}
@@ -6092,7 +6130,8 @@ def mode_switch_html():
     )
 
 
-def app_sidebar_html(update_time):
+def app_sidebar_html(update_time, report_phase=None):
+    report_phase = report_phase or {'label': '資料更新'}
     items = [
         ('focus-mode', '今日'),
         ('core-mode', '核心 ETF'),
@@ -6111,7 +6150,7 @@ def app_sidebar_html(update_time):
         f'<aside class="app-sidebar">'
         f'<div class="app-brand">每日市場報告</div>'
         f'<nav class="app-nav" aria-label="主要導覽">{buttons}</nav>'
-        f'<div class="app-sidebar-note">資料更新時間<br><b>{h(update_time)}</b></div>'
+        f'<div class="app-sidebar-note">資料更新時間<br><b>{h(update_time)}</b><small>{h(report_phase["label"])}</small></div>'
         f'</aside>'
     )
 
@@ -6150,7 +6189,8 @@ def page_heading_html(title, description, meta=''):
     )
 
 
-def build_html(idx_html, tw_s, tw_e, us_s, us_e, bonds, update_time, market_ctx=None):
+def build_html(idx_html, tw_s, tw_e, us_s, us_e, bonds, update_time, market_ctx=None, report_phase=None):
+    report_phase = report_phase or {'label': '資料更新', 'note': '請以頁面顯示的資料時間為準。'}
     market_full_html = idx_html.replace('id="market-radar"', 'id="market-radar-full"', 1)
     market_home_html = (
         idx_html
@@ -6164,10 +6204,11 @@ def build_html(idx_html, tw_s, tw_e, us_s, us_e, bonds, update_time, market_ctx=
         f'<title>智慧投資分析 | {update_time}</title>\n'
         f'{CSS}\n{APP_SHELL_CSS}\n{UI_OVERRIDE_CSS}\n</head>\n<body>\n'
         f'<div class="app-shell">\n'
-        f'{app_sidebar_html(update_time)}\n'
+        f'{app_sidebar_html(update_time, report_phase)}\n'
         f'<main class="app-main">\n'
         f'<header class="app-topbar"><h1 id="appPageTitle">今日市場</h1>'
         f'<div class="topbar-meta"><span class="topbar-time">資料截至 {update_time} 台灣時間</span>'
+        f'<span class="topbar-phase" title="{h(report_phase["note"])}">{h(report_phase["label"])}</span>'
         f'<button class="reload-btn" type="button" onclick="location.reload()">重新載入</button>'
         f'<span class="data-status">資料已載入</span></div></header>\n'
         f'<div class="app-content">\n'
@@ -6220,7 +6261,7 @@ def build_html(idx_html, tw_s, tw_e, us_s, us_e, bonds, update_time, market_ctx=
         f'<div id="bonds"     class="tc"><div class="cgrid">{bonds}</div></div>\n'
         f'</section>\n'
         f'{methodology_html()}\n'
-        f'{public_readiness_html(update_time, market_ctx)}\n'
+        f'{public_readiness_html(update_time, market_ctx, report_phase)}\n'
         f'</section>\n'
         f'</div></main>\n'
         f'</div>\n'
@@ -7663,7 +7704,9 @@ def main():
     print('=' * 45)
     print('  智慧投資分析 v2 — 開始產生報告')
     print('=' * 45)
-    update_time = datetime.now(ZoneInfo('Asia/Taipei')).strftime('%Y-%m-%d %H:%M')
+    now_tw = datetime.now(ZoneInfo('Asia/Taipei'))
+    update_time = now_tw.strftime('%Y-%m-%d %H:%M')
+    report_phase = report_phase_info(now_tw)
 
     print('\n[1/6] 擷取大盤指數...')
     idx_html, market_ctx = fetch_indices()
@@ -7687,7 +7730,7 @@ def main():
     prepare_dca_sim_data()
 
     print('\n產生 index.html...')
-    html = build_html(idx_html, tw_s, tw_e, us_s, us_e, bonds, update_time, market_ctx)
+    html = build_html(idx_html, tw_s, tw_e, us_s, us_e, bonds, update_time, market_ctx, report_phase)
     healthy, health_note = report_is_healthy(html)
     if not healthy:
         if Path('index.html').exists():

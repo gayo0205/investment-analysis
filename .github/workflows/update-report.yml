@@ -4,12 +4,16 @@ on:
   workflow_dispatch:
   schedule:
     # GitHub cron uses UTC: Sun-Fri 22:45 UTC = Mon-Sat 06:45 Taipei.
-    # Mon-Fri refresh before Taiwan open; Sat captures Friday US close.
+    # Pre-open refresh: Mon-Fri before Taiwan open; Sat captures Friday US close.
     - cron: "45 22 * * 0-5"
-    # Taiwan market midday refresh, Monday-Friday, 11:30 Taipei time.
-    - cron: "30 3 * * 1-5"
-    # After Taiwan market close, Monday-Friday, 15:15 Taipei time.
-    - cron: "15 7 * * 1-5"
+    # After Taiwan open, Monday-Friday, 09:20 Taipei time.
+    - cron: "20 1 * * 1-5"
+    # Morning backup refresh, Monday-Friday, 10:10 Taipei time.
+    - cron: "10 2 * * 1-5"
+    # Taiwan market close snapshot, Monday-Friday, 13:50 Taipei time.
+    - cron: "50 5 * * 1-5"
+    # Post-close fuller refresh, Monday-Friday, 16:30 Taipei time.
+    - cron: "30 8 * * 1-5"
 
 permissions:
   contents: write
