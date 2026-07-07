@@ -40,6 +40,9 @@ TW_STOCKS = {
     '2408.TW': '南亞科',
     '2882.TW': '國泰金',
     '2449.TW': '京元電子',
+    # AI PC / 品牌電腦 / 半導體封測
+    '2353.TW': '宏碁',
+    '6147.TWO': '頎邦',
     # AI 伺服器 / 資料中心供應鏈
     '2382.TW': '廣達',
     '3231.TW': '緯創',
@@ -53,6 +56,8 @@ TW_STOCKS = {
     '1504.TW': '東元',
     '1605.TW': '華新',
     '1609.TW': '大亞',
+    # 建材 / 玻璃 / 循環原物料
+    '1802.TW': '台玻',
 }
 
 TW_ETFS = {
@@ -166,6 +171,9 @@ STOCK_PROFILES = {
     '1504.TW': dict(role='個股觀察', bucket='馬達/電氣設備', base_ratio=0.0, note='馬達與電氣設備代表，需同時看工業景氣與電力題材。'),
     '1605.TW': dict(role='個股觀察', bucket='電纜/能源基建', base_ratio=0.0, note='電線電纜與能源基建相關，需注意原物料價格與訂單。'),
     '1609.TW': dict(role='個股觀察', bucket='電纜/能源基建', base_ratio=0.0, note='電纜與綠電基建題材，需觀察獲利是否跟上題材熱度。'),
+    '2353.TW': dict(role='個股觀察', bucket='AI PC/品牌電腦', base_ratio=0.0, note='品牌電腦與AI PC題材觀察標的，需看PC換機循環、毛利率與AI PC需求是否真的轉成營收。'),
+    '6147.TWO': dict(role='個股觀察', bucket='封測/驅動IC', base_ratio=0.0, note='半導體封測與驅動IC供應鏈標的，需觀察面板循環、稼動率、毛利率與法人資金是否同步。'),
+    '1802.TW': dict(role='個股觀察', bucket='玻璃/建材循環', base_ratio=0.0, note='玻璃、建材與太陽能玻璃循環標的，景氣與原物料價格影響較大，不能只看股價便宜。'),
     'SMCI': dict(role='個股觀察', bucket='AI伺服器', base_ratio=0.0, note='AI伺服器高波動代表，財報、毛利率與供應鏈消息影響很大。'),
     'DELL': dict(role='個股觀察', bucket='AI伺服器', base_ratio=0.0, note='企業伺服器與AI伺服器需求觀察標的，但仍受PC與企業IT循環影響。'),
     'VRT': dict(role='個股觀察', bucket='資料中心電力/散熱', base_ratio=0.0, note='資料中心電力與散熱基建代表，需注意估值與訂單增速。'),
@@ -197,9 +205,12 @@ ETF_PROFILES = {
 
 
 NEWS_THEMES = [
-    dict(theme='AI/半導體', words=['AI', '半導體', 'HPC', 'HBM', 'ASIC'], watch=['0052.TW', '00904.TW', '00881.TW', '2330.TW', '2317.TW', '2454.TW', '2449.TW']),
+    dict(theme='AI/半導體', words=['AI', '半導體', 'HPC', 'HBM', 'ASIC'], watch=['0052.TW', '00904.TW', '00881.TW', '2330.TW', '2317.TW', '2454.TW', '2449.TW', '6147.TWO']),
     dict(theme='AI伺服器/資料中心', words=['AI伺服器', '資料中心', 'ODM', '液冷', '散熱'], watch=['2382.TW', '3231.TW', '6669.TW', '2356.TW', '3017.TW', 'SMCI', 'DELL', 'VRT']),
+    dict(theme='AI PC/品牌電腦', words=['AI PC', 'PC換機', '筆電', '品牌電腦'], watch=['2353.TW', '2356.TW', '2317.TW', 'DELL']),
+    dict(theme='封測/驅動IC', words=['封測', '驅動IC', '面板循環', '半導體封裝'], watch=['6147.TWO', '2449.TW', '2330.TW']),
     dict(theme='電力/重電/電網', words=['電力', '重電', '電網', '變壓器', '電纜'], watch=['2308.TW', '1519.TW', '1513.TW', '1504.TW', '1605.TW', '1609.TW', 'ETN', 'GEV']),
+    dict(theme='建材/玻璃/營建循環', words=['玻璃', '建材', '營建', '太陽能玻璃', '原物料'], watch=['1802.TW']),
     dict(theme='能源/公用事業', words=['能源', '核電', '天然氣', '公用事業', '電力需求'], watch=['CEG', 'VST', 'XLU', 'XLE']),
     dict(theme='疫情/醫療防疫', words=['疫情', '口罩', '疫苗', '檢測', '醫療'], watch=[]),
     dict(theme='通膨/升息', words=['通膨', '升息', '殖利率', 'Fed'], watch=['2882.TW', '00679B.TW', '00720B.TW', 'XLE']),
@@ -346,7 +357,15 @@ def gl(s):
 
 
 def is_tw_ticker(ticker):
-    return ticker.endswith('.TW')
+    return ticker.endswith(('.TW', '.TWO'))
+
+
+def tw_stock_code(ticker):
+    return re.sub(r'\.(TW|TWO)$', '', ticker)
+
+
+def display_ticker_code(ticker):
+    return tw_stock_code(ticker) if is_tw_ticker(ticker) else ticker
 
 
 def is_etf_like(ticker):
@@ -928,7 +947,7 @@ def fetch_twse_daily_quote(ticker):
         return {}
     if TWSE_DAILY_QUOTES is None:
         TWSE_DAILY_QUOTES = fetch_twse_stock_day_all()
-    code = ticker.replace('.TW', '')
+    code = tw_stock_code(ticker)
     return dict(TWSE_DAILY_QUOTES.get(code, {}))
 
 
@@ -937,7 +956,7 @@ def apply_finmind_metadata(ticker, meta):
     if not is_tw_ticker(ticker) or is_etf_like(ticker):
         return meta
 
-    code = ticker.replace('.TW', '')
+    code = tw_stock_code(ticker)
     finmind = fetch_finmind_public_stock_data(code)
     if not finmind:
         return meta
@@ -966,7 +985,7 @@ def apply_tw_etf_metadata(ticker, meta, last_price=None):
     """補台股 ETF 的公開專用資料，避免把 ETF 當個股看。"""
     if ticker not in TW_ETFS:
         return meta
-    code = ticker.replace('.TW', '')
+    code = tw_stock_code(ticker)
     official = fetch_tw_etf_public_data(code)
     if not official:
         return meta
@@ -995,7 +1014,7 @@ def apply_institutional_flow_metadata(ticker, meta):
     """補台股真實三大法人買賣超；美股不混用台股法人資料。"""
     if not is_tw_ticker(ticker):
         return meta
-    code = ticker.replace('.TW', '')
+    code = tw_stock_code(ticker)
     flow = fetch_finmind_institutional_flow(code)
     if not flow:
         return meta
@@ -1751,7 +1770,7 @@ def all_targets_order():
 
 
 def compact_target_tile(ticker, item, mode='normal'):
-    code = ticker.replace('.TW', '')
+    code = display_ticker_code(ticker)
     status = zone_status(item)
     tone = action_tone(status)
     price = item.get('price')
@@ -1874,7 +1893,7 @@ def home_core_preview_html():
     rows = []
     for tk in tickers:
         item = BUY_NOW_DATA[tk]
-        code = tk.replace('.TW', '')
+        code = display_ticker_code(tk)
         price = safe_num(item.get('price'))
         price_text = f'{price:,.2f}' if price is not None else 'N/A'
         score = safe_num(item.get('score'))
@@ -1922,7 +1941,7 @@ def home_research_preview_html():
     rows = []
     for rank, tk in enumerate(picks, 1):
         item = BUY_NOW_DATA[tk]
-        code = tk.replace('.TW', '')
+        code = display_ticker_code(tk)
         action = item.get('conclusion') or home_action_text(item)
         risk = safe_num(item.get('risk_score'))
         risk_text = f'風險 {risk:.0f}' if risk is not None else '風險待補'
@@ -1968,7 +1987,7 @@ def target_overview_html(market_ctx=None):
         status = zone_status(item)
         tone = action_tone(status)
         cat = target_tab_id(tk)
-        code = tk.replace('.TW', '')
+        code = display_ticker_code(tk)
         price = item.get('price')
         price_text = f'{float(price):,.2f}' if isinstance(price, (int, float)) else 'N/A'
         score = safe_num(item.get('score')) or 0
@@ -2000,6 +2019,7 @@ def target_overview_html(market_ctx=None):
 function filterOverview(){
   var list=document.getElementById('overviewList');
   var empty=document.getElementById('overviewEmpty');
+  var count=document.getElementById('overviewCount');
   if(!list) return;
   var cat=(document.getElementById('overviewCat')||{}).value||'all';
   var tone=(document.getElementById('overviewTone')||{}).value||'all';
@@ -2022,7 +2042,11 @@ function filterOverview(){
     list.appendChild(row);
     if(ok) shown++;
   });
-  if(empty) empty.style.display=shown?'none':'block';
+  if(count) count.textContent=q?('找到 '+shown+' 檔'):('目前顯示 '+shown+' 檔');
+  if(empty){
+    empty.style.display=shown?'none':'block';
+    empty.textContent=q?('沒有找到「'+q+'」。目前未追蹤此標的；如果要加入，請把代碼或名稱告訴我。'):'沒有符合條件的標的。';
+  }
 }
 function showTargetHub(mode){
   document.querySelectorAll('.target-hub-btn').forEach(function(btn){
@@ -2862,7 +2886,7 @@ def ticker_label(ticker):
     all_names.update(US_ETFS)
     all_names.update(BONDS)
     name = all_names.get(ticker, '')
-    code = ticker.replace('.TW', '')
+    code = display_ticker_code(ticker)
     return f'{code} {name}'.strip()
 
 
@@ -3464,7 +3488,7 @@ function runDailyOrders(){
     var cat=orderCategory(item);
     if(filter!=='all'&&filter!==cat) return;
     var z=item.price_zone||{};
-    var code=tk.replace('.TW','');
+    var code=tk.replace('.TWO','').replace('.TW','');
     var query=[tk, code, item.name||'', item.role||'', item.bucket||'', cat, z.status||'', item.conclusion||'', item.action||''].join(' ').toLowerCase();
     if(q&&query.indexOf(q)<0) return;
     var target=calcOrderTarget(item);
@@ -4670,7 +4694,7 @@ def stock_card(ticker, name, price, chg, hist_close, a, ext, rec):
     sc_col       = SCORE_COL[sig]
     badge_tc, badge_bg = BADGE[sig]
     sp   = sparkline(hist_close, w=520, h=140)
-    disp = ticker.replace('.TW', '')
+    disp = display_ticker_code(ticker)
     qt = f' · {ext.get("quote_time_text")}' if ext.get('quote_time_text') else ''
     price_caption = f'{ext.get("price_label", "最新收盤")} {ext.get("latest_date", "")}{qt} · {ext.get("market_status", "")}'
 
@@ -5048,6 +5072,7 @@ h1{font-size:19px;font-weight:700;color:var(--t);display:flex;align-items:center
 .overview-controls{display:grid;grid-template-columns:minmax(220px,1.35fr) repeat(3,minmax(150px,1fr));gap:8px;margin-top:10px;background:var(--surface);border:1px solid var(--bdr);border-radius:10px;padding:10px}
 .overview-controls label{display:grid;gap:4px;font-size:10px;color:var(--t2)}
 .overview-controls input,.overview-controls select{border:1px solid var(--bdr);background:var(--card);color:var(--t);border-radius:8px;padding:8px;font-size:13px;font-family:inherit;outline:none}.overview-controls input:focus,.overview-controls select:focus{border-color:rgba(29,158,117,0.55);box-shadow:0 0 0 3px rgba(29,158,117,0.12)}
+.overview-result{margin-top:8px;color:var(--t2);font-size:11px;font-weight:850}
 .overview-list{display:grid;gap:6px;margin-top:10px}
 .overview-row{display:grid;grid-template-columns:minmax(190px,1.35fr) .48fr .55fr minmax(150px,1fr) .42fr auto;gap:8px;align-items:center;background:var(--card2);border:1px solid var(--bdr);border-radius:8px;padding:9px 10px}
 .overview-name b{display:block;font-size:13px;color:var(--t);line-height:1.35}
@@ -7062,7 +7087,7 @@ function runDailyOrders(){
     var cat=orderCategory(item);
     if(filter!=='all'&&filter!==cat) return;
     var z=item.price_zone||{};
-    var code=tk.replace('.TW','');
+    var code=tk.replace('.TWO','').replace('.TW','');
     var query=[tk, code, item.name||'', item.role||'', item.bucket||'', cat, z.status||'', item.conclusion||'', item.action||''].join(' ').toLowerCase();
     if(q&&query.indexOf(q)<0) return;
     var target=orderTargetInfo(item);
@@ -7162,7 +7187,7 @@ def target_overview_html(market_ctx=None):
         status = zone_status(item)
         tone = action_tone(status)
         cat = target_tab_id(tk)
-        code = tk.replace('.TW', '')
+        code = display_ticker_code(tk)
         price = item.get('price')
         price_text = f'{float(price):,.2f}' if isinstance(price, (int, float)) else 'N/A'
         score = safe_num(item.get('score')) or 0
@@ -7194,6 +7219,7 @@ def target_overview_html(market_ctx=None):
 function filterOverview(){
   var list=document.getElementById('overviewList');
   var empty=document.getElementById('overviewEmpty');
+  var count=document.getElementById('overviewCount');
   if(!list) return;
   var cat=(document.getElementById('overviewCat')||{}).value||'all';
   var tone=(document.getElementById('overviewTone')||{}).value||'all';
@@ -7216,7 +7242,11 @@ function filterOverview(){
     list.appendChild(row);
     if(ok) shown++;
   });
-  if(empty) empty.style.display=shown?'none':'block';
+  if(count) count.textContent=q?('找到 '+shown+' 檔'):('目前顯示 '+shown+' 檔');
+  if(empty){
+    empty.style.display=shown?'none':'block';
+    empty.textContent=q?('沒有找到「'+q+'」。目前未追蹤此標的；如果要加入，請把代碼或名稱告訴我。'):'沒有符合條件的標的。';
+  }
 }
 document.addEventListener('DOMContentLoaded',function(){
   ['overviewSearch','overviewCat','overviewTone','overviewSort'].forEach(function(id){
@@ -7232,7 +7262,7 @@ document.addEventListener('DOMContentLoaded',function(){
         f'<p>用體質、價格階段、可信度快速掃描 {target_count} 檔標的。這裡只做市場理解與研究排序，不提供個人化掛單建議。</p></div>'
         f'<span class="section-meta">體質 / 階段</span></div>'
         f'<div class="overview-controls">'
-        f'<label class="overview-search"><span>搜尋代碼或名稱</span><input id="overviewSearch" type="search" placeholder="輸入 2330、台積電、00662、電力..." autocomplete="off"></label>'
+        f'<label class="overview-search"><span>搜尋代碼或名稱</span><input id="overviewSearch" type="search" placeholder="輸入 2330、台積電、2353、宏碁..." autocomplete="off" oninput="filterOverview()" onchange="filterOverview()"></label>'
         f'<label><span>類別</span><select id="overviewCat"><option value="all">全部</option>'
         f'<option value="tw-etfs">台股 ETF</option><option value="tw-stocks">台股股票</option>'
         f'<option value="us-etfs">美股 ETF</option><option value="us-stocks">美股股票</option><option value="bonds">債券/商品</option></select></label>'
@@ -7242,6 +7272,7 @@ document.addEventListener('DOMContentLoaded',function(){
         f'<option value="score">體質高到低</option><option value="risk">風險低到高</option>'
         f'<option value="wpct">52週位置低到高</option><option value="conf">可信度高到低</option></select></label>'
         f'</div>'
+        f'<div class="overview-result" id="overviewCount">目前顯示 {target_count} 檔</div>'
         f'<div class="overview-list" id="overviewList">{"".join(rows)}</div>'
         f'<div class="nd" id="overviewEmpty" style="display:none">沒有符合條件的標的。</div>'
         f'<script>{script}</script>'

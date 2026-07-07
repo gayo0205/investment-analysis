@@ -6,8 +6,12 @@ on:
     # GitHub cron uses UTC: Sun-Fri 22:45 UTC = Mon-Sat 06:45 Taipei.
     # Pre-open refresh: Mon-Fri before Taiwan open; Sat captures Friday US close.
     - cron: "45 22 * * 0-5"
+    # First after-open attempt, Monday-Friday, 09:05 Taipei time.
+    - cron: "5 1 * * 1-5"
     # After Taiwan open, Monday-Friday, 09:20 Taipei time.
     - cron: "20 1 * * 1-5"
+    # Second after-open backup, Monday-Friday, 09:40 Taipei time.
+    - cron: "40 1 * * 1-5"
     # Morning backup refresh, Monday-Friday, 10:10 Taipei time.
     - cron: "10 2 * * 1-5"
     # Taiwan market close snapshot, Monday-Friday, 13:50 Taipei time.
@@ -37,6 +41,12 @@ jobs:
           git fetch origin main
           git checkout main
           git reset --hard origin/main
+
+      - name: Show trigger time
+        run: |
+          echo "GitHub event: $GITHUB_EVENT_NAME"
+          echo "UTC time: $(date -u '+%Y-%m-%d %H:%M:%S %Z')"
+          echo "Taipei time: $(TZ=Asia/Taipei date '+%Y-%m-%d %H:%M:%S %Z')"
 
       - name: Set up Python
         uses: actions/setup-python@v5
