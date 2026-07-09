@@ -160,6 +160,14 @@ PUBLIC_EXAMPLE_PLAN = {
 
 
 STOCK_PROFILES = {
+    '2330.TW': dict(role='個股觀察', bucket='半導體/晶圓代工', base_ratio=0.0, note='台灣權值核心與先進製程代表，需同時看 AI/HPC 需求、毛利率、資本支出與外資動向。'),
+    '2317.TW': dict(role='個股觀察', bucket='電子代工/AI供應鏈', base_ratio=0.0, note='電子代工與AI伺服器供應鏈代表，需觀察伺服器營收占比、毛利率與法人資金。'),
+    '2379.TW': dict(role='個股觀察', bucket='IC設計/網通晶片', base_ratio=0.0, note='IC設計與網通晶片代表，需觀察營收成長、毛利率、庫存循環與估值是否合理。'),
+    '2454.TW': dict(role='個股觀察', bucket='IC設計/手機與AI邊緣', base_ratio=0.0, note='IC設計大型股，受手機、Wi-Fi、車用與AI邊緣題材影響，需看營收與EPS是否跟上股價。'),
+    '2303.TW': dict(role='個股觀察', bucket='半導體/成熟製程', base_ratio=0.0, note='成熟製程晶圓代工代表，景氣循環、產能利用率與報價變化比短線題材更重要。'),
+    '2408.TW': dict(role='個股觀察', bucket='記憶體/DRAM', base_ratio=0.0, note='記憶體循環股，需觀察DRAM報價、庫存、EPS轉折與是否只是景氣反彈題材。'),
+    '2882.TW': dict(role='個股觀察', bucket='金融/壽險金控', base_ratio=0.0, note='金融股需看殖利率、淨值、利率環境與資產品質，不適合只看技術線。'),
+    '2449.TW': dict(role='個股觀察', bucket='封測/IC測試', base_ratio=0.0, note='半導體測試供應鏈，需觀察AI/HPC測試需求、稼動率、毛利率與資本支出。'),
     '2382.TW': dict(role='個股觀察', bucket='AI伺服器', base_ratio=0.0, note='AI伺服器ODM代表，景氣與大客戶訂單變化會放大波動。'),
     '3231.TW': dict(role='個股觀察', bucket='AI伺服器', base_ratio=0.0, note='伺服器與資料中心供應鏈，需觀察營收、毛利率與庫存循環。'),
     '6669.TW': dict(role='個股觀察', bucket='AI伺服器', base_ratio=0.0, note='AI伺服器高成長標的，波動與估值敏感度都高。'),
@@ -4595,6 +4603,28 @@ footer{margin-left:190px}
   .visual-main:last-child{border-bottom:0}
   .mobile-bottom-nav{background:#0e151d;padding-top:9px;padding-bottom:calc(9px + env(safe-area-inset-bottom))}
   .mobile-nav-btn{font-size:12px;padding:5px 2px}
+}
+
+.home-research-preview .research-list{gap:8px}
+.home-research-preview .research-list-head{display:none}
+.home-research-preview .research-row{
+  grid-template-columns:30px minmax(0,1fr) auto;
+  grid-template-areas:"rank name link" "rank topic link" "rank reason link" "rank risk link";
+  align-items:start;gap:3px 10px;padding:12px 10px;border-top:1px solid var(--bdr);
+  background:rgba(17,24,34,.72);border-radius:8px
+}
+.home-research-preview .research-rank{grid-area:rank;margin-top:1px}
+.home-research-preview .research-row>div:first-of-type{grid-area:name;min-width:0}
+.home-research-preview .research-topic{
+  grid-area:topic;justify-self:start;display:inline-flex;align-items:center;
+  border:1px solid rgba(119,170,255,.25);background:rgba(119,170,255,.10);
+  border-radius:999px;padding:2px 7px;font-size:10px;color:var(--info);line-height:1.3
+}
+.home-research-preview .research-row p{grid-area:reason;margin:2px 0 0;font-size:12px;line-height:1.45;color:var(--t)}
+.home-research-preview .research-row>small{grid-area:risk;margin-top:1px;font-size:10px}
+.home-research-preview .research-row>.home-row-link{
+  grid-area:link;align-self:center;padding:6px 8px;border:1px solid var(--bdr);
+  border-radius:999px;background:#101923;white-space:nowrap
 }
 
 /* Complete target workspace: browse compactly, inspect one target with a clear workflow. */
