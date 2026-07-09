@@ -509,7 +509,7 @@ def _calc_institutional(rows):
         'finmind_investment_trust_streak': _flow_streak(series('trust')),
         'finmind_dealer_streak': _flow_streak(series('dealer')),
         'finmind_institutional_streak': _flow_streak(series('total')),
-        'finmind_chip_source': 'FinMind InstitutionalInvestorsBuySell',
+        'finmind_chip_source': 'FinMind TaiwanStockInstitutionalInvestorsBuySell',
     }
 
 
@@ -528,10 +528,10 @@ def fetch_finmind_institutional_flow(stock_id):
 
     result = {'finmind_chip_available': False, 'finmind_chip_errors': []}
     try:
-        rows = _finmind_v3('InstitutionalInvestorsBuySell', stock_id, _period_start(80))
+        rows = _finmind_v4('TaiwanStockInstitutionalInvestorsBuySell', stock_id, _period_start(80))
         result.update(_calc_institutional(rows))
     except Exception as ex:
-        result['finmind_chip_errors'].append(f'三大法人略過：{ex}')
+        result['finmind_chip_errors'].append(f'FinMind v4 三大法人略過：{ex}')
 
     result['finmind_chip_available'] = 'finmind_institutional_net_buy' in result
     FINMIND_CHIP_CACHE[stock_id] = dict(result)
