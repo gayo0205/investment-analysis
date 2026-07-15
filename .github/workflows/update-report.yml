@@ -61,7 +61,7 @@ jobs:
         run: python generate.py
 
       - name: Verify site artifact
-        run: python scripts/verify_site_artifact.py --html index.html --expected-cards 60 --max-failure-cards 0
+        run: python scripts/verify_site_artifact.py --html index.html --expected-cards 73 --max-failure-cards 0
 
       - name: Commit updated report
         run: |
