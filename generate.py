@@ -38,6 +38,20 @@ TW_STOCKS = {
     '2454.TW': '聯發科',
     '2303.TW': '聯電',
     '2408.TW': '南亞科',
+    '2344.TW': '華邦電',
+    '2337.TW': '旺宏',
+    '8299.TWO': '群聯',
+    '3260.TWO': '威剛',
+    '6239.TW': '力成',
+    '8150.TW': '南茂',
+    '2329.TW': '華泰',
+    # 被動元件 / 電子零組件
+    '2327.TW': '國巨',
+    '2492.TW': '華新科',
+    '3026.TW': '禾伸堂',
+    '2375.TW': '凱美',
+    '6173.TWO': '信昌電',
+    '6432.TWO': '今展科',
     '2882.TW': '國泰金',
     '2449.TW': '京元電子',
     # AI PC / 品牌電腦 / 半導體封測
@@ -160,12 +174,25 @@ PUBLIC_EXAMPLE_PLAN = {
 
 
 STOCK_PROFILES = {
-    '2330.TW': dict(role='個股觀察', bucket='半導體/晶圓代工', base_ratio=0.0, note='台灣權值核心與先進製程代表，需同時看 AI/HPC 需求、毛利率、資本支出與外資動向。'),
+    '2330.TW': dict(role='個股觀察', bucket='半導體/晶圓代工', base_ratio=0.0, note='台灣權值代表與先進製程代表，需同時看 AI/HPC 需求、毛利率、資本支出與外資動向。'),
     '2317.TW': dict(role='個股觀察', bucket='電子代工/AI供應鏈', base_ratio=0.0, note='電子代工與AI伺服器供應鏈代表，需觀察伺服器營收占比、毛利率與法人資金。'),
     '2379.TW': dict(role='個股觀察', bucket='IC設計/網通晶片', base_ratio=0.0, note='IC設計與網通晶片代表，需觀察營收成長、毛利率、庫存循環與估值是否合理。'),
     '2454.TW': dict(role='個股觀察', bucket='IC設計/手機與AI邊緣', base_ratio=0.0, note='IC設計大型股，受手機、Wi-Fi、車用與AI邊緣題材影響，需看營收與EPS是否跟上股價。'),
     '2303.TW': dict(role='個股觀察', bucket='半導體/成熟製程', base_ratio=0.0, note='成熟製程晶圓代工代表，景氣循環、產能利用率與報價變化比短線題材更重要。'),
     '2408.TW': dict(role='個股觀察', bucket='記憶體/DRAM', base_ratio=0.0, note='記憶體循環股，需觀察DRAM報價、庫存、EPS轉折與是否只是景氣反彈題材。'),
+    '2344.TW': dict(role='個股觀察', bucket='記憶體/DRAM與Flash', base_ratio=0.0, note='記憶體與Flash循環標的，需觀察報價、庫存去化、EPS轉折與法人資金是否同步回流。'),
+    '2337.TW': dict(role='個股觀察', bucket='記憶體/NOR Flash', base_ratio=0.0, note='NOR Flash與記憶體循環標的，重點是報價、庫存、車用與工控需求是否改善。'),
+    '8299.TWO': dict(role='個股觀察', bucket='記憶體/NAND控制晶片', base_ratio=0.0, note='NAND控制晶片與儲存供應鏈標的，需觀察NAND報價、模組需求、毛利率與庫存。'),
+    '3260.TWO': dict(role='個股觀察', bucket='記憶體/模組通路', base_ratio=0.0, note='記憶體模組與通路標的，需觀察DRAM/NAND報價、庫存週轉與景氣循環轉折。'),
+    '6239.TW': dict(role='個股觀察', bucket='記憶體/封測', base_ratio=0.0, note='記憶體封測代表，需觀察封測稼動率、記憶體景氣、資本支出與法人資金。'),
+    '8150.TW': dict(role='個股觀察', bucket='記憶體/封測', base_ratio=0.0, note='記憶體與驅動IC封測供應鏈，需觀察面板循環、記憶體封測需求與毛利率。'),
+    '2329.TW': dict(role='個股觀察', bucket='記憶體/封測', base_ratio=0.0, note='華泰電子屬半導體封測與記憶體供應鏈觀察標的，需看封測需求、稼動率、毛利率與法人資金。'),
+    '2327.TW': dict(role='個股觀察', bucket='被動元件/MLCC', base_ratio=0.0, note='被動元件大型代表，需觀察MLCC與電阻需求、庫存循環、毛利率、車用/AI伺服器拉貨與法人資金。'),
+    '2492.TW': dict(role='個股觀察', bucket='被動元件/MLCC', base_ratio=0.0, note='被動元件與電子零組件代表，需觀察MLCC報價、庫存去化、車用與工控需求是否回溫。'),
+    '3026.TW': dict(role='個股觀察', bucket='被動元件/通路代理', base_ratio=0.0, note='被動元件與電子零組件通路標的，需觀察代理線需求、庫存週轉與景氣回補是否延續。'),
+    '2375.TW': dict(role='個股觀察', bucket='被動元件/電容', base_ratio=0.0, note='電容與被動元件供應鏈標的，需觀察終端需求、材料成本、毛利率與法人資金是否同步。'),
+    '6173.TWO': dict(role='個股觀察', bucket='被動元件/MLCC', base_ratio=0.0, note='MLCC與被動元件循環標的，需觀察報價、稼動率、庫存與是否只是短線補庫存題材。'),
+    '6432.TWO': dict(role='個股觀察', bucket='被動元件/電感保護元件', base_ratio=0.0, note='電感與保護元件小型觀察股，波動通常較大，需特別看成交量、營收與法人是否真的延續。'),
     '2882.TW': dict(role='個股觀察', bucket='金融/壽險金控', base_ratio=0.0, note='金融股需看殖利率、淨值、利率環境與資產品質，不適合只看技術線。'),
     '2449.TW': dict(role='個股觀察', bucket='封測/IC測試', base_ratio=0.0, note='半導體測試供應鏈，需觀察AI/HPC測試需求、稼動率、毛利率與資本支出。'),
     '2382.TW': dict(role='個股觀察', bucket='AI伺服器', base_ratio=0.0, note='AI伺服器ODM代表，景氣與大客戶訂單變化會放大波動。'),
@@ -188,18 +215,18 @@ STOCK_PROFILES = {
     'ETN': dict(role='個股觀察', bucket='電力設備', base_ratio=0.0, note='電力管理與基礎設施代表，可觀察資料中心用電與電網升級。'),
     'GEV': dict(role='個股觀察', bucket='能源設備', base_ratio=0.0, note='發電、電網與能源設備代表，需留意政策、訂單與估值。'),
     'CEG': dict(role='個股觀察', bucket='電力/核能', base_ratio=0.0, note='美國電力與核能題材，資料中心用電需求是觀察重點之一。'),
-    'VST': dict(role='個股觀察', bucket='電力/發電', base_ratio=0.0, note='發電與電力需求題材，高波動時不適合新手重押。'),
+    'VST': dict(role='個股觀察', bucket='電力/發電', base_ratio=0.0, note='發電與電力需求題材，高波動時不適合一次重押。'),
 }
 ETF_PROFILES = {
-    '0050.TW':   dict(role='長期核心', bucket='台股核心', base_ratio=0.55, note='台灣大型權值股核心，適合長期定期定額；0050/006208 擇一即可。'),
-    '006208.TW': dict(role='長期核心', bucket='台股核心', base_ratio=0.55, note='追蹤台灣50，常被拿來和0050比較；核心ETF通常擇一即可。'),
-    '006204.TW': dict(role='長期核心', bucket='台股全市場', base_ratio=0.45, note='更接近整體台股加權指數，但要留意成交量與折溢價。'),
+    '0050.TW':   dict(role='長期配置', bucket='台股大型權值', base_ratio=0.55, note='台灣大型權值股代表，適合長期定期定額；0050/006208 擇一即可。'),
+    '006208.TW': dict(role='長期配置', bucket='台股大型權值', base_ratio=0.55, note='追蹤台灣50，常被拿來和0050比較；長期 ETF 通常擇一即可。'),
+    '006204.TW': dict(role='長期配置', bucket='台股全市場', base_ratio=0.45, note='更接近整體台股加權指數，但要留意成交量與折溢價。'),
     '0056.TW':   dict(role='現金流', bucket='高股息', base_ratio=0.25, note='高股息ETF，重點不是殖利率高低，而是總報酬與配息來源。'),
     '00878.TW':  dict(role='現金流', bucket='高股息', base_ratio=0.25, note='高股息與ESG題材，適合現金流配置，不宜只因配息高而重壓。'),
     '00919.TW':  dict(role='現金流', bucket='高股息', base_ratio=0.20, note='高股息ETF，需觀察成分股輪動、配息穩定性與收益平準金。'),
     '00929.TW':  dict(role='現金流', bucket='高股息科技', base_ratio=0.15, note='科技優息，波動可能比傳統高股息更接近科技股。'),
     '00940.TW':  dict(role='現金流', bucket='高股息', base_ratio=0.15, note='價值高息型，需觀察長期總報酬與換股成本。'),
-    '0052.TW':   dict(role='衛星主題', bucket='台股科技', base_ratio=0.15, note='台股科技主題，適合作為衛星配置，不建議取代核心。'),
+    '0052.TW':   dict(role='衛星主題', bucket='台股科技', base_ratio=0.15, note='台股科技主題，適合作為衛星配置，不建議取代長期配置標的。'),
     '00881.TW':  dict(role='衛星主題', bucket='5G/科技', base_ratio=0.12, note='科技主題ETF，適合關注AI與通訊供應鏈，但要控制比例。'),
     '00904.TW':  dict(role='衛星主題', bucket='半導體', base_ratio=0.12, note='半導體主題，景氣循環與AI熱度會讓波動放大。'),
     '00646.TW':  dict(role='海外分散', bucket='美股大型股', base_ratio=0.20, note='台幣買美股S&P500概念，仍要看匯率、內扣費用與追蹤誤差。'),
@@ -214,6 +241,8 @@ ETF_PROFILES = {
 
 NEWS_THEMES = [
     dict(theme='AI/半導體', words=['AI', '半導體', 'HPC', 'HBM', 'ASIC'], watch=['0052.TW', '00904.TW', '00881.TW', '2330.TW', '2317.TW', '2454.TW', '2449.TW', '6147.TWO']),
+    dict(theme='記憶體/HBM/NAND', words=['記憶體', 'DRAM', 'NAND', 'HBM', '封測'], watch=['2408.TW', '2344.TW', '2337.TW', '8299.TWO', '3260.TWO', '6239.TW', '8150.TW', '2329.TW', '2449.TW']),
+    dict(theme='被動元件/電子零組件', words=['被動元件', 'MLCC', '電容', '電阻', '電感'], watch=['2327.TW', '2492.TW', '3026.TW', '2375.TW', '6173.TWO', '6432.TWO']),
     dict(theme='AI伺服器/資料中心', words=['AI伺服器', '資料中心', 'ODM', '液冷', '散熱'], watch=['2382.TW', '3231.TW', '6669.TW', '2356.TW', '3017.TW', 'SMCI', 'DELL', 'VRT']),
     dict(theme='AI PC/品牌電腦', words=['AI PC', 'PC換機', '筆電', '品牌電腦'], watch=['2353.TW', '2356.TW', '2317.TW', 'DELL']),
     dict(theme='封測/驅動IC', words=['封測', '驅動IC', '面板循環', '半導體封裝'], watch=['6147.TWO', '2449.TW', '2330.TW']),
@@ -848,7 +877,7 @@ def get_profile(ticker):
         return STOCK_PROFILES[ticker]
     if ticker in TW_ETFS or ticker in US_ETFS or ticker in BONDS:
         return dict(role='觀察ETF', bucket='ETF', base_ratio=0.05, note='尚未設定細分類，先當觀察標的。')
-    return dict(role='個股觀察', bucket='股票', base_ratio=0.0, note='新手不建議直接用定期定額重壓個股，先從ETF建立核心部位。')
+    return dict(role='個股觀察', bucket='股票', base_ratio=0.0, note='不建議直接用定期定額重壓個股，先從 ETF 建立長期部位。')
 
 
 def fetch_metadata(ticker, last_price=None):
@@ -1273,7 +1302,7 @@ def buy_now_ratio(ticker, a, ext):
     if profile['role'] == '個股觀察':
         ratio = 0.10 if score >= 55 else 0.05 if score >= 45 else 0.0
         cap = 0.15
-    elif profile['role'] == '長期核心':
+    elif profile['role'] == '長期配置':
         ratio = 0.35
         cap = 0.50
     elif profile['role'] in ['現金流', '海外分散', '防守配置']:
@@ -1449,8 +1478,8 @@ def core_etf_spotlight_html():
     )
     return (
         f'<section class="sc core-etfs" id="core-etfs">'
-        f'<div class="tool-head"><div><div class="st">核心 ETF</div>'
-        f'<p>先把每月最可能照做的標的放上來。0050 / 006208 偏台股核心，00662 偏美股科技成長；都不是要猜最低點，而是看現在適不適合照常扣、少量加碼或先別重押。</p></div>'
+        f'<div class="tool-head"><div><div class="st">長期 ETF</div>'
+        f'<p>先把每月最可能照做的標的放上來。0050 / 006208 偏台股大型權值，00662 偏美股科技成長；都不是要猜最低點，而是看現在適不適合照常扣、少量加碼或先別重押。</p></div>'
         f'<span class="section-meta">每月扣款優先看</span></div>'
         f'<div class="core-grid">{core_html}</div>'
         f'<details class="core-alt"><summary>看高股息與現金流 ETF</summary>{cash_html}</details>'
@@ -1467,7 +1496,7 @@ def today_focus_html():
     def priority(tk):
         item = BUY_NOW_DATA[tk]
         role_rank = {
-            '長期核心': 80, '海外分散': 58, '現金流': 54,
+            '長期配置': 80, '海外分散': 58, '現金流': 54,
             '衛星主題': 48, '防守配置': 44, '個股觀察': 30,
         }.get(item.get('role'), 30)
         tone_rank = {'ok': 38, 'wait': 26, 'stop': 18}.get(action_tone(zone_status(item)), 18)
@@ -1490,7 +1519,7 @@ def today_focus_html():
     ok_pool = [tk for tk in ordered if action_tone(zone_status(BUY_NOW_DATA[tk])) == 'ok']
     risk_pool = [tk for tk in ordered if action_tone(zone_status(BUY_NOW_DATA[tk])) == 'stop']
     groups = [
-        ('核心先確認', pick(core_pool, 2, used), '先看你最可能長期執行的標的：照扣可以，額外單筆要看價格區間。'),
+        ('每月扣款先確認', pick(core_pool, 2, used), '先看你最可能長期執行的標的：照扣可以，額外單筆要看價格區間。'),
         ('可分批機會', pick(ok_pool, 2, used), '這些比較接近紀律買點，但仍要分批，不是重押訊號。'),
         ('高位風險提醒', pick(risk_pool, 2, used), '市場熱時最容易手癢，這裡提醒哪些標的先別追。'),
     ]
@@ -1541,7 +1570,7 @@ def home_core_preview_html():
         )
     return (
         f'<section class="sc home-panel home-core-preview">'
-        f'<div class="home-panel-head"><div><div class="st">核心 ETF</div>'
+        f'<div class="home-panel-head"><div><div class="st">長期 ETF</div>'
         f'<p>先看長期配置標的現在適合怎麼做。</p></div>'
         f'<button type="button" onclick="showMode(\'core-mode\')">查看全部</button></div>'
         f'<div class="home-table">'
@@ -1608,7 +1637,7 @@ def visual_action_board_html(market_ctx=None):
         counts[action_tone(zone_status(BUY_NOW_DATA[tk]))] += 1
     total = max(1, sum(counts.values()))
     core_candidates = [tk for tk in ['0050.TW', '006208.TW'] if tk in BUY_NOW_DATA]
-    core_text = '核心 ETF 資料不足'
+    core_text = '長期 ETF 資料不足'
     core_range = 'N/A'
     if core_candidates:
         core = BUY_NOW_DATA[core_candidates[0]]
@@ -1634,7 +1663,7 @@ def visual_action_board_html(market_ctx=None):
         f'<span class="section-meta">視覺化總覽</span></div>'
         f'<div class="visual-grid">'
         f'<div class="visual-main temp-{h(temp_key)}"><span>市場溫度</span><b>{h(temp)}</b><small>{h(advice)}</small></div>'
-        f'<div class="visual-main visual-core"><span>核心 ETF</span><b>{h(core_text)}</b><small>可看區間：{h(core_range)}</small></div>'
+        f'<div class="visual-main visual-core"><span>長期 ETF</span><b>{h(core_text)}</b><small>可看區間：{h(core_range)}</small></div>'
         f'<div class="visual-main visual-chase temp-{h(temp_key)}"><span>單筆追價</span><b>{h(market_ctx.get("chase_state", "保守"))}</b><small>先看雷達，再看價格區間，不用追熱門。</small></div>'
         f'</div>'
         f'<div class="visual-bars">'
@@ -1702,7 +1731,7 @@ def calc_investment_plan(ticker, price, a, ext, hist_close):
 
     if profile['role'] == '個股觀察':
         factor = 0
-        reasons.append('新手階段先用ETF建立核心，個股只列觀察。')
+        reasons.append('剛開始可先用 ETF 建立長期部位，個股只列觀察。')
     else:
         if risk_score < 45:
             factor = 0
@@ -1832,7 +1861,7 @@ def volatility_profile(ticker, price, a, ext):
         level = '極高波動'
 
     role = get_profile(ticker).get('role', '')
-    if role == '長期核心':
+    if role == '長期配置':
         min_band, max_band, max_chase = 0.018, 0.065, 0.10
     elif is_etf_like(ticker):
         min_band, max_band, max_chase = 0.024, 0.095, 0.14
@@ -1924,7 +1953,7 @@ def newbie_summary_html(market_ctx=None):
     ]
     hot_core = any(s in ['過熱追高', '健康創高', '強勢高位', '偏高等待區'] for s in core_statuses)
     if market_ctx.get('regime') == '多頭延續' and hot_core:
-        plain_take = '白話結論：市場方向偏多，但核心 ETF 多數不便宜；定期定額照扣，臨時單筆不要重押。'
+        plain_take = '白話結論：市場方向偏多，但長期 ETF 多數不便宜；定期定額照扣，臨時單筆不要重押。'
     else:
         plain_take = f'白話結論：{market_ctx.get("advice", "先照計畫小額分批，不因單日訊號改變策略。")}'
     time_note = '時間提醒：不同市場交易時段不同；台股多為最近台股交易日收盤/延遲資料，美股可能是盤中資料，請看每張卡的台灣時間與原市場時間。'
@@ -2008,6 +2037,89 @@ def sector_flow_radar_html(compact=False):
     if not BUY_NOW_DATA:
         return ''
 
+    def flow_actor_label(item):
+        flows = [
+            ('外資', safe_num(item.get('chip_foreign_5d')) or 0),
+            ('投信', safe_num(item.get('chip_trust_5d')) or 0),
+            ('自營商', safe_num(item.get('chip_dealer_5d')) or 0),
+        ]
+        actor, value = max(flows, key=lambda x: abs(x[1]))
+        if abs(value) < 1:
+            return '法人分歧'
+        return f'{actor}{"買" if value > 0 else "賣"}'
+
+    def flow_state_from_totals(total_5d, total_20d):
+        if total_5d > 0 and total_20d > 0:
+            return dict(
+                state='資金延續',
+                short='延續',
+                cls='tide',
+                meaning='5 日與 20 日同步買超，代表資金有延續性；若價格不過熱，可優先研究。',
+            )
+        if total_5d > 0 and total_20d < 0:
+            return dict(
+                state='短線回補',
+                short='回補',
+                cls='rotate',
+                meaning='近 5 日買盤回來，但 20 日仍偏賣，較像反彈或回補；不宜直接追。',
+            )
+        if total_5d < 0 and total_20d > 0:
+            return dict(
+                state='短線調節',
+                short='調節',
+                cls='watch',
+                meaning='近 5 日賣出，但 20 日仍流入，較像獲利了結；觀察是否守住支撐。',
+            )
+        if total_5d < 0 and total_20d < 0:
+            return dict(
+                state='資金退潮',
+                short='退潮',
+                cls='ebb',
+                meaning='5 日與 20 日同步賣超，代表資金中短期都在流出；要檢查支撐與基本面。',
+            )
+        return dict(
+            state='方向不明',
+            short='觀望',
+            cls='watch',
+            meaning='5 日與 20 日方向不明，等下一次更新確認是否延續。',
+        )
+
+    def flow_stock_chip(tk, item):
+        total = safe_num(item.get('chip_total_5d')) or 0
+        total_20d = safe_num(item.get('chip_total_20d')) or 0
+        flow_state = flow_state_from_totals(total, total_20d)
+        tone = 'in' if total > 0 else 'out' if total < 0 else 'flat'
+        label = ticker_label(tk)
+        return (
+            f'<span class="flow-stock flow-stock-{tone} flow-state-{h(flow_state["cls"])}">'
+            f'{h(label)} <b>{h(fmt_net_lots(total))}</b>'
+            f'<small>{h(flow_actor_label(item))} · {h(flow_state["short"])}</small>'
+            f'</span>'
+        )
+
+    def top_flow_chips(rows, sign, limit=3):
+        filtered = [
+            (tk, item)
+            for tk, item in rows
+            if ((safe_num(item.get('chip_total_5d')) or 0) * sign) > 0
+        ]
+        filtered.sort(
+            key=lambda pair: abs(safe_num(pair[1].get('chip_total_5d')) or 0),
+            reverse=True,
+        )
+        if not filtered:
+            return '<span class="flow-stock flow-stock-flat">暫無明顯個股</span>'
+        return ''.join(flow_stock_chip(tk, item) for tk, item in filtered[:limit])
+
+    def flow_amount_label(total_lots, amount_value):
+        total = safe_num(total_lots) or 0
+        amount = safe_num(amount_value)
+        price_proxy = (amount / total) if amount is not None and total else None
+        text = fmt_flow_amount(total, price_proxy)
+        if text == 'N/A':
+            return f'以張數看方向：{fmt_net_lots(total)}'
+        return text
+
     def metrics_for(theme):
         rows = []
         for tk in theme.get('watch', []):
@@ -2027,22 +2139,19 @@ def sector_flow_radar_html(compact=False):
         amount_5d = sum((safe_num(item.get('chip_total_5d')) or 0) * (safe_num(item.get('price')) or 0) for _, item in rows)
         avg_wpct = sum(safe_num(item.get('w_pct')) or 50 for _, item in rows) / len(rows)
         avg_score = sum(safe_num(item.get('score')) or 0 for _, item in rows) / len(rows)
-
-        if total_5d > 0 and total_20d > 0 and foreign_5d > 0 and trust_5d > 0:
-            state, cls = '漲潮', 'tide'
-            meaning = '外資與投信近 5 日同步偏買，且 20 日合計仍流入。'
-        elif total_5d > 0 and total_20d > 0:
-            state, cls = '輪動', 'rotate'
-            meaning = '法人近 5 日與 20 日偏買，但不同法人之間仍有分歧。'
-        elif total_5d > 0 and total_20d <= 0:
-            state, cls = '短線回補', 'rotate'
-            meaning = '短線買盤回來，但中期還沒確認，不適合直接追高。'
-        elif total_5d < 0 and total_20d < 0:
-            state, cls = '退潮', 'ebb'
-            meaning = '近 5 日與 20 日都偏賣，法人資金正在流出。'
+        actor_flows = [('外資', foreign_5d), ('投信', trust_5d), ('自營商', dealer_5d)]
+        dominant_actor, dominant_value = max(actor_flows, key=lambda x: abs(x[1]))
+        if abs(dominant_value) < 1:
+            dominant_flow = '無明顯方向'
         else:
-            state, cls = '觀望', 'watch'
-            meaning = '法人方向不夠明確，先看下一次更新是否延續。'
+            dominant_flow = f'{dominant_actor}{"買超" if dominant_value > 0 else "賣超"}'
+
+        flow_state = flow_state_from_totals(total_5d, total_20d)
+        state, cls, meaning = flow_state['state'], flow_state['cls'], flow_state['meaning']
+        if state == '資金延續' and foreign_5d > 0 and trust_5d > 0:
+            meaning += ' 外資與投信同步偏買，訊號比較乾淨。'
+        elif state in ['資金延續', '短線回補'] and foreign_5d * trust_5d < 0:
+            meaning += ' 但外資與投信方向分歧，先降低追價衝動。'
 
         if avg_wpct >= 85 and cls in ['tide', 'rotate']:
             meaning += ' 但追蹤標的平均位階偏高，只能小額或等回測。'
@@ -2067,10 +2176,13 @@ def sector_flow_radar_html(compact=False):
             foreign_5d=foreign_5d,
             trust_5d=trust_5d,
             dealer_5d=dealer_5d,
+            dominant_flow=dominant_flow,
             amount_5d=amount_5d,
             avg_wpct=avg_wpct,
             avg_score=avg_score,
             rows=ranked,
+            inflow_chips=top_flow_chips(ranked, 1),
+            outflow_chips=top_flow_chips(ranked, -1),
         )
 
     ranked_themes = []
@@ -2079,7 +2191,13 @@ def sector_flow_radar_html(compact=False):
         if not m:
             continue
         priority = (
-            {'tide': 80, 'rotate': 60, 'watch': 35, 'ebb': 20}.get(m['cls'], 30)
+            {
+                '資金延續': 82,
+                '短線回補': 58,
+                '短線調節': 42,
+                '方向不明': 35,
+                '資金退潮': 20,
+            }.get(m['state'], 30)
             + min(20, abs(m['amount_5d']) / 100_000_000 * 0.6)
             + (m['avg_score'] - 50) * 0.15
         )
@@ -2089,9 +2207,85 @@ def sector_flow_radar_html(compact=False):
     if compact:
         ranked_themes = ranked_themes[:4]
 
+    all_flow_rows = {}
+    for _, _, m in ranked_themes:
+        for tk, item in m['rows']:
+            if item.get('is_etf'):
+                continue
+            all_flow_rows[tk] = item
+
+    def best_theme_by_state(state_name, positive=True):
+        rows = [x for x in ranked_themes if x[2]['state'] == state_name]
+        if not rows:
+            return None
+        if positive:
+            return max(rows, key=lambda x: x[2]['amount_5d'])
+        return min(rows, key=lambda x: x[2]['amount_5d'])
+
+    state_themes = {
+        '資金延續': best_theme_by_state('資金延續', True),
+        '短線回補': best_theme_by_state('短線回補', True),
+        '短線調節': best_theme_by_state('短線調節', False),
+        '資金退潮': best_theme_by_state('資金退潮', False),
+    }
+
+    stock_by_state = {name: [] for name in ['資金延續', '短線回補', '短線調節', '資金退潮']}
+    for tk, item in all_flow_rows.items():
+        state = flow_state_from_totals(
+            safe_num(item.get('chip_total_5d')) or 0,
+            safe_num(item.get('chip_total_20d')) or 0,
+        )['state']
+        if state in stock_by_state:
+            stock_by_state[state].append((tk, item))
+
+    def stock_amount_key(pair):
+        item = pair[1]
+        return abs((safe_num(item.get('chip_total_5d')) or 0) * (safe_num(item.get('price')) or 0))
+
+    buy_continuation_stocks = sorted(stock_by_state['資金延續'], key=stock_amount_key, reverse=True)
+    outflow_stocks = sorted(stock_by_state['資金退潮'], key=stock_amount_key, reverse=True)
+
+    def theme_alert_card(kind, label, row, empty_hint):
+        if not row:
+            return (
+                f'<div class="flow-alert-card flow-alert-{h(kind)}">'
+                f'<span>{h(label)}</span>'
+                f'<b>暫無明顯訊號</b><small>{h(empty_hint)}</small></div>'
+            )
+        _, theme, m = row
+        amount = flow_amount_label(m['total_5d'], m['amount_5d'])
+        return (
+            f'<div class="flow-alert-card flow-alert-{h(kind)}">'
+            f'<span>{h(label)}</span>'
+            f'<b>{h(theme["theme"])}</b>'
+            f'<small>{h(m["dominant_flow"])}，5日約當 {h(amount)}，{h(m["state"])}</small>'
+            f'</div>'
+        )
+
+    def stock_alert_card(kind, label, title, rows, empty_text):
+        if rows:
+            stock_html = ''.join(flow_stock_chip(tk, item) for tk, item in rows[:4])
+        else:
+            stock_html = f'<span class="flow-stock flow-stock-flat">{h(empty_text)}</span>'
+        return (
+            f'<div class="flow-alert-card flow-alert-{h(kind)}"><span>{h(label)}</span>'
+            f'<b>{h(title)}</b><div class="flow-stock-row">{stock_html}</div></div>'
+        )
+
+    flow_alert_html = (
+        f'<div class="flow-alert-board">'
+        f'{theme_alert_card("in", "資金延續族群", state_themes["資金延續"], "目前沒有 5 日與 20 日同步買超的族群。")}'
+        f'{theme_alert_card("rotate", "短線回補族群", state_themes["短線回補"], "目前沒有短線買回但中期偏賣的族群。")}'
+        f'{theme_alert_card("watch", "短線調節族群", state_themes["短線調節"], "目前沒有短線賣出但中期仍流入的族群。")}'
+        f'{theme_alert_card("out", "資金退潮族群", state_themes["資金退潮"], "目前沒有 5 日與 20 日同步賣超的族群。")}'
+        f'{stock_alert_card("stocks-in", "買超延續股", "5日與20日同步買超", buy_continuation_stocks, "暫無明顯延續買盤")}'
+        f'{stock_alert_card("stocks", "退潮警示股", "5日與20日同步賣超", outflow_stocks, "暫無明顯退潮個股")}'
+        f'</div>'
+    )
+
     cards = []
     for _, theme, m in ranked_themes:
-        amount_text = fmt_flow_amount(m['total_5d'], m['amount_5d'] / m['total_5d'] if m['total_5d'] else None)
+        amount_text = flow_amount_label(m['total_5d'], m['amount_5d'])
         targets = ''.join(
             f'<span>{h(tk.replace(".TW", ""))}<small>{h(item.get("chip_state") or "待補")}</small></span>'
             for tk, item in m['rows'][:5]
@@ -2103,10 +2297,15 @@ def sector_flow_radar_html(compact=False):
             f'<strong>{h(m["state"])}</strong></div>'
             f'<div class="sector-metrics">'
             f'<div><span>5日合計</span><b>{h(fmt_net_lots(m["total_5d"]))}</b></div>'
+            f'<div><span>主要方向</span><b>{h(m["dominant_flow"])}</b></div>'
             f'<div><span>約當金額</span><b>{h(amount_text)}</b></div>'
             f'<div><span>20日合計</span><b>{h(fmt_net_lots(m["total_20d"]))}</b></div>'
             f'</div>'
             f'<p>{h(m["meaning"])}</p>'
+            f'<div class="sector-flow-split">'
+            f'<div><b>主要流入</b><div class="flow-stock-row">{m["inflow_chips"]}</div></div>'
+            f'<div><b>主要流出</b><div class="flow-stock-row">{m["outflow_chips"]}</div></div>'
+            f'</div>'
             f'<div class="sector-targets">{targets}</div>'
             f'</article>'
         )
@@ -2117,12 +2316,13 @@ def sector_flow_radar_html(compact=False):
     section_id = 'sector-flow-radar-compact' if compact else 'sector-flow-radar'
     return (
         f'<section class="sc sector-flow-radar" id="{section_id}">'
-        f'<div class="tool-head"><div><div class="st">法人資金流雷達</div>'
-        f'<p>用台股三大法人買賣超加總板塊：外資、投信、自營商。美股與沒有法人資料的標的不放進這個雷達。</p></div>'
+        f'<div class="tool-head"><div><div class="st">資金流向</div>'
+        f'<p>用台股三大法人買賣超加總族群：外資、投信、自營商。個股代表資金對公司的態度；ETF 只當市場交易偏好，不直接等於基金申購贖回。</p></div>'
         f'<span class="section-meta">{h(meta)}</span></div>'
-        f'<div class="sector-flow-legend"><span class="legend-tide">漲潮</span><span class="legend-rotate">輪動/回補</span><span class="legend-watch">觀望</span><span class="legend-ebb">退潮</span></div>'
+        f'<div class="sector-flow-legend"><span class="legend-tide">資金延續</span><span class="legend-rotate">短線回補</span><span class="legend-watch">短線調節/方向不明</span><span class="legend-ebb">資金退潮</span></div>'
+        f'{flow_alert_html}'
         f'<div class="sector-grid">{"".join(cards)}</div>'
-        f'<div class="tool-note">資料來源：FinMind InstitutionalInvestorsBuySell。買賣超以股數換算張數；板塊約當金額為買賣超股數乘以目前價格粗估，只用來判斷方向與量級，不是交易所原始成交金額。</div>'
+        f'<div class="tool-note">資料來源：FinMind TaiwanStockInstitutionalInvestorsBuySell。買賣超以股數換算張數；族群約當金額為買賣超股數乘以目前價格粗估，只用來判斷方向與量級，不是交易所原始成交金額。</div>'
         f'</section>'
     )
 
@@ -2211,14 +2411,14 @@ def dca_simulator_html(market_ctx=None):
     if temp == '熱':
         dca_status = ('適合持續', '照原本節奏扣款，不因為高檔就停扣。')
         batch_status = ('可，但要分批', '想單筆買可以切成 3-6 次，不要一次用完。')
-        lump_status = ('不建議', '市場偏熱時，新手重押最容易買完就震盪。')
+        lump_status = ('不建議', '市場偏熱時，一次重押最容易買完就遇到震盪。')
     elif temp == '冷':
         dca_status = ('適合持續，可小幅加碼', '市場偏冷時，長期資金可以分批買，但仍要留生活預備金。')
         batch_status = ('適合分批', '可以把預算拆開慢慢買，避免猜最低點。')
         lump_status = ('仍不建議', '就算看起來便宜，也不要把兩年內會用到的錢投進去。')
     else:
         dca_status = ('適合持續', '沒有極端訊號時，照計畫扣款通常比猜高低點穩。')
-        batch_status = ('可以', '若有額外資金，分批比一次買更適合新手。')
+        batch_status = ('可以', '若有額外資金，分批通常比一次買更穩。')
         lump_status = ('少量即可', '除非很了解風險，否則不建議一次投入太大比例。')
 
     ordered = [tk for tk in DCA_SIM_TICKERS if tk in DCA_SERIES]
@@ -2233,7 +2433,7 @@ def dca_simulator_html(market_ctx=None):
     return (
         f'<section class="sc dca-tool" id="dca-sim">'
         f'<div class="tool-head"><div><div class="st">定期定額模擬器</div>'
-        f'<p>用歷史價格練習「如果我每月固定投入，過程會多痛、最後可能變多少」。這不是預測，只是幫新手先看懂風險。</p></div>'
+        f'<p>用歷史價格練習「如果我每月固定投入，過程會多痛、最後可能變多少」。這不是預測，只是先看懂波動與風險。</p></div>'
         f'<span class="section-meta">歷史模擬</span></div>'
         f'<div class="dca-controls">'
         f'<label><span>標的</span><select id="dcaTicker">{options}</select></label>'
@@ -2249,7 +2449,7 @@ def dca_simulator_html(market_ctx=None):
         f'</div>'
         f'<div class="panic-box"><b>跌了怎麼辦</b>'
         f'<div><span>-10%</span><p>先不要慌，檢查是不是整體市場震盪；定期定額通常照扣。</p></div>'
-        f'<div><span>-20%</span><p>這是新手最容易停扣的位置。若是核心 ETF 且資金是長期的，可以小額分批加碼。</p></div>'
+        f'<div><span>-20%</span><p>這是最容易想停扣的位置。若是長期 ETF 且資金是長期的，可以小額分批加碼。</p></div>'
         f'<div><span>-30%</span><p>代表市場進入很痛的區間。不要借錢加碼，只用兩年內不會用到的閒錢慢慢買。</p></div>'
         f'</div>'
         f'</section>'
@@ -2375,16 +2575,16 @@ function runBuyNow(){{
   var batches=Math.max(1, Number(batchEl.value||1));
   var ratio=Number(item.ratio||0);
   var zone=item.price_zone||{{}};
-  if(window.MARKET_TEMP==='熱') ratio=Math.min(ratio, item.role==='長期核心'?0.30:0.18);
-  if(window.MARKET_TEMP==='冷') ratio=Math.min(ratio+0.08, item.role==='長期核心'?0.50:0.30);
+  if(window.MARKET_TEMP==='熱') ratio=Math.min(ratio, item.role==='長期配置'?0.30:0.18);
+  if(window.MARKET_TEMP==='冷') ratio=Math.min(ratio+0.08, item.role==='長期配置'?0.50:0.30);
   if(item.role==='個股觀察') ratio=Math.min(ratio,0.15);
-  if(zone.status==='過熱追高') ratio=Math.min(ratio, item.role==='長期核心'?0.12:0.05);
-  if(zone.status==='健康創高') ratio=Math.min(ratio, item.role==='長期核心'?0.20:0.10);
-  if(zone.status==='強勢高位') ratio=Math.min(ratio, item.role==='長期核心'?0.24:0.12);
-  if(zone.status==='偏高等待區') ratio=Math.min(ratio, item.role==='長期核心'?0.20:0.08);
-  if(zone.status==='轉弱下跌') ratio=Math.min(ratio, item.role==='長期核心'?0.10:0.00);
-  if(zone.status==='可分批區') ratio=Math.max(ratio, item.role==='長期核心'?0.25:0.08);
-  if(zone.status==='加碼觀察區'||zone.status==='健康回檔') ratio=Math.max(ratio, item.role==='長期核心'?0.30:0.08);
+  if(zone.status==='過熱追高') ratio=Math.min(ratio, item.role==='長期配置'?0.12:0.05);
+  if(zone.status==='健康創高') ratio=Math.min(ratio, item.role==='長期配置'?0.20:0.10);
+  if(zone.status==='強勢高位') ratio=Math.min(ratio, item.role==='長期配置'?0.24:0.12);
+  if(zone.status==='偏高等待區') ratio=Math.min(ratio, item.role==='長期配置'?0.20:0.08);
+  if(zone.status==='轉弱下跌') ratio=Math.min(ratio, item.role==='長期配置'?0.10:0.00);
+  if(zone.status==='可分批區') ratio=Math.max(ratio, item.role==='長期配置'?0.25:0.08);
+  if(zone.status==='加碼觀察區'||zone.status==='健康回檔') ratio=Math.max(ratio, item.role==='長期配置'?0.30:0.08);
   var firstAmount=Math.round((budget*ratio)/100)*100;
   if(ratio>0 && firstAmount<1000) firstAmount=Math.min(budget,1000);
   var reserve=Math.max(0,budget-firstAmount);
@@ -2874,7 +3074,7 @@ def score_etf_quality(meta, items, ticker):
 
 
 def apply_factor_framework(ticker, a, ext, meta=None):
-    """把技術指標轉成新手能理解的因子分數。
+    """把技術指標轉成白話可理解的因子分數。
 
     這裡刻意避免「RSI 高就一定危險」的粗暴判斷：
     強勢趨勢中 RSI 70-80 可能是動能延續；只有搭配趨勢轉弱、KD偏空、
@@ -3336,7 +3536,7 @@ def indices_radar_html(cards):
         f'<div class="radar-layout">'
         f'{index_group_html("台股", "本地市場本體", ["^TWII"], cards)}'
         f'{index_group_html("美股科技 / 風險", "那斯達克、費半與 VIX 影響台股科技鏈", ["^GSPC", "^IXIC", "^SOX", "^VIX"], cards)}'
-        f'{index_group_html("亞洲核心", "看日本、韓國、香港是否同步", ["^N225", "^KS11", "^HSI"], cards)}'
+        f'{index_group_html("亞洲主要市場", "看日本、韓國、香港是否同步", ["^N225", "^KS11", "^HSI"], cards)}'
         f'{index_group_html("更多亞洲觀察", "恒生科技與 KOSDAQ 只作次要風險情緒參考", ["HSTECH.HK", "^KQ11"], cards, collapsed=True)}'
         f'</div></section>'
     )
@@ -4185,6 +4385,17 @@ h1{font-size:19px;font-weight:700;color:var(--t);display:flex;align-items:center
 .legend-rotate{color:#176c9c;background:rgba(24,95,165,0.16)}
 .legend-watch{color:var(--warn);background:var(--warn-bg)}
 .legend-ebb{color:var(--risk);background:var(--risk-bg)}
+.flow-alert-board{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:10px}
+.flow-alert-card{background:var(--card2);border:1px solid var(--bdr);border-radius:10px;padding:11px 12px;min-width:0}
+.flow-alert-card span{display:block;font-size:10px;color:var(--t2);font-weight:850;margin-bottom:4px}
+.flow-alert-card b{display:block;font-size:15px;color:var(--t);line-height:1.35}
+.flow-alert-card small{display:block;font-size:10px;color:var(--t2);line-height:1.5;margin-top:4px}
+.flow-alert-in{border-color:rgba(29,158,117,0.30);background:linear-gradient(135deg,rgba(29,158,117,0.16),var(--card2))}
+.flow-alert-rotate{border-color:rgba(24,95,165,0.34);background:linear-gradient(135deg,rgba(24,95,165,0.15),var(--card2))}
+.flow-alert-watch{border-color:rgba(186,117,23,0.34);background:linear-gradient(135deg,rgba(186,117,23,0.13),var(--card2))}
+.flow-alert-out{border-color:rgba(216,90,48,0.34);background:linear-gradient(135deg,rgba(216,90,48,0.16),var(--card2))}
+.flow-alert-stocks{border-color:rgba(242,189,88,0.28);background:linear-gradient(135deg,rgba(242,189,88,0.12),var(--card2))}
+.flow-alert-stocks-in{border-color:rgba(29,158,117,0.30);background:linear-gradient(135deg,rgba(29,158,117,0.12),var(--card2))}
 .sector-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(245px,1fr));gap:9px;margin-top:10px}
 .sector-card{background:var(--card2);border:1px solid var(--bdr);border-radius:10px;padding:12px;min-width:0}
 .sector-tide{border-color:rgba(29,158,117,0.36);background:linear-gradient(180deg,rgba(29,158,117,0.12),var(--card2))}
@@ -4199,11 +4410,27 @@ h1{font-size:19px;font-weight:700;color:var(--t);display:flex;align-items:center
 .sector-rotate .sector-card-head strong{color:#1E5F92;background:rgba(24,95,165,0.16);border-color:rgba(24,95,165,0.30)}
 .sector-watch .sector-card-head strong{color:var(--warn);background:var(--warn-bg);border-color:rgba(186,117,23,0.34)}
 .sector-ebb .sector-card-head strong{color:var(--risk);background:var(--risk-bg);border-color:rgba(216,90,48,0.34)}
-.sector-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-bottom:8px}
+.sector-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin-bottom:8px}
 .sector-metrics div{background:var(--card);border:1px solid var(--bdr);border-radius:7px;padding:7px}
 .sector-metrics span{display:block;font-size:10px;color:var(--t2);line-height:1.25}
 .sector-metrics b{display:block;font-size:14px;color:var(--t);font-variant-numeric:tabular-nums;margin-top:2px}
 .sector-card p{font-size:11px;color:var(--t2);line-height:1.6;margin-bottom:9px}
+.sector-flow-split{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:9px}
+.sector-flow-split>div{background:var(--card);border:1px solid var(--bdr);border-radius:8px;padding:8px;min-width:0}
+.sector-flow-split>div>b{display:block;font-size:10px;color:var(--t2);margin-bottom:6px}
+.flow-stock-row{display:flex;flex-wrap:wrap;gap:5px}
+.flow-stock{display:inline-flex;align-items:center;gap:4px;max-width:100%;font-size:10px;color:var(--t);background:var(--card);border:1px solid var(--bdr);border-radius:999px;padding:4px 7px;line-height:1.25}
+.flow-stock b{color:inherit;font-size:10px;font-variant-numeric:tabular-nums}
+.flow-stock small{color:var(--t2);font-size:9px}
+.flow-stock-in{border-color:rgba(29,158,117,0.28);background:rgba(29,158,117,0.10)}
+.flow-stock-out{border-color:rgba(216,90,48,0.30);background:rgba(216,90,48,0.10)}
+.flow-stock-out b{color:var(--risk)}
+.flow-stock-in b{color:var(--ok)}
+.flow-stock-flat{color:var(--t2)}
+.flow-state-tide small{color:var(--ok)}
+.flow-state-rotate small{color:var(--info)}
+.flow-state-watch small{color:var(--warn)}
+.flow-state-ebb small{color:var(--risk)}
 .sector-targets{display:flex;flex-wrap:wrap;gap:5px}
 .sector-targets span{font-size:10px;color:var(--t);background:var(--card);border:1px solid var(--bdr);border-radius:999px;padding:4px 7px;line-height:1.25}
 .sector-targets small{display:inline;color:var(--t2);margin-left:4px}
@@ -4454,6 +4681,9 @@ footer{margin-left:208px;background:#0a141d;border-color:var(--bdr)}
   .mobile-more-panel header button{border:0;background:transparent;color:var(--t2);font-size:22px;cursor:pointer}
   .mobile-more-panel nav{display:grid;gap:7px}
   .mobile-more-panel nav button{border:1px solid var(--bdr);background:var(--card2);color:var(--t);border-radius:8px;padding:12px;text-align:left;font:inherit;font-size:13px;font-weight:800}
+  .flow-alert-board{grid-template-columns:1fr}
+  .sector-flow-split{grid-template-columns:1fr}
+  .sector-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
   footer{margin-left:0;padding-bottom:76px}
 }
 
@@ -4895,7 +5125,7 @@ window.RETURN_APP_PAGE = 'research-mode';
 window.ACTIVE_TARGET_ID = '';
 var APP_PAGE_TITLES = {
   'focus-mode':'今日市場',
-  'core-mode':'核心 ETF',
+  'core-mode':'長期 ETF',
   'research-mode':'研究標的',
   'market-mode':'市場雷達',
   'tools-mode':'試算工具',
@@ -5020,7 +5250,7 @@ def mobile_jump_nav_html():
         ('#market-summary', '重點'),
         ('#market-radar', '雷達'),
         ('#visual-board', '儀表'),
-        ('#core-etfs', '核心ETF'),
+        ('#core-etfs', '長期ETF'),
         ('#today-focus', '先看'),
         ('#target-overview', '一覽'),
         ('#tools', '工具'),
@@ -5043,7 +5273,7 @@ def app_sidebar_html(update_time, report_phase=None):
     report_phase = report_phase or {'label': '資料更新'}
     items = [
         ('focus-mode', '今日'),
-        ('core-mode', '核心 ETF'),
+        ('core-mode', '長期 ETF'),
         ('research-mode', '研究'),
         ('market-mode', '市場'),
         ('tools-mode', '試算'),
@@ -5068,7 +5298,7 @@ def mobile_bottom_nav_html():
     return (
         f'<nav class="mobile-bottom-nav" aria-label="手機主要導覽">'
         f'<button class="mobile-nav-btn on" data-mode="focus-mode" onclick="showMode(\'focus-mode\')" type="button">今日</button>'
-        f'<button class="mobile-nav-btn" data-mode="core-mode" onclick="showMode(\'core-mode\')" type="button">核心</button>'
+        f'<button class="mobile-nav-btn" data-mode="core-mode" onclick="showMode(\'core-mode\')" type="button">ETF</button>'
         f'<button class="mobile-nav-btn" data-mode="research-mode" onclick="showMode(\'research-mode\')" type="button">研究</button>'
         f'<button class="mobile-nav-btn" data-mode="market-mode" onclick="showMode(\'market-mode\')" type="button">市場</button>'
         f'<button class="mobile-nav-btn" onclick="toggleMobileMore()" type="button">更多</button>'
@@ -5085,7 +5315,7 @@ def mobile_bottom_nav_html():
 def home_preview_tabs_html():
     return (
         f'<div class="home-preview-tabs" role="tablist" aria-label="首頁標的摘要">'
-        f'<button class="on" data-home-panel="core" onclick="showHomePanel(\'core\')" type="button">核心 ETF</button>'
+        f'<button class="on" data-home-panel="core" onclick="showHomePanel(\'core\')" type="button">長期 ETF</button>'
         f'<button data-home-panel="research" onclick="showHomePanel(\'research\')" type="button">研究</button>'
         f'</div>'
     )
@@ -5130,7 +5360,7 @@ def build_html(idx_html, tw_s, tw_e, us_s, us_e, bonds, update_time, market_ctx=
         f'{visual_action_board_html(market_ctx)}\n'
         f'</section>\n'
         f'<section class="mode-pane app-page" id="core-mode">\n'
-        f'{page_heading_html("核心 ETF", "把長期配置標的集中在這裡，先看體質、價格狀態與可看區間。", "長期配置")}\n'
+        f'{page_heading_html("長期 ETF", "把長期配置標的集中在這裡，先看體質、價格狀態與可看區間。", "長期配置")}\n'
         f'{core_etf_spotlight_html()}\n'
         f'</section>\n'
         f'<section class="mode-pane app-page" id="research-mode">\n'
@@ -5226,7 +5456,7 @@ def flow_side_text(value):
 
 
 def flow_brief(label, value):
-    return f'{label}{flow_side_text(value)} {fmt_net_lots(value)}'
+    return f'{label}{fmt_net_lots(value)}'
 
 
 def institutional_focus_text(meta):
@@ -5280,24 +5510,24 @@ def chip_flow_judgment(meta, price=None):
     score = clamp_score(score)
     strength = flow_strength_label(score)
 
-    if total_5d > 0 and total_20d > 0 and foreign_5d > 0 and trust_5d > 0:
-        state, tone = '外資與投信同步偏買', 'positive'
-        action = '資金面是加分，但仍要確認價格不是失控追高。'
-    elif total_5d > 0 and (foreign_5d > 0 or trust_5d > 0):
-        state, tone = '三大法人短線偏買', 'positive'
-        action = '可以提高觀察順位，但不能只因買超就進場。'
-    elif total_5d > 0 and total_20d <= 0:
-        state, tone = '短線回補，中期未確認', 'mixed'
-        action = '短線買盤回來，但還要看後續是否延續。'
+    if total_5d > 0 and total_20d > 0:
+        state, tone = '資金延續', 'positive'
+        if foreign_5d > 0 and trust_5d > 0:
+            action = '5日與20日同步買超，且外資、投信同向，資金面是加分；仍要檢查價格是否過熱。'
+        else:
+            action = '5日與20日同步買超，但法人內部仍有分歧；可以研究，不代表直接追價。'
+    elif total_5d > 0 and total_20d < 0:
+        state, tone = '短線回補', 'mixed'
+        action = '短線買盤回來，但20日仍偏賣，較像反彈或回補；等價格與基本面一起確認。'
+    elif total_5d < 0 and total_20d > 0:
+        state, tone = '短線調節', 'mixed'
+        action = '短線賣出但20日仍流入，可能是獲利了結；先看支撐有沒有守住。'
     elif total_5d < 0 and total_20d < 0:
-        state, tone = '三大法人偏賣', 'negative'
-        action = '資金正在撤，價格看似便宜時也要防便宜陷阱。'
-    elif total_5d < 0:
-        state, tone = '短線偏賣', 'mixed'
-        action = '短線資金退潮，先看支撐有沒有守住。'
+        state, tone = '資金退潮', 'negative'
+        action = '5日與20日同步賣超，代表中短期資金都在撤；便宜也要防轉壞陷阱。'
     else:
-        state, tone = '資金方向不明', 'neutral'
-        action = '三大法人沒有明顯方向，回到趨勢與基本面。'
+        state, tone = '方向不明', 'neutral'
+        action = '三大法人沒有明顯方向，回到趨勢、價格位置與基本面檢查。'
 
     summary = (
         f'近 5 日合計{fmt_net_lots(total_5d)}，近 20 日合計{fmt_net_lots(total_20d)}；'
@@ -5376,7 +5606,7 @@ def institutional_flow_html(meta, price=None):
         f'<div class="detail-grid chip-flow-grid">{tiles}</div>'
         f'<details class="chip-flow-formula"><summary>約當金額怎麼算？</summary>'
         f'<p>近 5 日三大法人買賣超股數 × 最新價格，只能看方向與量級，不是交易所提供的精準成交金額。</p></details>'
-        f'<div class="detail-note">{h(chip["action"])} 資料來源：{h(meta.get("finmind_chip_source", "FinMind InstitutionalInvestorsBuySell"))}；買賣超為股數換算張數。</div>'
+        f'<div class="detail-note">{h(chip["action"])} 資料來源：{h(meta.get("finmind_chip_source", "FinMind TaiwanStockInstitutionalInvestorsBuySell"))}；買賣超為股數換算張數。</div>'
         f'</div>'
     )
 
@@ -5610,8 +5840,8 @@ def calc_price_zones(ticker, price, a, ext):
         entry_reason = '訊號不夠明確，先等價格或資金方向更清楚。'
 
     if is_core:
-        sell_status = '核心續抱，先看預警'
-        sell_text = '核心 ETF 通常不是因為偏高就賣；高位轉弱時先停止額外加碼。'
+        sell_status = '長期續抱，先看預警'
+        sell_text = '長期 ETF 通常不是因為偏高就賣；高位轉弱時先停止額外加碼。'
     elif is_etf:
         sell_status = '高位轉弱才減碼'
         sell_text = 'ETF 先看折溢價、流動性與趨勢；不是到價就賣。'
@@ -5793,7 +6023,7 @@ def decision_texts(ticker, a, ext, rec, plan=None):
         counter = zone.get('fail_text') or '如果價格、資金與基本面同時轉弱，就要降低信心。'
         action = zone.get('action') or '先按區間分批，不要情緒追價。'
         if is_core and zone.get('stage_key') not in ['trap', 'weak']:
-            action = '核心 ETF 可維持紀律扣款；臨時加碼看回踩區，不要因為市場熱就一次買滿。'
+            action = '長期 ETF 可維持紀律扣款；臨時加碼看回踩區，不要因為市場熱就一次買滿。'
         if zone.get('stage_key') in ['trap', 'weak']:
             action = '先不要入場；這不是單純便宜，而是可能已經轉弱。'
     else:
@@ -5943,9 +6173,9 @@ function orderRatio(item, target){
   var z=item.price_zone||{};
   var status=z.status||'';
   var ratio=0;
-  if(status==='多頭正常回檔'||status==='疑似震盪洗盤'||status==='合理分批區') ratio=item.role==='長期核心'?0.28:(item.is_etf?0.10:0.05);
-  if(status==='多頭續強') ratio=item.role==='長期核心'?0.12:(item.is_etf?0.06:0.03);
-  if(status==='高檔震盪') ratio=item.role==='長期核心'?0.08:0.02;
+  if(status==='多頭正常回檔'||status==='疑似震盪洗盤'||status==='合理分批區') ratio=item.role==='長期配置'?0.28:(item.is_etf?0.10:0.05);
+  if(status==='多頭續強') ratio=item.role==='長期配置'?0.12:(item.is_etf?0.06:0.03);
+  if(status==='高檔震盪') ratio=item.role==='長期配置'?0.08:0.02;
   if(status==='高檔轉弱預警'||status==='轉弱下跌'||status==='便宜陷阱') ratio=0;
   if(Number(item.risk_score||50)<40) ratio*=0.55;
   ratio*=orderConfidenceFactor(item.confidence);
@@ -6470,12 +6700,12 @@ def calc_market_context(raw, quotes=None):
         temperature = '冷'
         temperature_key = 'cold'
         chase_state = '恐慌防守'
-        advice = '市場風險升高，先保留現金；核心長期資金可慢慢分批，個股與題材股暫時保守。'
+        advice = '市場風險升高，先保留現金；長期資金可慢慢分批，個股與題材股暫時保守。'
     elif very_low or ((low or market_score <= 38 or vix_last >= 23) and not uptrend):
         temperature = '偏冷'
         temperature_key = 'cool'
         chase_state = '回檔觀察'
-        advice = '市場轉保守，核心 ETF 可小額分批觀察，個股先降低比例，等趨勢回穩。'
+        advice = '市場轉保守，長期 ETF 可小額分批觀察，個股先降低比例，等趨勢回穩。'
     elif very_high and vix_last < 20 and uptrend:
         temperature = '熱'
         temperature_key = 'hot'
@@ -6517,7 +6747,7 @@ def calc_market_context(raw, quotes=None):
 
     actions.append(advice)
     if risk_state in ['高', '中高']:
-        actions.append('衛星題材與個股先降投入比例，核心 ETF 才保留定期定額。')
+        actions.append('衛星題材與個股先降投入比例，長期 ETF 才保留定期定額。')
     else:
         actions.append('想買單筆時，優先找健康回檔或可分批區，不用猜最低點。')
 
@@ -6661,4 +6891,5 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 
